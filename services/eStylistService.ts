@@ -4,6 +4,10 @@ import { EStylistInput, EStylistOutput, LookItem, ItemSource, SalesPriority, Sto
 // ✅ SDK oficial (já funciona no template do AI Studio quando habilitado)
 import { GoogleGenAI } from '@google/genai';
 
+// ✅ NOVOS: Importa o motor determinístico e os templates de cópia
+import { buildLooksDeterministic } from './lookEngine';
+import { applyTemplates } from './copyTemplates';
+
 /**
  * System Instruction definitivo (MVP)
  * - Determinístico
@@ -471,232 +475,54 @@ function validateOutputShape(output: any, input: EStylistInput): output is EStyl
   return true;
 }
 
-// Funções utilitárias fornecidas pelo usuário
+// Funções utilitárias fornecidas pelo usuário (não usada diretamente aqui, mas em lookEngine)
+/*
 function pickStoreItem(storeCatalog: StoreItem[] | undefined, category?: string): StoreItem | null {
   if (!storeCatalog || storeCatalog.length === 0) return null;
   if (!category) return storeCatalog[0];
   const found = storeCatalog.find((x) => String(x.category).toLowerCase() === String(category).toLowerCase());
   return found || storeCatalog[0];
 }
+*/
+
 
 function enrichWithStoreOrTextFallback(output: EStylistOutput, input: EStylistInput): EStylistOutput {
   const storeCatalog = input.store_catalog || [];
   const hasStore = storeCatalog.length > 0;
-  const initialWardrobeItemCount = input.wardrobe.length;
+  // const initialWardrobeItemCount = input.wardrobe.length; // Não mais usado diretamente aqui
   const isSellerMode = input.mode === 'seller';
 
-  let usedStore = false;
+  let usedStore = false; // Flag para rastrear se itens de loja foram usados
   let highlightAssigned = false;
 
   const looks = output.looks.map((look) => {
     // Garantir que highlight seja nulo se não for um tipo válido
     if (look.highlight && !['versatil', 'custo-beneficio', 'formalidade-ideal'].includes(look.highlight)) {
-      look.highlight = undefined;
+      look.highlight = null; // Set to null instead of undefined
     } else if (look.highlight) {
       highlightAssigned = true;
     }
 
-    const additions: LookItem[] = [];
-    const currentValidItems = look.items.filter(item => item.wardrobe_item_id !== null || item.store_item_id !== null).length;
-    let missingCount = Math.max(0, 3 - currentValidItems);
-
-    if (isSellerMode) {
-      // ✅ NOVO: Lógica para MODO VENDEDOR
-      // Limpa quaisquer itens de guarda-roupa que o modelo possa ter incluído (por engano ou confusão)
-      look.items = look.items.filter(item => item.source !== 'user' && item.wardrobe_item_id === null);
-      // Re-calcula missingCount após limpar
-      const currentSellerItems = look.items.filter(item => item.store_item_id !== null).length;
-      missingCount = Math.max(0, 3 - currentSellerItems);
-
-      if (hasStore) { // Vendedor com catálogo
-        for (let i = 0; i < missingCount; i++) {
-          const categoriesToTry = ['calça', 'calçado', 'acessório', 'casaco', 'blusa', 'vestido', 'saia'];
-          let storeItem: StoreItem | null = null;
-          for(const cat of categoriesToTry) {
-            // Tenta achar um item de loja que não esteja nos itens do look e nem nas adições já planejadas
-            storeItem = storeCatalog.find(
-              (sItem) =>
-                String(sItem.category).toLowerCase() === String(cat).toLowerCase() &&
-                !additions.some(a => a.store_item_id === sItem.store_item_id) &&
-                !look.items.some(li => li.store_item_id === sItem.store_item_id)
-            );
-            if (storeItem) {
-              break;
-            }
-          }
-          if (!storeItem) { // Fallback para qualquer item se não encontrar uma categoria específica não usada
-             storeItem = storeCatalog.find(
-               (sItem) =>
-                 !additions.some(a => a.store_item_id === sItem.store_item_id) &&
-                 !look.items.some(li => li.store_item_id === sItem.store_item_id)
-             );
-          }
-
-          if (storeItem) {
-            usedStore = true;
-            additions.push({
-              wardrobe_item_id: null,
-              store_item_id: storeItem.store_item_id,
-              name: storeItem.name,
-              source: 'store' as const, // Fix: Explicitly cast
-              is_external: true,
-              can_purchase: true,
-              product_url: storeItem.product_url,
-              price: storeItem.price,
-              installments: storeItem.installments,
-              sales_support: {
-                why_it_works: `Sugestão de produto do estoque: A ${storeItem.name} completa perfeitamente este look, oferecendo modernidade e conforto para sua cliente.`,
-                versatility: 'Peça versátil que pode ser combinada de diversas formas, ampliando as opções para a cliente.',
-                priority: 'essencial' as SalesPriority, // Explicitly cast
-              }
-            });
-          } else {
-             // Se não encontrou item de loja para preencher, adiciona sugestão genérica e warning
-             const genericName = i === 0 ? 'Calça ou Saia' : i === 1 ? 'Sapato' : 'Acessório';
-             additions.push({
-               wardrobe_item_id: null,
-               store_item_id: null,
-               name: genericName,
-               source: null,
-               is_external: true,
-               can_purchase: false,
-               product_url: null,
-               price: null,
-               installments: null,
-               sales_support: null
-             });
-             look.warnings = Array.isArray(look.warnings) ? look.warnings : [];
-             if (!look.warnings.some(w => w.includes('estoque limitado'))) {
-               look.warnings.push(`Estoque limitado: Não foi possível encontrar todas as peças em nosso catálogo. Sugestão externa para completar o look.`);
-             }
-          }
-        }
-      } else { // Vendedor sem catálogo
-        look.items = []; // Limpa tudo, só haverá sugestões genéricas ou nada
-        for (let i = 0; i < 3; i++) { // Garante 3 itens genéricos
-          const genericName = i === 0 ? 'Calça ou Saia' : i === 1 ? 'Sapato' : 'Acessório';
-          additions.push({
-            wardrobe_item_id: null,
-            store_item_id: null,
-            name: genericName,
-            source: null,
-            is_external: true,
-            can_purchase: false,
-            product_url: null,
-            price: null,
-            installments: null,
-            sales_support: null
-          });
-        }
-        look.warnings = Array.isArray(look.warnings) ? look.warnings : [];
-        if (!look.warnings.some(w => w.includes('catálogo de produtos vazio'))) {
-          look.warnings.push(`Catálogo de produtos vazio: Por favor, cadastre produtos para gerar looks com itens do estoque da loja.`);
-        }
-      }
-      look.items = [...look.items, ...additions];
-
-    } else { // ✅ MODO CONSUMIDOR (lógica existente)
-      // --- Lógica para Teste A (sem loja, 1 peça) ---
-      // Se não há loja E há apenas 1 item no guarda-roupa, não adicionamos genéricos para manter look.items.length === 1
-      if (!hasStore && initialWardrobeItemCount === 1) {
-        look.warnings = Array.isArray(look.warnings) ? look.warnings : [];
-        const warningText = 'Seu guarda-roupa tem poucas peças para esta ocasião. Cadastre mais itens, como uma calça e um calçado, para que eu possa montar looks completos.';
-        if (!look.warnings.some(w => w.includes('poucas peças'))) {
-           look.warnings.push(warningText);
-        }
-      }
-      // --- Lógica para outros cenários de preenchimento (com loja ou múltiplos itens de guarda-roupa) ---
-      else {
-        if (missingCount > 0) {
-          if (hasStore) { // Com catálogo de loja, preenche com itens compráveis
-            for (let i = 0; i < missingCount; i++) {
-              const categoriesToTry = ['calça', 'calçado', 'acessório', 'casaco', 'blusa', 'vestido', 'saia'];
-              let storeItem: StoreItem | null = null;
-              for(const cat of categoriesToTry) {
-                // Tenta achar um item de loja que não esteja nos itens do look e nem nas adições já planejadas
-                storeItem = storeCatalog.find(
-                  (sItem) =>
-                    String(sItem.category).toLowerCase() === String(cat).toLowerCase() &&
-                    !additions.some(a => a.store_item_id === sItem.store_item_id) &&
-                    !look.items.some(li => li.store_item_id === sItem.store_item_id)
-                );
-                if (storeItem) {
-                  break;
-                }
-              }
-              if (!storeItem) {
-                 storeItem = storeCatalog.find(
-                   (sItem) =>
-                     !additions.some(a => a.store_item_id === sItem.store_item_id) &&
-                     !look.items.some(li => li.store_item_id === sItem.store_item_id)
-                 );
-              }
-
-              if (storeItem) {
-                usedStore = true;
-                additions.push({
-                  wardrobe_item_id: null,
-                  store_item_id: storeItem.store_item_id,
-                  name: storeItem.name,
-                  source: 'store' as const,
-                  is_external: true,
-                  can_purchase: true,
-                  product_url: storeItem.product_url,
-                  price: storeItem.price,
-                  installments: storeItem.installments,
-                  sales_support: {
-                    why_it_works: `Completa o look com a ${storeItem.name} real disponível na loja, mantendo coerência com o estilo e a formalidade.`,
-                    versatility: 'Pode ser usada em outras combinações do seu guarda-roupa.',
-                    priority: 'essencial' as SalesPriority,
-                  }
-                });
-              }
-            }
-          } else { // Sem catálogo de loja, preenche com sugestões externas genéricas (se não for Teste A estrito)
-            for (let i = 0; i < missingCount; i++) {
-              const genericName = i === 0 ? 'Calça ou Saia' : i === 1 ? 'Sapato' : 'Acessório';
-              additions.push({
-                wardrobe_item_id: null,
-                store_item_id: null,
-                name: genericName,
-                source: null,
-                is_external: true,
-                can_purchase: false,
-                product_url: null,
-                price: null,
-                installments: null,
-                sales_support: null
-              });
-            }
-             // Adiciona aviso genérico para adicionar mais peças
-            look.warnings = Array.isArray(look.warnings) ? look.warnings : [];
-            const suggestedCategories = ['calça', 'calçado', 'acessório'].filter(cat => !look.items.some(item => (item.name || '').toLowerCase().includes(cat)));
-            const suggestionText = suggestedCategories.length > 0
-              ? `Você pode criar looks mais completos cadastrando uma ${suggestedCategories.join(', ')} para esta ocasião.`
-              : 'Adicione mais peças ao seu guarda-roupa para criar combinações completas.';
-
-            if (!look.warnings.some(w => w.includes('completar o look'))) {
-              look.warnings.push(`Faltam peças para este look. Sugestão: ${suggestionText} Assim que tiver mais peças ou lojas parceiras, consigo montar combinações completas e compráveis.`);
-            }
-          }
-        }
-        look.items = [...look.items, ...additions];
-      }
-      
-      // Garantir que itens do guarda-roupa tenham source: 'user' (fallback caso o modelo omita)
-      look.items = look.items.map(item => {
-        if (!item.is_external && item.wardrobe_item_id !== null) {
-          return { ...item, source: 'user' as ItemSource };
-        }
-        return item;
-      });
+    // Verifica se algum item de loja foi usado
+    if (look.items.some(item => item.source === 'store')) {
+      usedStore = true;
     }
 
-
+    // Ensure sales_support is correctly set for store items (fallback if AI misses it)
+    for (const item of look.items) {
+      if (item.source === 'store' && !item.sales_support) {
+        item.sales_support = {
+          why_it_works: `Sugestão de produto do estoque: A ${item.name} é uma excelente opção para este look.`,
+          versatility: 'Peça versátil que pode ser combinada de diversas formas.',
+          priority: 'essencial' as SalesPriority,
+        };
+      }
+    }
     return look;
   });
 
   // Atribuir highlight se nenhum foi definido pelo modelo (e houver looks)
+  // Esta lógica agora é um fallback caso nem o motor determinístico nem a IA definam o highlight
   if (!highlightAssigned && looks.length > 0) {
     const expectedFormalidade = input.occasion.nivel_formalidade_esperado;
     let closestLookIndex = 0;
@@ -715,7 +541,7 @@ function enrichWithStoreOrTextFallback(output: EStylistOutput, input: EStylistIn
   }
 
 
-  // voice_text: aviso se usou itens de loja ou orientando o cliente
+  // voice_text: ajuste final para consistência
   let voice = output.voice_text || '';
 
   if (isSellerMode) {
@@ -732,7 +558,7 @@ function enrichWithStoreOrTextFallback(output: EStylistOutput, input: EStylistIn
         if (!voice.toLowerCase().includes('comprar') && !voice.toLowerCase().includes('lojas parceiras')) {
           voice = `${voice} ${hint}`.trim();
         }
-      } else if (!hasStore && !usedStore && looks.length > 0) {
+      } else if (!hasStore && looks.length > 0) { // Se não há loja, e não usou loja (obviamente)
          const hint = 'Para sugestões mais completas e compráveis, considere adicionar mais peças ao seu guarda-roupa ou cadastrar um catálogo de lojas parceiras.';
          if (!voice.toLowerCase().includes('compráveis') && !voice.toLowerCase().includes('lojas parceiras') && !voice.toLowerCase().includes('guardarroupa')) {
            voice = `${voice} ${hint}`.trim();
@@ -971,17 +797,41 @@ export const eStylistService = {
     // Pequeno delay só para UX (pode remover)
     await new Promise((resolve) => setTimeout(resolve, 300));
 
-    const apiKey = getApiKey();
+    // 1) Geração barata (SEM IA) e aplicação de templates
+    let baseOutput: EStylistOutput = applyTemplates(buildLooksDeterministic(input));
+    
+    const cacheKey = 'estylist:' + btoa(unescape(encodeURIComponent(JSON.stringify(input))));
 
-    // ✅ Se não tiver key, não trava o app
-    if (!apiKey) {
-      const mockOutput = buildMockOutput(input);
-      // O enrichWithStoreOrTextFallback ainda é chamado para garantir a consistência de highlight/voice_text
-      // mas o buildMockOutput já tenta seguir as regras de Teste A e B.
-      return enrichWithStoreOrTextFallback(mockOutput, input);
+    // 2) Cache (MVP)
+    // Se o usuário NÃO pediu smart_copy, tenta buscar do cache
+    if (!input.smart_copy) {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const parsedCache = JSON.parse(cached);
+          // Chama enrichWithStoreOrTextFallback para garantir consistência de highlights/voice_text/sales_support
+          return enrichWithStoreOrTextFallback(parsedCache, input);
+        } catch (e) {
+          console.warn('Failed to parse cached item, regenerating.', e);
+          localStorage.removeItem(cacheKey); // Remove cache inválido
+        }
+      }
+      // Se não tem cache ou falhou, usa a baseOutput e salva no cache
+      localStorage.setItem(cacheKey, JSON.stringify(baseOutput));
+      // Chama enrichWithStoreOrTextFallback para garantir consistência de highlights/voice_text/sales_support
+      return enrichWithStoreOrTextFallback(baseOutput, input);
     }
 
-    // ✅ Chamada real ao Gemini
+
+    // 3) Se smart_copy=true, aí sim chama Gemini (só para melhorar textos)
+    const apiKey = getApiKey();
+
+    if (!apiKey) {
+      console.warn('API Key not found, returning deterministic output even with smart_copy enabled.');
+      // Chama enrichWithStoreOrTextFallback para garantir consistência de highlights/voice_text/sales_support
+      return enrichWithStoreOrTextFallback(baseOutput, input);
+    }
+
     try {
       const genAI = new GoogleGenAI({ apiKey: apiKey });
 
@@ -991,20 +841,30 @@ export const eStylistService = {
         systemInstruction: SYSTEM_INSTRUCTION,
       });
 
-      // O "User message" aqui é o JSON do textarea
-      const userJson = JSON.stringify(input);
+      // Prompt para reescrever APENAS os textos
+      const prompt = `
+Reescreva APENAS os textos para vender melhor sem exagero, SEM alterar os itens (array "items").
+Mantenha a formalidade calculada e as flags de externalidade/compra.
+Entrada (JSON dos looks gerados deterministicamente):
+${JSON.stringify(baseOutput)}
 
-      // Fix: Use `config` instead of `generationConfig` as per coding guidelines.
+Regras:
+- NÃO adicione ou remova objetos dentro do array "items" de cada look.
+- NÃO altere os valores de "wardrobe_item_id", "store_item_id", "is_external", "source", "can_purchase", "product_url", "price", "installments".
+- Melhore os textos de: "why_it_works" (do look), "sales_support.why_it_works" (dos itens da loja), "sales_support.versatility", "voice_text", "next_question".
+- Garanta que a formalidade calculada do look seja mantida (não reavalie).
+- Retorne APENAS o JSON COMPLETO e VÁLIDO no formato especificado.
+`;
+      
       const result = await model.generateContent({
         contents: [
           {
             role: 'user',
-            parts: [{ text: userJson }],
+            parts: [{ text: prompt }],
           },
         ],
         config: {
-          temperature: 0.3,
-          // força JSON
+          temperature: 0.7, // Um pouco mais criativo para textos
           responseMimeType: 'application/json',
         },
       });
@@ -1017,26 +877,26 @@ export const eStylistService = {
         parsed = JSON.parse(jsonText);
       } catch (parseError: any) {
         console.error('Failed to parse Gemini JSON response:', jsonText, parseError);
-        throw new Error('Could not parse model response as JSON.');
+        // Em caso de erro de parsing, retorna a base determinística
+        // Chama enrichWithStoreOrTextFallback para garantir consistência de highlights/voice_text/sales_support
+        return enrichWithStoreOrTextFallback(baseOutput, input);
       }
 
       if (!validateOutputShape(parsed, input)) { // ✅ Passa input para validação robusta
-        // Se o modelo devolver algo fora do contrato, você enxerga o erro
         console.error('Resposta do modelo fora do formato esperado (EStylistOutput):', parsed);
-        throw new Error(
-          'Resposta do modelo fora do formato esperado (EStylistOutput).'
-        );
+        // Em caso de validação falha, retorna a base determinística
+        // Chama enrichWithStoreOrTextFallback para garantir consistência de highlights/voice_text/sales_support
+        return enrichWithStoreOrTextFallback(baseOutput, input);
       }
       // O enrichWithStoreOrTextFallback atua como um fallback final se o modelo não completar todos os itens de loja corretamente
       // ou para adicionar um highlight se o modelo não o fez, ou para ajustar o voice_text.
       return enrichWithStoreOrTextFallback(parsed, input);
 
     } catch (err: any) {
-      // ✅ Fallback seguro: não derruba o app em demo
-      // Se preferir “falhar duro”, remova e apenas dê throw.
       console.error('Gemini error:', err);
-      const mockOutput = buildMockOutput(input); // Gerar mock no erro também
-      return enrichWithStoreOrTextFallback(mockOutput, input);
+      // Fallback seguro: não derruba o app em demo, retorna o output determinístico
+      // Chama enrichWithStoreOrTextFallback para garantir consistência de highlights/voice_text/sales_support
+      return enrichWithStoreOrTextFallback(baseOutput, input);
     }
   },
 };

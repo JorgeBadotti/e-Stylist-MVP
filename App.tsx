@@ -137,6 +137,7 @@ const defaultConsumerInput: EStylistInput = {
     },
   ],
   mode: 'consumer',
+  smart_copy: false, // ✅ NOVO: IA opcional
 };
 
 // ✅ NOVO: Preset para o modo vendedor
@@ -221,6 +222,7 @@ const defaultSellerInput: EStylistInput = {
     },
   ],
   mode: 'seller',
+  smart_copy: false, // ✅ NOVO: IA opcional
 };
 
 const App: React.FC = () => {
@@ -232,15 +234,18 @@ const App: React.FC = () => {
   const [nextQuestion, setNextQuestion] = useState<string | null>(null);
   const [voiceText, setVoiceText] = useState<string | null>(null);
   const [appMode, setAppMode] = useState<EStylistMode>('consumer');
+  const [smartCopyEnabled, setSmartCopyEnabled] = useState<boolean>(false); // ✅ NOVO: Estado para Smart Copy (IA)
 
-  // ✅ NOVO: Atualiza o inputJson quando o modo da aplicação muda
+  // ✅ NOVO: Atualiza o inputJson quando o modo da aplicação ou smartCopyEnabled muda
   useEffect(() => {
+    let currentDefaultInput: EStylistInput;
     if (appMode === 'consumer') {
-      setInputJson(JSON.stringify(defaultConsumerInput, null, 2));
+      currentDefaultInput = { ...defaultConsumerInput, smart_copy: smartCopyEnabled };
     } else {
-      setInputJson(JSON.stringify(defaultSellerInput, null, 2));
+      currentDefaultInput = { ...defaultSellerInput, smart_copy: smartCopyEnabled };
     }
-  }, [appMode]); // Depende apenas de appMode
+    setInputJson(JSON.stringify(currentDefaultInput, null, 2));
+  }, [appMode, smartCopyEnabled]); // Depende de appMode E smartCopyEnabled
 
   const handleGenerateLooks = useCallback(async () => {
     setIsLoading(true);
@@ -252,14 +257,19 @@ const App: React.FC = () => {
 
     try {
       const parsedInput: EStylistInput = JSON.parse(inputJson);
-      const inputWithMode: EStylistInput = { ...parsedInput, mode: appMode };
+      // Garante que o input enviado para o serviço reflete o estado do checkbox
+      const inputWithModeAndSmartCopy: EStylistInput = { 
+        ...parsedInput, 
+        mode: appMode,
+        smart_copy: smartCopyEnabled
+      };
 
       // ✅ MÉTRICA: Log para geração de looks em modo vendedor
       if (appMode === 'seller') {
-        console.log('Metrics: generate_looks_seller', inputWithMode);
+        console.log('Metrics: generate_looks_seller', inputWithModeAndSmartCopy);
       }
 
-      const result: EStylistOutput = await eStylistService.generateLooks(inputWithMode);
+      const result: EStylistOutput = await eStylistService.generateLooks(inputWithModeAndSmartCopy);
       setLooks(result.looks);
       setOutputJson(JSON.stringify(result, null, 2));
       setNextQuestion(result.next_question);
@@ -270,7 +280,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [inputJson, appMode]);
+  }, [inputJson, appMode, smartCopyEnabled]); // Adicionar smartCopyEnabled às dependências
 
   // ✅ MÉTRICA: Função para logar cliques no botão de compra
   const handleBuyClick = useCallback((storeItemId: string | undefined | null) => {
@@ -308,6 +318,20 @@ const App: React.FC = () => {
               <option value="consumer">Consumer Mode (Guarda-roupa do cliente + Loja)</option>
               <option value="seller">Seller Mode (Apenas estoque da loja)</option>
             </select>
+          </div>
+          {/* ✅ NOVO: Checkbox Smart Copy (IA) */}
+          <div className="flex items-center mb-4">
+            <input
+              id="smart-copy-checkbox"
+              type="checkbox"
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              checked={smartCopyEnabled}
+              onChange={(e) => setSmartCopyEnabled(e.target.checked)}
+              aria-label="Ativar refinamento de texto com Inteligência Artificial"
+            />
+            <label htmlFor="smart-copy-checkbox" className="ml-2 block text-sm text-gray-900 cursor-pointer">
+              Smart Copy (IA): Refinar textos dos looks (pode gerar custos)
+            </label>
           </div>
           <JsonInput value={inputJson} onChange={setInputJson} />
           <Button

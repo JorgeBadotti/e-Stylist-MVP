@@ -43,6 +43,7 @@ export interface EStylistInput {
   occasion: Occasion;
   store_catalog?: StoreItem[]; // ✅ novo
   mode?: EStylistMode; // ✅ NOVO: Modo de operação (consumer ou seller)
+  smart_copy?: boolean; // ✅ novo: IA opcional
 }
 
 // --- Output Types ---
