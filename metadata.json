@@ -1,0 +1,8 @@
+{
+  "name": "e-Stylist MVP Frontend",
+  "description": "A web application to interact with the e-Stylist MVP, a prompt-based personal styling assistant. Input structured JSON for client profile, wardrobe, and occasion, and receive generated look suggestions in JSON format.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
