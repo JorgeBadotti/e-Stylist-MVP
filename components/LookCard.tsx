@@ -7,10 +7,10 @@ interface LookCardProps {
   look: Look;
   wardrobeItems: WardrobeItem[];
   onBuyClick: (storeItemId: string | undefined | null) => void; // ✅ Callback para clique em comprar
-  // onCopyToWhatsapp: (lookId: string) => void; // Removido: A lógica de compartilhamento agora é interna
+  onShareClick: (look: Look) => void; // NOVO: Callback para abrir modal de compartilhamento
 }
 
-const LookCard: React.FC<LookCardProps> = ({ look, wardrobeItems, onBuyClick }) => {
+const LookCard: React.FC<LookCardProps> = ({ look, wardrobeItems, onBuyClick, onShareClick }) => {
   const getItemDetails = (itemId: string | null) => {
     if (!itemId) return null;
     return wardrobeItems.find(item => item.id === itemId);
@@ -87,55 +87,6 @@ const LookCard: React.FC<LookCardProps> = ({ look, wardrobeItems, onBuyClick }) 
     );
   };
 
-  // ✅ NOVO: Função para compartilhar o look
-  const shareLook = async () => {
-    const itemsText = (look.items || [])
-      .map((i: any) => `• ${i.name}${i.source === 'store' ? ' (Loja)' : ''}`)
-      .join('\n');
-
-    const links = (look.items || [])
-      .filter((i: any) => i.can_purchase && i.product_url)
-      .map((i: any) => i.product_url)
-      .join('\n');
-
-    const textContent = `
-✨ Look: ${look.title} ✨
-
-Itens:
-${itemsText}
-
-Por que funciona:
-${look.why_it_works}
-
-${links ? `🛍️ Comprar:\n${links}` : ''}
-    `.trim();
-
-    // Log da métrica de compartilhamento
-    console.log('Metrics: share_look', look.look_id);
-
-    // Central nativa (Android/iOS)
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Look e-Stylist – ${look.title}`,
-          text: textContent,
-          // url: window.location.href // Opcional: compartilha a URL da página atual
-        });
-      } catch (error) {
-        console.error('Erro ao usar Web Share API:', error);
-        // Fallback para copiar em caso de erro na API de compartilhamento
-        await navigator.clipboard.writeText(textContent);
-        alert('Ocorreu um erro ao compartilhar. O look foi copiado para a área de transferência.');
-      }
-      return;
-    }
-
-    // Fallback desktop
-    await navigator.clipboard.writeText(textContent);
-    alert('Look copiado para a área de transferência.');
-  };
-
-
   return (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col h-full relative" role="region" aria-labelledby={`look-title-${look.look_id}`}>
       <img src={getRandomItemImage(look.items)} alt={look.title} className="w-full h-48 object-cover" aria-hidden="true" />
@@ -209,13 +160,13 @@ ${links ? `🛍️ Comprar:\n${links}` : ''}
             </ul>
           </div>
         )}
-        {/* ✅ NOVO: Botão genérico para compartilhar o look */}
+        {/* NOVO: Botão para abrir o modal de compartilhamento */}
         <Button
-          onClick={shareLook}
+          onClick={() => onShareClick(look)}
           className="mt-4 w-full bg-green-500 hover:bg-green-600 text-white"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-2" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M18 2h-4.18c-.89 0-1.74.35-2.37.98l-5.83 5.83c-.63.63-.98 1.48-.98 2.37v4.18c0 .89.35 1.74.98 2.37l5.83 5.83c.63.63 1.48.98 2.37.98h4.18c.89 0 1.74-.35 2.37-.98l5.83-5.83c.63-.63.98-1.48.98-2.37v-4.18c0-.89-.35-1.74-.98-2.37l-5.83-5.83c-.63-.63-1.48-.98-2.37-.98zM9 16l-3-3 7-7 3 3-7 7z"/>
+            <path d="M18 2h-4.18c-.89 0-1.74.35-2.37.98l-5.83 5.83c-.63.63-.98 1.48-.98 2.37v4.18c0 .89.35 1.74.98 2.37l5.83 5.83c.63.63 1.48.98 2.37.98h4.18c.89 0 1.74-.35 2.37-.98l5.83-5.83c.63-.63-1.48-.98-2.37-.98zM9 16l-3-3 7-7 3 3-7 7z"/>
           </svg>
           Compartilhar
         </Button>

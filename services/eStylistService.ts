@@ -1,6 +1,6 @@
 // services/eStylistService.ts
 
-import { EStylistInput, EStylistOutput, LookItem, ItemSource, SalesPriority, StoreItem, LookHighlight, EStylistMode } from '../types';
+import { EStylistInput, EStylistOutput, LookItem, ItemSource, SalesPriority, StoreItem, LookHighlight, EStylistMode, Look, ShareScope } from '../types';
 // ✅ SDK oficial (já funciona no template do AI Studio quando habilitado)
 import { GoogleGenAI } from '@google/genai';
 
@@ -792,57 +792,68 @@ function buildMockOutput(input: EStylistInput): EStylistOutput {
   return mockOutput;
 }
 
+// NOVO: Simula um armazenamento de backend para looks compartilhados
+// Em um app real, isso seria um Map<token, Look> gerenciado no backend.
+// Aqui, é um Map in-memory do frontend para simular a funcionalidade.
+const _sharedLookStore = new Map<string, Look>();
+
 export const eStylistService = {
   async generateLooks(input: EStylistInput): Promise<EStylistOutput> {
     // Pequeno delay só para UX (pode remover)
     await new Promise((resolve) => setTimeout(resolve, 300));
 
-    // 1) Geração barata (SEM IA) e aplicação de templates
+    // 1) Geração determinística (baseOutput)
+    // Isso é análogo a consultar 'knowledge_rules' ou 'look_templates' no DB
     let baseOutput: EStylistOutput = applyTemplates(buildLooksDeterministic(input));
-    
+
+    // 2) Normalização da consulta para a chave do cache (simulando input_hash)
+    // Em um backend real, isso seria um hash consistente do JSON normalizado.
+    // Para o frontend, JSON.stringify direto é "suficiente" se a ordem das chaves for estável.
     const cacheKey = 'estylist:' + btoa(unescape(encodeURIComponent(JSON.stringify(input))));
 
-    // 2) Cache (MVP)
-    // Se o usuário NÃO pediu smart_copy, tenta buscar do cache
-    if (!input.smart_copy) {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        try {
-          const parsedCache = JSON.parse(cached);
-          // Chama enrichWithStoreOrTextFallback para garantir consistência de highlights/voice_text/sales_support
+    // 3) Busca no Cache (localStorage) - Simula o padrão "DB First"
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const parsedCache = JSON.parse(cached);
+        // Validar se o cache é 'bom' - aqui, apenas verifica se é um JSON válido e tem o formato esperado
+        if (validateOutputShape(parsedCache, input)) { // ✅ Passa input para validação robusta
+          console.log('Cache Hit: Retornando resposta do localStorage.');
+          // Aplica fallback/enriquecimento para garantir consistência de highlights/voice_text/sales_support
           return enrichWithStoreOrTextFallback(parsedCache, input);
-        } catch (e) {
-          console.warn('Failed to parse cached item, regenerating.', e);
+        } else {
+          console.warn('Cache inválido ou desatualizado, regerando.', parsedCache);
           localStorage.removeItem(cacheKey); // Remove cache inválido
         }
+      } catch (e) {
+        console.warn('Falha ao analisar item do cache, regerando.', e);
+        localStorage.removeItem(cacheKey); // Remove cache inválido
       }
-      // Se não tem cache ou falhou, usa a baseOutput e salva no cache
-      localStorage.setItem(cacheKey, JSON.stringify(baseOutput));
-      // Chama enrichWithStoreOrTextFallback para garantir consistência de highlights/voice_text/sales_support
-      return enrichWithStoreOrTextFallback(baseOutput, input);
     }
+    console.log('Cache Miss: Gerando nova resposta.');
 
+    // 4) Se Smart Copy habilitado e API Key presente, chama a IA para refinamento
+    if (input.smart_copy) {
+      const apiKey = getApiKey();
 
-    // 3) Se smart_copy=true, aí sim chama Gemini (só para melhorar textos)
-    const apiKey = getApiKey();
+      if (!apiKey) {
+        console.warn('API Key não encontrada. Retornando output determinístico mesmo com smart_copy habilitado.');
+        // Salva o output determinístico no cache antes de retornar
+        localStorage.setItem(cacheKey, JSON.stringify(baseOutput));
+        return enrichWithStoreOrTextFallback(baseOutput, input);
+      }
 
-    if (!apiKey) {
-      console.warn('API Key not found, returning deterministic output even with smart_copy enabled.');
-      // Chama enrichWithStoreOrTextFallback para garantir consistência de highlights/voice_text/sales_support
-      return enrichWithStoreOrTextFallback(baseOutput, input);
-    }
+      try {
+        const genAI = new GoogleGenAI({ apiKey: apiKey });
 
-    try {
-      const genAI = new GoogleGenAI({ apiKey: apiKey });
+        // Modelo recomendado para MVP (rápido)
+        const model = genAI.getGenerativeModel({
+          model: 'gemini-2.5-flash',
+          systemInstruction: SYSTEM_INSTRUCTION,
+        });
 
-      // Modelo recomendado para MVP (rápido)
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',
-        systemInstruction: SYSTEM_INSTRUCTION,
-      });
-
-      // Prompt para reescrever APENAS os textos
-      const prompt = `
+        // Prompt para reescrever APENAS os textos
+        const prompt = `
 Reescreva APENAS os textos para vender melhor sem exagero, SEM alterar os itens (array "items").
 Mantenha a formalidade calculada e as flags de externalidade/compra.
 Entrada (JSON dos looks gerados deterministicamente):
@@ -855,48 +866,85 @@ Regras:
 - Garanta que a formalidade calculada do look seja mantida (não reavalie).
 - Retorne APENAS o JSON COMPLETO e VÁLIDO no formato especificado.
 `;
-      
-      const result = await model.generateContent({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: prompt }],
+
+        const result = await model.generateContent({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: prompt }],
+            },
+          ],
+          config: {
+            temperature: 0.7, // Um pouco mais criativo para textos
+            responseMimeType: 'application/json',
           },
-        ],
-        config: {
-          temperature: 0.7, // Um pouco mais criativo para textos
-          responseMimeType: 'application/json',
-        },
-      });
+        });
 
-      const rawText = result.response.text; // Corrigido para acessar a propriedade .text
-      const jsonText = extractJson(rawText);
+        const rawText = result.response.text; // Corrigido para acessar a propriedade .text
+        const jsonText = extractJson(rawText);
 
-      let parsed: EStylistOutput;
-      try {
-        parsed = JSON.parse(jsonText);
-      } catch (parseError: any) {
-        console.error('Failed to parse Gemini JSON response:', jsonText, parseError);
-        // Em caso de erro de parsing, retorna a base determinística
-        // Chama enrichWithStoreOrTextFallback para garantir consistência de highlights/voice_text/sales_support
+        let parsed: EStylistOutput;
+        try {
+          parsed = JSON.parse(jsonText);
+        } catch (parseError: any) {
+          console.error('Falha ao analisar resposta JSON do Gemini:', jsonText, parseError);
+          // Em caso de erro de parsing, retorna a base determinística
+          // Salva o output determinístico no cache antes de retornar
+          localStorage.setItem(cacheKey, JSON.stringify(baseOutput));
+          return enrichWithStoreOrTextFallback(baseOutput, input);
+        }
+
+        if (!validateOutputShape(parsed, input)) { // ✅ Passa input para validação robusta
+          console.error('Resposta do modelo fora do formato esperado (EStylistOutput):', parsed);
+          // Em caso de validação falha, retorna a base determinística
+          // Salva o output determinístico no cache antes de retornar
+          localStorage.setItem(cacheKey, JSON.stringify(baseOutput));
+          return enrichWithStoreOrTextFallback(baseOutput, input);
+        }
+
+        // Salva a resposta da IA no cache antes de retornar
+        localStorage.setItem(cacheKey, JSON.stringify(parsed));
+        // Aplica o enriquecimento final para garantir consistência
+        return enrichWithStoreOrTextFallback(parsed, input);
+
+      } catch (err: any) {
+        console.error('Erro no Gemini:', err);
+        // Fallback seguro: não derruba o app, retorna o output determinístico
+        // Salva o output determinístico no cache antes de retornar
+        localStorage.setItem(cacheKey, JSON.stringify(baseOutput));
         return enrichWithStoreOrTextFallback(baseOutput, input);
       }
-
-      if (!validateOutputShape(parsed, input)) { // ✅ Passa input para validação robusta
-        console.error('Resposta do modelo fora do formato esperado (EStylistOutput):', parsed);
-        // Em caso de validação falha, retorna a base determinística
-        // Chama enrichWithStoreOrTextFallback para garantir consistência de highlights/voice_text/sales_support
-        return enrichWithStoreOrTextFallback(baseOutput, input);
-      }
-      // O enrichWithStoreOrTextFallback atua como um fallback final se o modelo não completar todos os itens de loja corretamente
-      // ou para adicionar um highlight se o modelo não o fez, ou para ajustar o voice_text.
-      return enrichWithStoreOrTextFallback(parsed, input);
-
-    } catch (err: any) {
-      console.error('Gemini error:', err);
-      // Fallback seguro: não derruba o app em demo, retorna o output determinístico
-      // Chama enrichWithStoreOrTextFallback para garantir consistência de highlights/voice_text/sales_support
-      return enrichWithStoreOrTextFallback(baseOutput, input);
     }
+
+    // 5) Retorno padrão: output determinístico (se smart_copy=false ou sem API key/erro AI)
+    // Salva o output determinístico no cache antes de retornar
+    localStorage.setItem(cacheKey, JSON.stringify(baseOutput));
+    return enrichWithStoreOrTextFallback(baseOutput, input);
   },
+
+  // NOVO: Simula a criação de um link de compartilhamento no backend
+  async createShareLink(look: Look, scope: ShareScope): Promise<string> {
+    // Gerar um token simples (UUID real seria melhor)
+    const token = 'shared-' + Math.random().toString(36).substring(2, 15);
+    _sharedLookStore.set(token, look); // Armazena o look no nosso "pseudo-backend"
+
+    // Retorna o URL completo para o look compartilhado
+    // Assume que a PWA está em window.location.origin
+    const shareUrl = `${window.location.origin}/s/${token}`;
+    console.log(`Share Link gerado: ${shareUrl} (Scope: ${scope})`);
+    return shareUrl;
+  },
+
+  // NOVO: Simula a recuperação de um look compartilhado do backend
+  async getSharedLook(token: string): Promise<Look | null> {
+    // Simula um delay de rede
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const look = _sharedLookStore.get(token);
+    if (look) {
+      console.log(`Look recuperado para o token: ${token}`);
+    } else {
+      console.warn(`Nenhum look encontrado para o token: ${token}`);
+    }
+    return look || null;
+  }
 };

@@ -86,3 +86,6 @@ export interface EStylistOutput {
   voice_text: string;
   next_question: string;
 }
+
+// NOVO: Tipo para o escopo de compartilhamento
+export type ShareScope = 'public' | 'private';
