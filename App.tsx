@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { eStylistService, trackEvent } from './services/eStylistService'; // NOVO: trackEvent importado
+import { eStylistService } from './services/eStylistService';
 import { EStylistInput, EStylistOutput, Look, EStylistMode } from './types';
 import JsonInput from './components/JsonInput';
 import JsonOutput from './components/JsonOutput';
@@ -296,9 +296,7 @@ const App: React.FC = () => {
       };
 
       if (appMode === 'seller') {
-        trackEvent('generate_looks_seller', { input: inputWithMode.profile }); // Rastreia o evento
-      } else {
-        trackEvent('generate_looks_consumer', { input: inputWithMode.profile });
+        console.log('Metrics: generate_looks_seller', inputWithMode);
       }
 
       const result: EStylistOutput = await eStylistService.generateLooks(inputWithMode);
@@ -306,11 +304,9 @@ const App: React.FC = () => {
       setOutputJson(JSON.stringify(result, null, 2));
       setNextQuestion(result.next_question);
       setVoiceText(result.voice_text);
-      trackEvent('look_generated', { lookCount: result.looks.length }); // Rastreia a geração do look
     } catch (err: any) {
       console.error('Error generating looks:', err);
       setError(`Failed to generate looks: ${err.message || 'Unknown error'}. Please check your JSON input.`);
-      trackEvent('look_generation_failed', { error: err.message }); // Rastreia falha
     } finally {
       setIsLoading(false);
     }
@@ -318,7 +314,7 @@ const App: React.FC = () => {
 
   const handleBuyClick = useCallback((storeItemId: string | undefined | null) => {
     if (storeItemId) {
-      trackEvent('click_buy_product', { storeItemId }); // Rastreia o clique em comprar
+      console.log('Metrics: click_buy_product', storeItemId);
     }
   }, []);
 
@@ -336,7 +332,6 @@ const App: React.FC = () => {
   const openShareModal = useCallback((look: Look) => {
     setLookToShare(look);
     setShowShareModal(true);
-    trackEvent('share_clicked', { lookId: look.look_id, title: look.title }); // Rastreia o clique em compartilhar
   }, []);
 
   // NOVO: Lógica para detectar e carregar look compartilhado da URL
@@ -346,7 +341,6 @@ const App: React.FC = () => {
 
     if (match && match[1]) {
       const token = match[1];
-      trackEvent('shared_link_opened', { token }); // Rastreia a abertura do link compartilhado
       console.log(`Detectado token de compartilhamento na URL: ${token}`);
       setIsLoading(true);
       setLooks(null); // Limpa looks da tela principal
@@ -355,28 +349,21 @@ const App: React.FC = () => {
       setVoiceText(null);
       setError(null);
 
-      // Usamos um tempo inicial para performance.now() para time_to_render_look
-      const startTime = performance.now();
-
       eStylistService.getSharedLook(token)
         .then(look => {
           if (look) {
             setSharedLookData(look);
             setIsViewingSharedLook(true);
             document.title = `e-Stylist: ${look.title}`;
-            // Medir o tempo até o look ser efetivamente 'visualizável' na tela.
-            // O `SharedLookView` vai ter sua própria lógica para essa medição agora.
           } else {
             setError('Look compartilhado não encontrado ou expirado.');
             setIsViewingSharedLook(false);
-            trackEvent('shared_look_not_found', { token }); // Rastreia link expirado
           }
         })
         .catch(err => {
           console.error('Erro ao carregar look compartilhado:', err);
           setError('Erro ao carregar look compartilhado. Tente novamente.');
           setIsViewingSharedLook(false);
-          trackEvent('shared_look_load_failed', { token, error: err.message }); // Rastreia falha de carregamento
         })
         .finally(() => setIsLoading(false));
     } else {
@@ -392,7 +379,6 @@ const App: React.FC = () => {
         setSharedLookData(null);
         window.history.pushState({}, '', '/'); // Retorna para a home
         document.title = 'e-Stylist MVP Frontend';
-        trackEvent('back_to_main_app'); // Rastreia o retorno para a home
       }} />
     );
   }

@@ -1,6 +1,6 @@
 // services/eStylistService.ts
 
-import { EStylistInput, EStylistOutput, LookItem, ItemSource, SalesPriority, StoreItem, LookHighlight, EStylistMode, Look, ShareScope, Occasion } from '../types'; // NOVO: Occasion importado
+import { EStylistInput, EStylistOutput, LookItem, ItemSource, SalesPriority, StoreItem, LookHighlight, EStylistMode, Look, ShareScope } from '../types';
 // ✅ SDK oficial (já funciona no template do AI Studio quando habilitado)
 import { GoogleGenAI } from '@google/genai';
 
@@ -138,27 +138,18 @@ Você deve responder EXCLUSIVAMENTE com um JSON no seguinte formato:
 
 /**
  * Pega a API KEY do jeito mais compatível possível.
- *
- * A API key DEVE ser obtida EXCLUSIVAMENTE de `process.env.API_KEY`.
- * Assume-se que esta variável é pré-configurada, válida e acessível.
- *
- * Em ambientes de navegador puros, 'process' pode ser indefinido.
- * Verificamos a existência de 'process' antes de tentar acessar 'process.env'
- * para evitar erros de execução em tempo real.
- *
- * @returns {string | undefined} A API Key se encontrada, caso contrário, `undefined`.
+ * - Em muitos projetos Vite: import.meta.env.VITE_GEMINI_API_KEY
+ * - Em alguns setups: process.env.API_KEY
  */
 function getApiKey(): string | undefined {
-  if (typeof process !== 'undefined' && (process as any)?.env?.API_KEY) {
-    const nodeKey = (process as any).env.API_KEY;
-    if (nodeKey && typeof nodeKey === 'string') {
-      return nodeKey;
-    }
-  }
+  // Vite / bundlers modernos
+  const viteKey = (import.meta as any)?.env?.VITE_GEMINI_API_KEY;
+  if (viteKey && typeof viteKey === 'string') return viteKey;
 
-  // Se 'process' não existe ou 'process.env.API_KEY' não está definido/é inválido,
-  // retorna undefined. O `eStylistService.generateLooks` já lida com este caso
-  // fazendo fallback para o output determinístico.
+  // Fallback (alguns templates)
+  const nodeKey = (process as any)?.env?.API_KEY;
+  if (nodeKey && typeof nodeKey === 'string') return nodeKey;
+
   return undefined;
 }
 
@@ -806,17 +797,10 @@ function buildMockOutput(input: EStylistInput): EStylistOutput {
 // Aqui, é um Map in-memory do frontend para simular a funcionalidade.
 const _sharedLookStore = new Map<string, Look>();
 
-// NOVO: Função para rastrear eventos de analytics
-export function trackEvent(eventName: string, payload?: object) {
-  console.log(`ANALYTICS EVENT: ${eventName}`, payload);
-  // Em um app real, aqui você integraria com Google Analytics, Amplitude, etc.
-  // Ex: window.gtag('event', eventName, payload);
-}
-
 export const eStylistService = {
   async generateLooks(input: EStylistInput): Promise<EStylistOutput> {
     // Pequeno delay só para UX (pode remover)
-    await new Promise((resolve) => setTimeout(resolve, 500)); // Delay aumentado para simular processamento
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     // 1) Geração determinística (baseOutput)
     // Isso é análogo a consultar 'knowledge_rules' ou 'look_templates' no DB
@@ -834,7 +818,6 @@ export const eStylistService = {
         const parsedCache = JSON.parse(cached);
         // Validar se o cache é 'bom' - aqui, apenas verifica se é um JSON válido e tem o formato esperado
         if (validateOutputShape(parsedCache, input)) { // ✅ Passa input para validação robusta
-          trackEvent('look_cache_hit', { inputProfile: input.profile.name });
           console.log('Cache Hit: Retornando resposta do localStorage.');
           // Aplica fallback/enriquecimento para garantir consistência de highlights/voice_text/sales_support
           return enrichWithStoreOrTextFallback(parsedCache, input);
@@ -847,7 +830,6 @@ export const eStylistService = {
         localStorage.removeItem(cacheKey); // Remove cache inválido
       }
     }
-    trackEvent('look_cache_miss', { inputProfile: input.profile.name });
     console.log('Cache Miss: Gerando nova resposta.');
 
     // 4) Se Smart Copy habilitado e API Key presente, chama a IA para refinamento
@@ -855,7 +837,6 @@ export const eStylistService = {
       const apiKey = getApiKey();
 
       if (!apiKey) {
-        trackEvent('smart_copy_skipped_no_api_key');
         console.warn('API Key não encontrada. Retornando output determinístico mesmo com smart_copy habilitado.');
         // Salva o output determinístico no cache antes de retornar
         localStorage.setItem(cacheKey, JSON.stringify(baseOutput));
@@ -863,9 +844,15 @@ export const eStylistService = {
       }
 
       try {
-        trackEvent('gemini_api_call_started', { inputProfile: input.profile.name });
         const genAI = new GoogleGenAI({ apiKey: apiKey });
 
+        // Modelo recomendado para MVP (rápido)
+        const model = genAI.getGenerativeModel({
+          model: 'gemini-2.5-flash',
+          systemInstruction: SYSTEM_INSTRUCTION,
+        });
+
+        // Prompt para reescrever APENAS os textos
         const prompt = `
 Reescreva APENAS os textos para vender melhor sem exagero, SEM alterar os itens (array "items").
 Mantenha a formalidade calculada e as flags de externalidade/compra.
@@ -880,8 +867,7 @@ Regras:
 - Retorne APENAS o JSON COMPLETO e VÁLIDO no formato especificado.
 `;
 
-        const result = await genAI.models.generateContent({
-          model: 'gemini-2.5-flash', // Model name directly
+        const result = await model.generateContent({
           contents: [
             {
               role: 'user',
@@ -889,20 +875,18 @@ Regras:
             },
           ],
           config: {
-            systemInstruction: SYSTEM_INSTRUCTION, // System instruction inside config
             temperature: 0.7, // Um pouco mais criativo para textos
             responseMimeType: 'application/json',
           },
         });
 
-        const rawText = result.text; // Corrigido para acessar a propriedade .text
+        const rawText = result.response.text; // Corrigido para acessar a propriedade .text
         const jsonText = extractJson(rawText);
 
         let parsed: EStylistOutput;
         try {
           parsed = JSON.parse(jsonText);
         } catch (parseError: any) {
-          trackEvent('gemini_api_parse_error', { error: parseError.message, rawText: jsonText.substring(0, 200) });
           console.error('Falha ao analisar resposta JSON do Gemini:', jsonText, parseError);
           // Em caso de erro de parsing, retorna a base determinística
           // Salva o output determinístico no cache antes de retornar
@@ -911,7 +895,6 @@ Regras:
         }
 
         if (!validateOutputShape(parsed, input)) { // ✅ Passa input para validação robusta
-          trackEvent('gemini_api_validation_error', { error: 'Invalid output shape', output: parsed });
           console.error('Resposta do modelo fora do formato esperado (EStylistOutput):', parsed);
           // Em caso de validação falha, retorna a base determinística
           // Salva o output determinístico no cache antes de retornar
@@ -919,14 +902,12 @@ Regras:
           return enrichWithStoreOrTextFallback(baseOutput, input);
         }
 
-        trackEvent('gemini_api_call_success', { inputProfile: input.profile.name });
         // Salva a resposta da IA no cache antes de retornar
         localStorage.setItem(cacheKey, JSON.stringify(parsed));
         // Aplica o enriquecimento final para garantir consistência
         return enrichWithStoreOrTextFallback(parsed, input);
 
       } catch (err: any) {
-        trackEvent('gemini_api_call_failed', { error: err.message });
         console.error('Erro no Gemini:', err);
         // Fallback seguro: não derruba o app, retorna o output determinístico
         // Salva o output determinístico no cache antes de retornar
@@ -943,8 +924,6 @@ Regras:
 
   // NOVO: Simula a criação de um link de compartilhamento no backend
   async createShareLink(look: Look, scope: ShareScope): Promise<string> {
-    await new Promise((resolve) => setTimeout(resolve, 300)); // Simula delay de rede
-
     // Gerar um token simples (UUID real seria melhor)
     const token = 'shared-' + Math.random().toString(36).substring(2, 15);
     _sharedLookStore.set(token, look); // Armazena o look no nosso "pseudo-backend"
@@ -952,7 +931,6 @@ Regras:
     // Retorna o URL completo para o look compartilhado
     // Assume que a PWA está em window.location.origin
     const shareUrl = `${window.location.origin}/s/${token}`;
-    trackEvent('share_link_created', { lookId: look.look_id, scope, token, shareUrl });
     console.log(`Share Link gerado: ${shareUrl} (Scope: ${scope})`);
     return shareUrl;
   },
@@ -960,26 +938,13 @@ Regras:
   // NOVO: Simula a recuperação de um look compartilhado do backend
   async getSharedLook(token: string): Promise<Look | null> {
     // Simula um delay de rede
-    await new Promise(resolve => setTimeout(resolve, 700)); // Aumentado para simular latência de rede/DB
+    await new Promise(resolve => setTimeout(resolve, 500));
     const look = _sharedLookStore.get(token);
     if (look) {
-      trackEvent('shared_look_retrieved_success', { token, lookId: look.look_id });
       console.log(`Look recuperado para o token: ${token}`);
     } else {
-      trackEvent('shared_look_retrieved_fail', { token, reason: 'not_found' });
       console.warn(`Nenhum look encontrado para o token: ${token}`);
     }
     return look || null;
-  },
-
-  // NOVO: Lista de ocasiões para o fluxo de compartilhamento
-  getOccasions(): Occasion[] {
-    return [
-      { id: 'shared_ocasiao_001', name: 'Trabalho Casual', nivel_formalidade_esperado: 3 },
-      { id: 'shared_ocasiao_002', name: 'Evento Social', nivel_formalidade_esperado: 4 },
-      { id: 'shared_ocasiao_003', name: 'Passeio com Amigos', nivel_formalidade_esperado: 2 },
-      { id: 'shared_ocasiao_004', name: 'Jantar Romântico', nivel_formalidade_esperado: 5 },
-      { id: 'shared_ocasiao_005', name: 'Dia a Dia Leve', nivel_formalidade_esperado: 1 },
-    ];
   }
 };

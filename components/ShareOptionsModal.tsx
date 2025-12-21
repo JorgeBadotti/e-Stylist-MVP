@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Look, ShareScope } from '../types';
 import Button from './Button';
-import { eStylistService, trackEvent } from '../services/eStylistService'; // NOVO: trackEvent importado
+import { eStylistService } from '../services/eStylistService';
 import Alert from './Alert';
 
 interface ShareOptionsModalProps {
@@ -45,30 +45,26 @@ ${links ? `🛍️ Comprar:\n${links}` : ''}
     setLoading(true);
     setError(null);
     try {
+      // Simula a criação do share link público
       const generatedShareUrl = await eStylistService.createShareLink(look, 'public');
       setShareUrl(generatedShareUrl);
 
       const fullTextContent = getFullTextContent(generatedShareUrl);
 
       if (navigator.share) {
-        trackEvent('share_public_web_share_api_attempt', { lookId: look.look_id });
         await navigator.share({
           title: `Look e-Stylist – ${look.title}`,
           text: fullTextContent,
           url: generatedShareUrl,
         });
-        trackEvent('share_public_web_share_api_success', { lookId: look.look_id });
-        onClose();
+        onClose(); // Fecha o modal após o compartilhamento
       } else {
-        trackEvent('share_public_clipboard_fallback', { lookId: look.look_id });
         await navigator.clipboard.writeText(fullTextContent);
         alert('Link do look e detalhes copiados para a área de transferência!');
-        trackEvent('share_public_clipboard_success', { lookId: look.look_id });
       }
     } catch (err: any) {
       console.error('Erro ao compartilhar publicamente:', err);
       setError(`Falha ao compartilhar: ${err.message || 'Erro desconhecido'}`);
-      trackEvent('share_public_failed', { lookId: look.look_id, error: err.message });
     } finally {
       setLoading(false);
     }
@@ -78,18 +74,17 @@ ${links ? `🛍️ Comprar:\n${links}` : ''}
     setLoading(true);
     setError(null);
     try {
+      // Simula a criação do share link privado para WhatsApp
       const generatedShareUrl = await eStylistService.createShareLink(look, 'private');
       setShareUrl(generatedShareUrl);
 
       const fullTextContent = getFullTextContent(generatedShareUrl);
       const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(fullTextContent)}`;
       window.open(whatsappUrl, '_blank');
-      trackEvent('share_private_whatsapp_opened', { lookId: look.look_id });
-      onClose();
+      onClose(); // Fecha o modal após tentar abrir o WhatsApp
     } catch (err: any) {
       console.error('Erro ao compartilhar via WhatsApp:', err);
       setError(`Falha ao abrir WhatsApp: ${err.message || 'Erro desconhecido'}`);
-      trackEvent('share_private_whatsapp_failed', { lookId: look.look_id, error: err.message });
     } finally {
       setLoading(false);
     }
