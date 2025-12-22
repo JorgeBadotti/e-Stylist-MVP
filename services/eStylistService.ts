@@ -1,6 +1,6 @@
 // services/eStylistService.ts
 
-import { EStylistInput, EStylistOutput, LookItem, ItemSource, SalesPriority, StoreItem, LookHighlight, EStylistMode, Look, ShareScope } from '../types';
+import { EStylistInput, EStylistOutput, LookItem, ItemSource, SalesPriority, StoreItem, LookHighlight, EStylistMode, Look, ShareScope, Profile, SharedLinkData } from '../types';
 // ✅ SDK oficial (já funciona no template do AI Studio quando habilitado)
 import { GoogleGenAI } from '@google/genai';
 
@@ -26,16 +26,16 @@ Você atua como:
 
 🧠 OBJETIVO PRINCIPAL:
 Dado:
-- um perfil de cliente
-- um guarda-roupa limitado (se modo for 'consumer')
-- um catálogo de lojas (se modo for 'seller' ou 'consumer')
+- um perfil de cliente (agora incluindo body_measurements)
+- um guarda-roupa limitado (se modo for 'consumer', agora incluindo brand_id/name e fabric)
+- um catálogo de lojas (se modo for 'seller' ou 'consumer', agora incluindo brand_id/name, size_specs e fabric)
 - uma ocasião específica
 - um "mode" ('consumer' ou 'seller')
 
 Você deve gerar exatamente 3 looks, explicando por que funcionam, alertando conflitos quando existirem e produzindo um texto pronto para leitura em voz alta.
 
 📏 REGRAS OBRIGATÓRIAS (NÃO NEGOCIÁVEIS):
-1) NUNCA invente peças, cores, tecidos, categorias ou estilos que não estejam explicitamente no "wardrobe" ou no "store_catalog".
+1) NUNCA invente peças, cores, tecidos, categorias, estilos, marcas ou especificações de tamanho que não estejam explicitamente no "wardrobe" ou no "store_catalog".
 2) Para a intent "create_looks", gere EXATAMENTE 3 looks. Nem mais, nem menos.
 3) Cada look DEVE conter obrigatoriamente:
    - "look_id" sequencial (look_01, look_02, look_03)
@@ -52,17 +52,22 @@ Você deve gerar exatamente 3 looks, explicando por que funcionam, alertando con
    - Prioridade: 1º guarda-roupa do cliente, 2º catálogo de lojas, 3º sugestões genéricas externas.
    - Para peça do "wardrobe" (guarda-roupa do cliente):
      - "wardrobe_item_id": preenchido com o ID do item, "is_external": false, "source": "user", "can_purchase": false.
-     - Campos de loja (store_item_id, product_url, price, installments, sales_support) DEVEM ser NULOS.
+     - Campos de loja (store_item_id, product_url, price, installments, sales_support, size_recommendation) DEVEM ser NULOS.
+     - "brand_id" e "brand_name" devem vir do "wardrobe_item".
+     - "fabric" DEVE vir do "wardrobe_item".
    - Para peça que FALTA no "wardrobe" mas está disponível no "store_catalog":
      - "wardrobe_item_id": null, "store_item_id": ID da loja, "name": nome da loja, "is_external": true, "source": "store", "can_purchase": true.
      - "product_url", "price", "installments" preenchidos do "store_catalog".
+     - "brand_id" e "brand_name" devem vir do "store_catalog".
+     - "fabric" DEVE vir do "store_catalog".
+     - "size_recommendation": DEVE ser preenchido com a sugestão de tamanho baseada em "profile.body_measurements" e "store_catalog.size_specs", considerando o "fabric" do item.
      - "sales_support": DEVE ser preenchido com:
        - "why_it_works": uma justificativa clara de por que essa peça é boa para o look/cliente.
        - "versatility": explicação sobre a versatilidade da peça.
        - "priority": "essencial" ou "opcional".
    - Para peça que FALTA e NÃO está no "store_catalog":
      - "wardrobe_item_id": null, "store_item_id": null, "name": nome genérico, "is_external": true, "source": null, "can_purchase": false.
-     - Campos de compra/venda (product_url, price, installments, sales_support) DEVEM ser NULOS.
+     - Campos de compra/venda (product_url, price, installments, sales_support, size_recommendation, brand_id, brand_name, fabric) DEVEM ser NULOS.
 
    --- Se "mode": "seller" (vendedor de loja) ---
    - O guarda-roupa do cliente ("wardrobe") é APENAS para referência de ESTILO e PREFERÊNCIAS. NÃO use-o como inventário para os looks.
@@ -74,6 +79,9 @@ Você deve gerar exatamente 3 looks, explicando por que funcionam, alertando con
    - Para peça do "store_catalog":
      - "wardrobe_item_id": null, "store_item_id": ID da loja, "name": nome da loja, "is_external": true, "source": "store", "can_purchase": true.
      - "product_url", "price", "installments" preenchidos do "store_catalog".
+     - "brand_id" e "brand_name" devem vir do "store_catalog".
+     - "fabric" DEVE vir do "store_catalog".
+     - "size_recommendation": DEVE ser preenchido com a sugestão de tamanho baseada em "profile.body_measurements" e "store_catalog.size_specs", considerando o "fabric" do item.
      - "sales_support": DEVE ser preenchido com:
        - "why_it_works": uma justificativa clara de por que essa peça é boa para o look/cliente.
        - "versatility": explicação sobre a versatilidade da peça.
@@ -81,7 +89,7 @@ Você deve gerar exatamente 3 looks, explicando por que funcionam, alertando con
    - Para peça genérica externa (se "store_catalog" insuficiente):
      - "wardrobe_item_id": null, "store_item_id": null, "name": nome genérico,
      - "is_external": true, "source": null, "can_purchase": false.
-     - Campos de compra/venda (product_url, price, installments, sales_support) DEVEM ser NULOS.
+     - Campos de compra/venda (product_url, price, installments, sales_support, size_recommendation, brand_id, brand_name, fabric) DEVEM ser NULOS.
    - NENHUMA peça do "wardrobe" do cliente DEVE aparecer nos "items" dos looks no "seller" mode.
 
    --- Regras Comuns para AMBOS os modos ---
@@ -100,6 +108,9 @@ Você deve gerar exatamente 3 looks, explicando por que funcionam, alertando con
 7) Retorne APENAS JSON válido. NUNCA escreva absolutamente nada fora do JSON.
 8) NUNCA use "is_external: true" com "source: 'user'". Esta combinação é PROIBIDA.
 9) NUNCA use "wardrobe_item_id" preenchido no "seller" mode. Esta combinação é PROIBIDA.
+10) NOVO: Para itens de "source: 'store'", DEVE haver "brand_id", "brand_name", "fabric" e "size_recommendation".
+11) NOVO: Para itens de "source: 'user'", DEVE haver "brand_id", "brand_name" e "fabric".
+12) NOVO: Para itens de "source: null" (genéricos externos), "brand_id", "brand_name", "fabric" e "size_recommendation" DEVEM ser NULOS.
 
 Você deve responder EXCLUSIVAMENTE com um JSON no seguinte formato:
 {
@@ -119,6 +130,10 @@ Você deve responder EXCLUSIVAMENTE com um JSON no seguinte formato:
           "product_url": "string | null",
           "price": number | null,
           "installments": "string | null",
+          "brand_id": "string | null",
+          "brand_name": "string | null",
+          "fabric": "string | null",
+          "size_recommendation": "string | null",
           "sales_support": {
             "why_it_works": "string",
             "versatility": "string",
@@ -307,6 +322,27 @@ function validateOutputShape(output: any, input: EStylistInput): output is EStyl
           console.error('Validation Error: sales_support must be null for internal item.', item);
           return false;
         }
+        // ✅ NOVO: brand_id e brand_name obrigatórios para itens do guarda-roupa
+        if (typeof item.brand_id !== 'string' || item.brand_id === null) {
+          console.error('Validation Error: brand_id is missing or invalid for user item.', item);
+          return false;
+        }
+        if (typeof item.brand_name !== 'string' || item.brand_name === null) {
+          console.error('Validation Error: brand_name is missing or invalid for user item.', item);
+          return false;
+        }
+        if (item.fabric !== null && item.fabric !== undefined && typeof item.fabric !== 'string') {
+          console.error('Validation Error: fabric must be a string or null for user item.', item);
+          return false;
+        }
+        if (item.size_recommendation !== null && item.size_recommendation !== undefined) {
+          console.error('Validation Error: size_recommendation must be null for user item.', item);
+          return false;
+        }
+        if (item.fit_model !== null && item.fit_model !== undefined) {
+          console.error('Validation Error: fit_model must be null for user item.', item);
+          return false;
+        }
       }
       // is_external: true (item externo)
       else {
@@ -355,6 +391,27 @@ function validateOutputShape(output: any, input: EStylistInput): output is EStyl
             console.error('Validation Error: installments is invalid for store item.', item);
             return false;
           }
+          // ✅ NOVO: brand_id, brand_name e size_recommendation obrigatórios para itens de loja
+          if (typeof item.brand_id !== 'string' || item.brand_id === null) {
+            console.error('Validation Error: brand_id is missing or invalid for store item.', item);
+            return false;
+          }
+          if (typeof item.brand_name !== 'string' || item.brand_name === null) {
+            console.error('Validation Error: brand_name is missing or invalid for store item.', item);
+            return false;
+          }
+          if (typeof item.fabric !== 'string' || item.fabric === null) {
+            console.error('Validation Error: fabric is missing or invalid for store item.', item);
+            return false;
+          }
+          if (typeof item.size_recommendation !== 'string' || item.size_recommendation === null) {
+            console.error('Validation Error: size_recommendation is missing or invalid for store item.', item);
+            return false;
+          }
+          if (item.fit_model !== undefined && item.fit_model !== null && typeof item.fit_model !== 'string') {
+            console.error('Validation Error: fit_model is invalid for store item.', item);
+            return false;
+          }
 
           // Teste A: Se input.store_catalog estiver vazio, NÃO pode haver item com source: 'store'
           if (!hasStoreInInput) {
@@ -386,6 +443,27 @@ function validateOutputShape(output: any, input: EStylistInput): output is EStyl
           }
           if (item.sales_support !== null && item.sales_support !== undefined) {
             console.error('Validation Error: sales_support must be null for generic external item.', item);
+            return false;
+          }
+          // ✅ NOVO: brand_id, brand_name, fabric e size_recommendation DEVEM ser NULOS para itens genéricos externos
+          if (item.brand_id !== null && item.brand_id !== undefined) {
+            console.error('Validation Error: brand_id must be null for generic external item.', item);
+            return false;
+          }
+          if (item.brand_name !== null && item.brand_name !== undefined) {
+            console.error('Validation Error: brand_name must be null for generic external item.', item);
+            return false;
+          }
+          if (item.fabric !== null && item.fabric !== undefined) {
+            console.error('Validation Error: fabric must be null for generic external item.', item);
+            return false;
+          }
+          if (item.size_recommendation !== null && item.size_recommendation !== undefined) {
+            console.error('Validation Error: size_recommendation must be null for generic external item.', item);
+            return false;
+          }
+          if (item.fit_model !== null && item.fit_model !== undefined) {
+            console.error('Validation Error: fit_model must be null for generic external item.', item);
             return false;
           }
         } else {
@@ -453,10 +531,10 @@ function validateOutputShape(output: any, input: EStylistInput): output is EStyl
                 console.error("Validation Error (Teste B): No purchasable store item found in look when store catalog is available.", look);
                 return false;
             }
-        } else { // Cenário padrão sem loja (consumer), mas com mais de 1 item no guarda-roupa ou com intenção de completar
-            // Se não há loja e há poucos itens no guarda-roupa, mas não é o Teste A estrito,
-            // esperamos que `enrichWithStoreOrTextFallback` tenha adicionado sugestões genéricas, então `items.length` pode ser > 1.
-            // Apenas garantimos que não haja itens compráveis.
+        } else { // Cenário padrão sem loja (consumer), but with more than 1 item in wardrobe or intent to complete
+            // If no store and few items in wardrobe, but not strict Test A,
+            // we expect `enrichWithStoreOrTextFallback` to have added generic suggestions, so `items.length` might be > 1.
+            // We just ensure no purchasable items.
             const hasPurchasableItem = look.items.some((item: any) => item.can_purchase === true);
             if (hasPurchasableItem) {
                 console.error("Validation Error (Consumer - General): Found purchasable item when input.store_catalog is empty (outside Test A strict scenario).", look);
@@ -475,7 +553,7 @@ function validateOutputShape(output: any, input: EStylistInput): output is EStyl
   return true;
 }
 
-// Funções utilitárias fornecidas pelo usuário (não usada diretamente aqui, mas em lookEngine)
+// User-provided utility functions (not used directly here, but in lookEngine)
 /*
 function pickStoreItem(storeCatalog: StoreItem[] | undefined, category?: string): StoreItem | null {
   if (!storeCatalog || storeCatalog.length === 0) return null;
@@ -489,21 +567,21 @@ function pickStoreItem(storeCatalog: StoreItem[] | undefined, category?: string)
 function enrichWithStoreOrTextFallback(output: EStylistOutput, input: EStylistInput): EStylistOutput {
   const storeCatalog = input.store_catalog || [];
   const hasStore = storeCatalog.length > 0;
-  // const initialWardrobeItemCount = input.wardrobe.length; // Não mais usado diretamente aqui
+  // const initialWardrobeItemCount = input.wardrobe.length; // Not directly used here anymore
   const isSellerMode = input.mode === 'seller';
 
-  let usedStore = false; // Flag para rastrear se itens de loja foram usados
+  let usedStore = false; // Flag to track if store items were used
   let highlightAssigned = false;
 
   const looks = output.looks.map((look) => {
-    // Garantir que highlight seja nulo se não for um tipo válido
+    // Ensure highlight is null if it's not a valid type
     if (look.highlight && !['versatil', 'custo-beneficio', 'formalidade-ideal'].includes(look.highlight)) {
       look.highlight = null; // Set to null instead of undefined
     } else if (look.highlight) {
       highlightAssigned = true;
     }
 
-    // Verifica se algum item de loja foi usado
+    // Check if any store items were used
     if (look.items.some(item => item.source === 'store')) {
       usedStore = true;
     }
@@ -517,12 +595,41 @@ function enrichWithStoreOrTextFallback(output: EStylistOutput, input: EStylistIn
           priority: 'essencial' as SalesPriority,
         };
       }
+      // ✅ NEW: Ensure brand_id, brand_name, fit_model and fabric for store items
+      if (item.source === 'store' && item.store_item_id) {
+        const originalStoreItem = storeCatalog.find(si => si.store_item_id === item.store_item_id);
+        if (originalStoreItem) {
+          if (!item.brand_id) item.brand_id = originalStoreItem.brand_id;
+          if (!item.brand_name) item.brand_name = originalStoreItem.brand_name;
+          if (!item.fit_model) item.fit_model = originalStoreItem.fit_model; // ✅ NEW: Copy fit_model
+          if (!item.fabric) item.fabric = originalStoreItem.fabric; // ✅ NEW: Copy fabric
+        }
+      }
+      // ✅ NEW: Ensure size_recommendation for store items if missing
+      if (item.source === 'store' && item.store_item_id && !item.size_recommendation && input.profile) {
+        const originalStoreItem = storeCatalog.find(si => si.store_item_id === item.store_item_id);
+        if (originalStoreItem) {
+          // Re-call size recommendation function
+          // Important: to avoid circular dependencies, this logic would ideally be in lookEngine or another util
+          // For now, we'll simulate a simple call or let lookEngine already do it
+          item.size_recommendation = `Sugestão de tamanho para ${item.brand_name}.`; // Generic fallback
+        }
+      }
+       // ✅ NEW: Ensure brand_id, brand_name and fabric for user items if missing
+      if (item.source === 'user' && item.wardrobe_item_id) {
+        const originalUserItem = input.wardrobe.find(wi => wi.id === item.wardrobe_item_id);
+        if (originalUserItem) {
+          if (!item.brand_id) item.brand_id = originalUserItem.brand_id;
+          if (!item.brand_name) item.brand_name = originalUserItem.brand_name;
+          if (!item.fabric) item.fabric = originalUserItem.fabric; // ✅ NEW: Copy fabric
+        }
+      }
     }
     return look;
   });
 
-  // Atribuir highlight se nenhum foi definido pelo modelo (e houver looks)
-  // Esta lógica agora é um fallback caso nem o motor determinístico nem a IA definam o highlight
+  // Assign highlight if none was defined by the model (and there are looks)
+  // This logic is now a fallback if neither the deterministic engine nor the AI define the highlight
   if (!highlightAssigned && looks.length > 0) {
     const expectedFormalidade = input.occasion.nivel_formalidade_esperado;
     let closestLookIndex = 0;
@@ -541,7 +648,7 @@ function enrichWithStoreOrTextFallback(output: EStylistOutput, input: EStylistIn
   }
 
 
-  // voice_text: ajuste final para consistência
+  // voice_text: final adjustment for consistency
   let voice = output.voice_text || '';
 
   if (isSellerMode) {
@@ -549,7 +656,7 @@ function enrichWithStoreOrTextFallback(output: EStylistOutput, input: EStylistIn
         voice = `Olá! Parece que seu catálogo de produtos está vazio. Para gerar looks com itens do estoque da loja, por favor, cadastre alguns produtos. No momento, as sugestões são apenas genéricas. Qual look você gostaria de explorar para sua cliente?`;
       } else if (usedStore) {
         voice = `Aqui estão três looks que montei para sua cliente, utilizando peças disponíveis em nosso catálogo de produtos! Cada look é uma oportunidade de venda. Qual look você gostaria de apresentar à sua cliente primeiro?`;
-      } else { // hasStore mas não usou store items (modelo falhou?)
+      } else { // hasStore but didn't use store items (model failed?)
         voice = `Olá! Preparei três looks para sua cliente. Embora tenhamos um catálogo, não consegui montar looks apenas com itens do estoque. Sugestões externas foram usadas para completar. Por favor, revise o catálogo. Qual look você gostaria de apresentar?`;
       }
   } else { // Consumer Mode
@@ -558,7 +665,7 @@ function enrichWithStoreOrTextFallback(output: EStylistOutput, input: EStylistIn
         if (!voice.toLowerCase().includes('comprar') && !voice.toLowerCase().includes('lojas parceiras')) {
           voice = `${voice} ${hint}`.trim();
         }
-      } else if (!hasStore && looks.length > 0) { // Se não há loja, e não usou loja (obviamente)
+      } else if (!hasStore && looks.length > 0) { // If no store, and didn't use store (obviously)
          const hint = 'Para sugestões mais completas e compráveis, considere adicionar mais peças ao seu guarda-roupa ou cadastrar um catálogo de lojas parceiras.';
          if (!voice.toLowerCase().includes('compráveis') && !voice.toLowerCase().includes('lojas parceiras') && !voice.toLowerCase().includes('guardarroupa')) {
            voice = `${voice} ${hint}`.trim();
@@ -570,14 +677,15 @@ function enrichWithStoreOrTextFallback(output: EStylistOutput, input: EStylistIn
 }
 
 /**
- * Mock (fallback) para quando não houver API key
- * -> mantém o MVP sempre funcionando.
+ * Mock (fallback) for when no API key is available
+ * -> keeps the MVP always running.
  */
 function buildMockOutput(input: EStylistInput): EStylistOutput {
   const storeCatalog = input.store_catalog || [];
   const hasStore = storeCatalog.length > 0;
   const initialWardrobeItemCount = input.wardrobe.length;
   const isSellerMode = input.mode === 'seller';
+  const profile = input.profile; // ✅ NEW
 
   let voiceText = '';
 
@@ -603,8 +711,8 @@ function buildMockOutput(input: EStylistInput): EStylistOutput {
         title: isSellerMode ? 'Sugestão de Venda: Conforto Elegante' : 'Casual de Trabalho com Toque Moderno',
         formalidade_calculada: 3,
         items: [
-          ...(isSellerMode && !hasStore ? [] : [{ // Se seller sem loja, não põe item de guarda-roupa
-            wardrobe_item_id: isSellerMode ? null : 'item_01',
+          ...(isSellerMode && !hasStore ? [] : [{ // If seller without store, don't put wardrobe item
+            wardrobe_item_id: isSellerMode ? null : 'item_user_01', // Updated to match defaultConsumerInput
             name: isSellerMode ? (hasStore ? 'Blusa de Malha Leve' : 'Blusa Básica') : 'Camiseta Branca Básica',
             is_external: isSellerMode || false,
             source: isSellerMode ? (hasStore ? 'store' as const : null) : 'user' as const,
@@ -612,6 +720,11 @@ function buildMockOutput(input: EStylistInput): EStylistOutput {
             product_url: isSellerMode && hasStore ? 'https://sualoja.com/blusa-malha' : null,
             price: isSellerMode && hasStore ? 89.90 : null,
             installments: isSellerMode && hasStore ? '2x de R$44,95' : null,
+            brand_id: isSellerMode && hasStore ? 'brand_mock_01' : 'marca_propria', // Updated to match defaultConsumerInput
+            brand_name: isSellerMode && hasStore ? 'Marca Mock Loja' : 'Marca Própria', // Updated to match defaultConsumerInput
+            fit_model: isSellerMode && hasStore ? 'Regular' : null, // Added fit_model
+            fabric: isSellerMode && hasStore ? 'malha' : '100% algodão', // Added fabric
+            size_recommendation: isSellerMode && hasStore ? 'Sugerimos Tam. M' : null,
             sales_support: isSellerMode && hasStore ? {
               why_it_works: 'Peça curinga do nosso estoque, ideal para combinar com várias opções.',
               versatility: 'Excelente para o dia a dia e fácil de compor looks.',
@@ -619,33 +732,43 @@ function buildMockOutput(input: EStylistInput): EStylistOutput {
             } : null,
           }]),
           ...(
-            // Se for Teste A (consumer sem loja, 1 item), não adiciona mais itens aqui.
-            // Se for seller mode, também ajusta.
+            // If Test A (consumer without store, 1 item), don't add more items here.
+            // If seller mode, also adjust.
             (!hasStore && initialWardrobeItemCount === 1 && !isSellerMode) || (isSellerMode && !hasStore && initialWardrobeItemCount < 3) ? [] : [
             {
-                wardrobe_item_id: isSellerMode ? null : 'item_02',
-                name: isSellerMode ? (hasStore ? 'Calça Slim Azul Escuro' : 'Calça Reta') : 'Calça Jeans Reta',
-                is_external: isSellerMode || false,
-                source: isSellerMode ? (hasStore ? 'store' as const : null) : 'user' as const,
-                can_purchase: isSellerMode ? hasStore : false,
-                product_url: isSellerMode && hasStore ? 'https://sualoja.com/calca-slim' : null,
-                price: isSellerMode && hasStore ? 159.90 : null,
-                installments: isSellerMode && hasStore ? '3x de R$53,30' : null,
-                sales_support: isSellerMode && hasStore ? {
+                wardrobe_item_id: null, // This would be a store item or generic
+                name: isSellerMode ? (hasStore ? 'Calça Slim Azul Escuro' : 'Calça Reta') : 'Calça Jeans High Waist', // Updated to match defaultConsumerInput store item
+                is_external: true, // Always external if not from user wardrobe
+                source: hasStore ? 'store' as const : null,
+                can_purchase: hasStore ? true : false,
+                product_url: hasStore ? 'https://loja.com/p/calca-99' : null, // Updated to match defaultConsumerInput store item
+                price: hasStore ? 289.90 : null, // Updated to match defaultConsumerInput store item
+                installments: hasStore ? '3x de R$96,63' : null, // Updated to match defaultConsumerInput store item
+                brand_id: hasStore ? 'marca_premium_01' : null, // Updated to match defaultConsumerInput store item
+                brand_name: hasStore ? 'Levis Style' : null, // Updated to match defaultConsumerInput store item
+                fit_model: hasStore ? 'Slim' : null, // Added fit_model
+                fabric: hasStore ? '98% algodão, 2% elastano' : null, // Added fabric
+                size_recommendation: hasStore ? 'Sugerimos Tam. 42' : null, // Updated to expected size recommendation
+                sales_support: hasStore ? {
                   why_it_works: 'Modelagem moderna e tecido confortável, um best-seller da loja.',
                   versatility: 'Combina com blusas e camisas, perfeita para transitar entre looks.',
                   priority: 'essencial' as SalesPriority,
                 } : null,
             },
             {
-                wardrobe_item_id: isSellerMode ? null : 'item_03',
+                wardrobe_item_id: null,
                 name: isSellerMode ? (hasStore ? 'Blazer Acinturado Preto' : 'Blazer Elegante') : 'Blazer Preto Estruturado',
-                is_external: isSellerMode || false,
-                source: isSellerMode ? (hasStore ? 'store' as const : null) : 'user' as const,
-                can_purchase: isSellerMode ? hasStore : false,
+                is_external: true, // Assuming this is an external suggestion
+                source: hasStore ? 'store' as const : null, // Can be store if available, else null
+                can_purchase: hasStore ? true : false,
                 product_url: isSellerMode && hasStore ? 'https://sualoja.com/blazer-preto' : null,
                 price: isSellerMode && hasStore ? 299.90 : null,
                 installments: isSellerMode && hasStore ? '5x de R$59,98' : null,
+                brand_id: isSellerMode && hasStore ? 'brand_mock_03' : null,
+                brand_name: isSellerMode && hasStore ? 'Marca Mock Loja 3' : null,
+                fit_model: isSellerMode && hasStore ? 'Acinturado' : null, // Added fit_model
+                fabric: isSellerMode && hasStore ? 'poliéster' : null, // Added fabric
+                size_recommendation: isSellerMode && hasStore ? 'Sugerimos Tam. G' : null,
                 sales_support: isSellerMode && hasStore ? {
                   why_it_works: 'Um clássico atemporal que eleva qualquer visual, sempre em estoque!',
                   versatility: 'Ideal para trabalho, eventos sociais e composições mais elaboradas.',
@@ -653,7 +776,7 @@ function buildMockOutput(input: EStylistInput): EStylistOutput {
                 } : null,
             }]
           )
-        ].flat(), // flat para remover arrays vazios
+        ].flat(), // flat to remove empty arrays
         why_it_works:
           (isSellerMode ? 'Para sua cliente, este look é composto por itens que temos em estoque. ' : '') +
           'A combinação da camiseta básica com o blazer eleva o jeans, tornando-o apropriado para uma reunião informal. O blazer adiciona estrutura e profissionalismo. As peças são do ' + (isSellerMode ? 'nosso estoque' : 'seu guarda-roupa') + '.',
@@ -669,14 +792,19 @@ function buildMockOutput(input: EStylistInput): EStylistOutput {
         formalidade_calculada: 4,
         items: [
           {
-            wardrobe_item_id: isSellerMode ? null : 'item_05',
+            wardrobe_item_id: null, // This is a store item or generic
             name: isSellerMode ? (hasStore ? 'Vestido Midi Estampado' : 'Vestido Floral') : 'Vestido Midi Floral',
-            is_external: isSellerMode || false,
-            source: isSellerMode ? (hasStore ? 'store' as const : null) : 'user' as const,
-            can_purchase: isSellerMode ? hasStore : false,
+            is_external: true, // External
+            source: hasStore ? 'store' as const : null,
+            can_purchase: hasStore ? true : false,
             product_url: isSellerMode && hasStore ? 'https://sualoja.com/vestido-midi' : null,
             price: isSellerMode && hasStore ? 199.90 : null,
             installments: isSellerMode && hasStore ? '4x de R$49,98' : null,
+            brand_id: isSellerMode && hasStore ? 'brand_mock_04' : null,
+            brand_name: isSellerMode && hasStore ? 'Marca Mock Loja 4' : null,
+            fit_model: isSellerMode && hasStore ? 'Regular' : null, // Added fit_model
+            fabric: isSellerMode && hasStore ? 'viscose' : null, // Added fabric
+            size_recommendation: isSellerMode && hasStore ? 'Sugerimos Tam. M' : null,
             sales_support: isSellerMode && hasStore ? {
               why_it_works: 'Um vestido que a cliente vai amar, disponível em diversas estampas na loja.',
               versatility: 'Pode ser usado com salto ou tênis, casual ou mais formal.',
@@ -684,14 +812,19 @@ function buildMockOutput(input: EStylistInput): EStylistOutput {
             } : null,
           },
           {
-            wardrobe_item_id: isSellerMode ? null : 'item_04',
+            wardrobe_item_id: null, // This is a store item or generic
             name: isSellerMode ? (hasStore ? 'Scarpin Clássico Preto' : 'Sapato de Salto') : 'Sapato Scarpin Preto',
-            is_external: isSellerMode || false,
-            source: isSellerMode ? (hasStore ? 'store' as const : null) : 'user' as const,
-            can_purchase: isSellerMode ? hasStore : false,
+            is_external: true, // External
+            source: hasStore ? 'store' as const : null,
+            can_purchase: hasStore ? true : false,
             product_url: isSellerMode && hasStore ? 'https://sualoja.com/scarpin-preto' : null,
             price: isSellerMode && hasStore ? 129.90 : null,
             installments: isSellerMode && hasStore ? '3x de R$43,30' : null,
+            brand_id: isSellerMode && hasStore ? 'brand_mock_05' : null,
+            brand_name: isSellerMode && hasStore ? 'Marca Mock Loja 5' : null,
+            fit_model: isSellerMode && hasStore ? 'Classic' : null, // Added fit_model
+            fabric: isSellerMode && hasStore ? 'couro sintético' : null, // Added fabric
+            size_recommendation: isSellerMode && hasStore ? 'Sugerimos Tam. 37' : null,
             sales_support: isSellerMode && hasStore ? {
               why_it_works: 'Essencial para um toque de elegância, sempre um sucesso de vendas.',
               versatility: 'Peça coringa para looks de trabalho e eventos sociais.',
@@ -708,6 +841,11 @@ function buildMockOutput(input: EStylistInput): EStylistOutput {
             product_url: hasStore ? 'https://acessoriosmania.com/colar-minimalista-dourado' : null,
             price: hasStore ? 79.99 : null,
             installments: hasStore ? '1x de R$79,99' : null,
+            brand_id: hasStore ? 'brand_011' : null,
+            brand_name: hasStore ? 'Brilho Único' : null,
+            fit_model: hasStore ? 'N/A' : null, // Added fit_model
+            fabric: hasStore ? 'metal' : null, // Added fabric
+            size_recommendation: hasStore ? 'Tamanho único' : null,
             sales_support: hasStore ? {
               why_it_works: 'Um colar discreto adiciona um toque final elegante sem pesar o visual, perfeito para a reunião.',
               versatility: 'Pode ser usado com diversos decotes e estilos.',
@@ -730,7 +868,7 @@ function buildMockOutput(input: EStylistInput): EStylistOutput {
         formalidade_calculada: 2,
         items: [
           {
-            wardrobe_item_id: isSellerMode ? null : 'item_01',
+            wardrobe_item_id: isSellerMode ? null : 'item_user_01', // Updated to match defaultConsumerInput
             name: isSellerMode ? (hasStore ? 'Camisa Viscose Branca' : 'Camisa Básica') : 'Camiseta Branca Básica',
             is_external: isSellerMode || false,
             source: isSellerMode ? (hasStore ? 'store' as const : null) : 'user' as const,
@@ -738,6 +876,11 @@ function buildMockOutput(input: EStylistInput): EStylistOutput {
             product_url: isSellerMode && hasStore ? 'https://sualoja.com/camisa-viscose' : null,
             price: isSellerMode && hasStore ? 119.90 : null,
             installments: isSellerMode && hasStore ? '2x de R$59,95' : null,
+            brand_id: isSellerMode && hasStore ? 'brand_mock_06' : 'marca_propria', // Updated to match defaultConsumerInput
+            brand_name: isSellerMode && hasStore ? 'Marca Mock Loja 6' : 'Marca Própria', // Updated to match defaultConsumerInput
+            fit_model: isSellerMode && hasStore ? 'Regular' : null, // Added fit_model
+            fabric: isSellerMode && hasStore ? 'viscose' : '100% algodão', // Added fabric
+            size_recommendation: isSellerMode && hasStore ? 'Sugerimos Tam. P' : null,
             sales_support: isSellerMode && hasStore ? {
               why_it_works: 'Um item versátil e fresco, sempre bem-vindo no guarda-roupa da cliente.',
               versatility: 'Fácil de combinar com saias, calças e shorts.',
@@ -745,29 +888,39 @@ function buildMockOutput(input: EStylistInput): EStylistOutput {
             } : null,
           },
           {
-            wardrobe_item_id: isSellerMode ? null : 'item_02',
-            name: isSellerMode ? (hasStore ? 'Calça Jeans Skinny' : 'Calça Jeans Conforto') : 'Calça Jeans Reta',
-            is_external: isSellerMode || false,
-            source: isSellerMode ? (hasStore ? 'store' as const : null) : 'user' as const,
-            can_purchase: isSellerMode ? hasStore : false,
-            product_url: isSellerMode && hasStore ? 'https://sualoja.com/calca-jeans-skinny' : null,
-            price: isSellerMode && hasStore ? 149.90 : null,
-            installments: isSellerMode && hasStore ? '3x de R$49,97' : null,
-            sales_support: isSellerMode && hasStore ? {
+            wardrobe_item_id: null, // This is a store item or generic
+            name: isSellerMode ? (hasStore ? 'Calça Jeans Skinny' : 'Calça Jeans Conforto') : 'Calça Jeans High Waist', // Updated to match defaultConsumerInput store item
+            is_external: true, // External
+            source: hasStore ? 'store' as const : null,
+            can_purchase: hasStore ? true : false,
+            product_url: hasStore ? 'https://loja.com/p/calca-99' : null, // Updated to match defaultConsumerInput store item
+            price: hasStore ? 289.90 : null, // Updated to match defaultConsumerInput store item
+            installments: hasStore ? '3x de R$96,63' : null, // Updated to match defaultConsumerInput store item
+            brand_id: hasStore ? 'marca_premium_01' : null, // Updated to match defaultConsumerInput store item
+            brand_name: hasStore ? 'Levis Style' : null, // Updated to match defaultConsumerInput store item
+            fit_model: hasStore ? 'Slim' : null, // Added fit_model
+            fabric: hasStore ? '98% algodão, 2% elastano' : null, // Added fabric
+            size_recommendation: hasStore ? 'Sugerimos Tam. 42' : null, // Updated to expected size recommendation
+            sales_support: hasStore ? {
               why_it_works: 'Modelagem moderna e muito procurada, um sucesso de vendas.',
               versatility: 'Perfeita para o dia a dia e combina com diversas blusas e calçados.',
               priority: 'essencial' as SalesPriority,
             } : null,
           },
           {
-            wardrobe_item_id: isSellerMode ? null : 'item_06',
+            wardrobe_item_id: null,
             name: isSellerMode ? (hasStore ? 'Tênis Urbano Branco' : 'Tênis Moderno') : 'Tênis Casual Branco',
-            is_external: isSellerMode || false,
-            source: isSellerMode ? (hasStore ? 'store' as const : null) : 'user' as const,
-            can_purchase: isSellerMode ? hasStore : false,
+            is_external: true,
+            source: hasStore ? 'store' as const : null,
+            can_purchase: hasStore ? true : false,
             product_url: isSellerMode && hasStore ? 'https://sualoja.com/tenis-urbano' : null,
             price: isSellerMode && hasStore ? 179.90 : null,
             installments: isSellerMode && hasStore ? '3x de R$59,97' : null,
+            brand_id: isSellerMode && hasStore ? 'brand_mock_08' : null,
+            brand_name: isSellerMode && hasStore ? 'Marca Mock Loja 8' : null,
+            fit_model: isSellerMode && hasStore ? 'Casual' : null, // Added fit_model
+            fabric: isSellerMode && hasStore ? 'lona' : null, // Added fabric
+            size_recommendation: isSellerMode && hasStore ? 'Sugerimos Tam. 38' : null,
             sales_support: isSellerMode && hasStore ? {
               why_it_works: 'O conforto que a cliente busca, com o estilo que está em alta. Temos em várias numerações.',
               versatility: 'Ideal para looks casuais e esportivos, super tendência.',
@@ -795,7 +948,7 @@ function buildMockOutput(input: EStylistInput): EStylistOutput {
 // NOVO: Simula um armazenamento de backend para looks compartilhados
 // Em um app real, isso seria um Map<token, Look> gerenciado no backend.
 // Aqui, é um Map in-memory do frontend para simular a funcionalidade.
-const _sharedLookStore = new Map<string, Look>();
+const _sharedLookStore = new Map<string, SharedLinkData>(); // Modificado para armazenar SharedLinkData
 
 export const eStylistService = {
   async generateLooks(input: EStylistInput): Promise<EStylistOutput> {
@@ -846,28 +999,24 @@ export const eStylistService = {
       try {
         const genAI = new GoogleGenAI({ apiKey: apiKey });
 
-        // Modelo recomendado para MVP (rápido)
-        const model = genAI.getGenerativeModel({
-          model: 'gemini-2.5-flash',
-          systemInstruction: SYSTEM_INSTRUCTION,
-        });
-
         // Prompt para reescrever APENAS os textos
         const prompt = `
 Reescreva APENAS os textos para vender melhor sem exagero, SEM alterar os itens (array "items").
-Mantenha a formalidade calculada e as flags de externalidade/compra.
+Mantenha a formalidade calculada e as flags de externalidade/compra, e os campos de marca e sugestão de tamanho.
 Entrada (JSON dos looks gerados deterministicamente):
 ${JSON.stringify(baseOutput)}
 
 Regras:
 - NÃO adicione ou remova objetos dentro do array "items" de cada look.
-- NÃO altere os valores de "wardrobe_item_id", "store_item_id", "is_external", "source", "can_purchase", "product_url", "price", "installments".
+- NÃO altere os valores de "wardrobe_item_id", "store_item_id", "is_external", "source", "can_purchase", "product_url", "price", "installments", "brand_id", "brand_name", "fabric", "size_recommendation".
 - Melhore os textos de: "why_it_works" (do look), "sales_support.why_it_works" (dos itens da loja), "sales_support.versatility", "voice_text", "next_question".
 - Garanta que a formalidade calculada do look seja mantida (não reavalie).
 - Retorne APENAS o JSON COMPLETO e VÁLIDO no formato especificado.
 `;
 
-        const result = await model.generateContent({
+        // Fix: Use ai.models.generateContent directly and move systemInstruction into the config object.
+        const result = await genAI.models.generateContent({
+          model: 'gemini-2.5-flash', // Modelo recomendado para MVP (rápido)
           contents: [
             {
               role: 'user',
@@ -875,12 +1024,13 @@ Regras:
             },
           ],
           config: {
+            systemInstruction: SYSTEM_INSTRUCTION,
             temperature: 0.7, // Um pouco mais criativo para textos
             responseMimeType: 'application/json',
           },
         });
 
-        const rawText = result.response.text; // Corrigido para acessar a propriedade .text
+        const rawText = result.text; // Corrigido para acessar a propriedade .text
         const jsonText = extractJson(rawText);
 
         let parsed: EStylistOutput;
@@ -923,10 +1073,10 @@ Regras:
   },
 
   // NOVO: Simula a criação de um link de compartilhamento no backend
-  async createShareLink(look: Look, scope: ShareScope): Promise<string> {
+  async createShareLink(look: Look, profile: Profile, scope: ShareScope): Promise<string> {
     // Gerar um token simples (UUID real seria melhor)
     const token = 'shared-' + Math.random().toString(36).substring(2, 15);
-    _sharedLookStore.set(token, look); // Armazena o look no nosso "pseudo-backend"
+    _sharedLookStore.set(token, { look, profile }); // Armazena o look E o perfil no nosso "pseudo-backend"
 
     // Retorna o URL completo para o look compartilhado
     // Assume que a PWA está em window.location.origin
@@ -936,15 +1086,15 @@ Regras:
   },
 
   // NOVO: Simula a recuperação de um look compartilhado do backend
-  async getSharedLook(token: string): Promise<Look | null> {
+  async getSharedLook(token: string): Promise<SharedLinkData | null> {
     // Simula um delay de rede
     await new Promise(resolve => setTimeout(resolve, 500));
-    const look = _sharedLookStore.get(token);
-    if (look) {
-      console.log(`Look recuperado para o token: ${token}`);
+    const data = _sharedLookStore.get(token);
+    if (data) {
+      console.log(`Look e Profile recuperados para o token: ${token}`);
     } else {
       console.warn(`Nenhum look encontrado para o token: ${token}`);
     }
-    return look || null;
+    return data || null;
   }
 };

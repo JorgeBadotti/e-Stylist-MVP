@@ -118,6 +118,12 @@ const LookCard: React.FC<LookCardProps> = ({ look, wardrobeItems, onBuyClick, on
                       {item.installments}
                     </span>
                   )}
+                  {/* ✅ NOVO: Exibe a recomendação de tamanho, se existir */}
+                  {item.size_recommendation && (
+                    <span className="ml-2 text-purple-700 font-medium text-xs">
+                      ({item.size_recommendation})
+                    </span>
+                  )}
                   {item.can_purchase && item.product_url && (
                     <a
                       href={item.product_url}

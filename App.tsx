@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { eStylistService } from './services/eStylistService';
-import { EStylistInput, EStylistOutput, Look, EStylistMode } from './types';
+import { EStylistInput, EStylistOutput, Look, EStylistMode, Profile, DetectedMeasurements, SharedLinkData } from './types';
 import JsonInput from './components/JsonInput';
 import JsonOutput from './components/JsonOutput';
 import Button from './components/Button';
@@ -8,83 +8,32 @@ import LookCard from './components/LookCard';
 import Alert from './components/Alert';
 import ShareOptionsModal from './components/ShareOptionsModal'; // NOVO: Modal de opções de compartilhamento
 import SharedLookView from './components/SharedLookView'; // NOVO: Componente para visualização de look compartilhado
+import CameraCaptureScreen from './components/CameraCaptureScreen'; // NOVO: Componente para captura de câmera
 
 const defaultConsumerInput: EStylistInput = {
   profile: {
     name: 'Maria',
     style_preferences: ['casual', 'confortável'],
     body_shape: 'retângulo',
+    body_measurements: {
+      chest_cm: 92,
+      waist_cm: 82,
+      hips_cm: 102,
+      height_cm: 165,
+    },
   },
   wardrobe: [
     {
-      id: 'item_01',
+      id: 'item_user_01',
       name: 'Camiseta Branca Básica',
       category: 'blusa',
       color: 'branco',
-      fabric: 'algodão',
+      fabric: '100% algodão', // ✅ Adicionado fabric
       style: 'básico',
       fit: 'reto',
       nivel_formalidade: 1,
-    },
-    {
-      id: 'item_02',
-      name: 'Calça Jeans Reta',
-      category: 'calça',
-      color: 'azul',
-      fabric: 'jeans',
-      style: 'casual',
-      fit: 'reto',
-      nivel_formalidade: 2,
-    },
-    {
-      id: 'item_03',
-      name: 'Blazer Preto Estruturado',
-      category: 'casaco',
-      color: 'preto',
-      fabric: 'poliéster',
-      style: 'clássico',
-      fit: 'estruturado',
-      nivel_formalidade: 4,
-    },
-    {
-      id: 'item_04',
-      name: 'Sapato Scarpin Preto',
-      category: 'calçado',
-      color: 'preto',
-      fabric: 'couro sintético',
-      style: 'clássico',
-      fit: 'justo',
-      nivel_formalidade: 5,
-    },
-    {
-      id: 'item_05',
-      name: 'Vestido Midi Floral',
-      category: 'vestido',
-      color: 'estampado',
-      fabric: 'viscose',
-      style: 'romântico',
-      fit: 'solto',
-      nivel_formalidade: 3,
-    },
-    {
-      id: 'item_06',
-      name: 'Tênis Casual Branco',
-      category: 'calçado',
-      color: 'branco',
-      fabric: 'lona',
-      style: 'esportivo',
-      fit: 'confortável',
-      nivel_formalidade: 1,
-    },
-    {
-      id: 'item_07',
-      name: 'Bolsa Tiracolo Marrom',
-      category: 'acessório',
-      color: 'marrom',
-      fabric: 'couro sintético',
-      style: 'versátil',
-      fit: 'pequena',
-      nivel_formalidade: 3,
+      brand_id: 'marca_propria',
+      brand_name: 'Marca Própria',
     },
   ],
   occasion: {
@@ -94,48 +43,91 @@ const defaultConsumerInput: EStylistInput = {
   },
   store_catalog: [
     {
-      store_item_id: 'store_001',
-      store_name: 'Loja Exemplo',
-      product_url: 'https://sualoja.com/produto/calca-alfaiataria-preta',
-      name: 'Calça de alfaiataria Preta',
+      store_item_id: 'item_store_99',
+      store_name: 'Loja Exemplo', // Default store name
+      product_url: 'https://loja.com/p/calca-99',
+      name: 'Calça Jeans High Waist',
       category: 'calça',
-      nivel_formalidade: 4,
-      price: 189.90,
-      installments: '3x de R$63,30',
-      commission_tag: 'aff_xyz'
+      fabric: '98% algodão, 2% elastano', // ✅ Adicionado fabric
+      nivel_formalidade: 2, // Estimated formalidade for jeans
+      price: 289.90,
+      installments: '3x de R$96,63', // Calculated for 3 installments
+      commission_tag: 'aff_xyz', // Default tag
+      brand_id: 'marca_premium_01',
+      brand_name: 'Levis Style',
+      fit_model: 'Slim',
+      size_specs: [
+        {
+          size_label: '40',
+          waist_min_cm: 78,
+          waist_max_cm: 81,
+        },
+        {
+          size_label: '42',
+          waist_min_cm: 82,
+          waist_max_cm: 85,
+        },
+      ],
     },
     {
-      store_item_id: 'store_002',
+      store_item_id: 'item_store_100',
       store_name: 'Loja Exemplo',
-      product_url: 'https://sualoja.com/produto/sapato-casual-confortavel',
-      name: 'Sapato casual Marrom',
-      category: 'calçado',
-      nivel_formalidade: 3,
-      price: 249.90,
-      installments: '5x de R$49,98',
-      commission_tag: 'aff_xyz'
-    },
-    {
-      store_item_id: 'store_003',
-      store_name: 'Loja Chic',
-      product_url: 'https://loja-chic.com/blazer-moderno-off-white',
-      name: 'Blazer Moderno Off-White',
-      category: 'casaco',
+      product_url: 'https://loja.com/p/blusa-seda',
+      name: 'Blusa de Seda Pura',
+      category: 'blusa',
+      fabric: '100% seda', // Exemplo de tecido rígido
       nivel_formalidade: 4,
-      price: 399.00,
-      installments: '6x de R$66,50',
-      commission_tag: 'aff_abc'
+      price: 150.00,
+      installments: '3x de R$50,00',
+      commission_tag: 'aff_xyz',
+      brand_id: 'marca_luxo',
+      brand_name: 'Elegance',
+      fit_model: 'Regular',
+      size_specs: [
+        { size_label: 'P', chest_min_cm: 80, chest_max_cm: 84 },
+        { size_label: 'M', chest_min_cm: 85, chest_max_cm: 89 }, // Maria (92cm) estaria no limite superior (89cm) se fosse M
+        { size_label: 'G', chest_min_cm: 90, chest_max_cm: 94 },
+      ],
     },
     {
-      store_item_id: 'store_004',
-      store_name: 'Acessorios Mania',
-      product_url: 'https://acessoriosmania.com/colar-minimalista-dourado',
-      name: 'Colar Minimalista Dourado',
-      category: 'acessório',
+      store_item_id: 'item_store_101',
+      store_name: 'Loja Exemplo',
+      product_url: 'https://loja.com/p/vestido-malha',
+      name: 'Vestido de Malha Canelada',
+      category: 'vestido',
+      fabric: '95% viscose, 5% elastano', // Exemplo de tecido flexível
       nivel_formalidade: 3,
-      price: 79.99,
-      installments: '1x de R$79,99',
-      commission_tag: 'aff_def'
+      price: 120.00,
+      installments: '2x de R$60,00',
+      commission_tag: 'aff_xyz',
+      brand_id: 'marca_conforto',
+      brand_name: 'Conforto Já',
+      fit_model: 'Bodycon',
+      size_specs: [
+        { size_label: 'P', chest_min_cm: 80, chest_max_cm: 86 },
+        { size_label: 'M', chest_min_cm: 87, chest_max_cm: 91 }, // Maria (92cm) ultrapassa em 1cm, dentro de 2% (91 * 1.02 = 92.82)
+        { size_label: 'G', chest_min_cm: 92, chest_max_cm: 96 },
+      ],
+    },
+    {
+      store_item_id: 'item_store_102',
+      store_name: 'Loja Exemplo',
+      product_url: 'https://loja.com/p/calca-alfaiataria',
+      name: 'Calça de Alfaiataria Lisa',
+      category: 'calça',
+      fabric: 'Lã fria', // Exemplo de tecido de alfaiataria
+      nivel_formalidade: 4,
+      price: 350.00,
+      installments: '5x de R$70,00',
+      commission_tag: 'aff_xyz',
+      brand_id: 'marca_executiva',
+      brand_name: 'Executiva Chic', // Marca com regra de Slim Fit
+      fit_model: 'Slim',
+      size_specs: [
+        { size_label: '38', waist_min_cm: 75, waist_max_cm: 79, hips_min_cm: 95, hips_max_cm: 99 },
+        { size_label: '40', waist_min_cm: 80, waist_max_cm: 84, hips_min_cm: 100, hips_max_cm: 104 }, // Maria (cintura 82cm, quadril 102cm) cairia aqui
+        { size_label: '42', waist_min_cm: 85, waist_max_cm: 89, hips_min_cm: 105, hips_max_cm: 109 },
+      ],
     },
   ],
   mode: 'consumer',
@@ -147,6 +139,12 @@ const defaultSellerInput: EStylistInput = {
     name: 'Cliente Ana',
     style_preferences: ['casual elegante', 'moderno'],
     body_shape: 'ampulheta',
+    body_measurements: {
+      chest_cm: 92,
+      waist_cm: 72,
+      hips_cm: 98,
+      height_cm: 170,
+    },
   },
   wardrobe: [],
   occasion: {
@@ -159,23 +157,36 @@ const defaultSellerInput: EStylistInput = {
       store_item_id: 'store_001',
       store_name: 'Loja Exemplo',
       product_url: 'https://sualoja.com/produto/calca-alfaiataria-preta',
-      name: 'Calça de alfaiataria Preta',
+      name: 'Calça de Alfaiataria Preta',
       category: 'calça',
+      fabric: '97% poliéster, 3% elastano', // ✅ Adicionado fabric
       nivel_formalidade: 4,
       price: 189.90,
       installments: '3x de R$63,30',
-      commission_tag: 'aff_xyz'
+      commission_tag: 'aff_xyz',
+      brand_id: 'brand_008', // Exemplo
+      brand_name: 'Executiva Chic', // Exemplo
+      fit_model: 'Slim', // Exemplo
+      size_specs: [ // Exemplo de size_specs
+        { size_label: '38', waist_min_cm: 68, waist_max_cm: 72, hips_min_cm: 92, hips_max_cm: 96 },
+        { size_label: '40', waist_min_cm: 72, waist_max_cm: 76, hips_min_cm: 96, hips_max_cm: 100 },
+        { size_label: '42', waist_min_cm: 76, waist_max_cm: 80, hips_min_cm: 100, hips_max_cm: 104 },
+        { size_label: '44', waist_min_cm: 80, waist_max_cm: 84, hips_min_cm: 104, hips_max_cm: 108 },
+      ],
     },
     {
       store_item_id: 'store_002',
       store_name: 'Loja Exemplo',
       product_url: 'https://sualoja.com/produto/sapato-casual-confortavel',
-      name: 'Sapato casual Marrom',
+      name: 'Sapato Casual Marrom',
       category: 'calçado',
+      fabric: 'couro sintético', // ✅ Adicionado fabric
       nivel_formalidade: 3,
       price: 249.90,
       installments: '5x de R$49,98',
-      commission_tag: 'aff_xyz'
+      commission_tag: 'aff_xyz',
+      brand_id: 'brand_009', // Exemplo
+      brand_name: 'Conforto Total', // Exemplo
     },
     {
       store_item_id: 'store_003',
@@ -183,10 +194,19 @@ const defaultSellerInput: EStylistInput = {
       product_url: 'https://loja-chic.com/blazer-moderno-off-white',
       name: 'Blazer Moderno Off-White',
       category: 'casaco',
+      fabric: '98% poliéster, 2% elastano', // ✅ Adicionado fabric
       nivel_formalidade: 4,
       price: 399.00,
       installments: '6x de R$66,50',
-      commission_tag: 'aff_abc'
+      commission_tag: 'aff_abc',
+      brand_id: 'brand_010', // Exemplo
+      brand_name: 'Chic Style', // Exemplo
+      fit_model: 'Regular', // Exemplo
+      size_specs: [
+        { size_label: 'P', chest_min_cm: 84, chest_max_cm: 88 },
+        { size_label: 'M', chest_min_cm: 88, chest_max_cm: 92 },
+        { size_label: 'G', chest_min_cm: 92, chest_max_cm: 96 },
+      ],
     },
     {
       store_item_id: 'store_004',
@@ -194,10 +214,13 @@ const defaultSellerInput: EStylistInput = {
       product_url: 'https://acessoriosmania.com/colar-minimalista-dourado',
       name: 'Colar Minimalista Dourado',
       category: 'acessório',
+      fabric: 'metal', // ✅ Adicionado fabric
       nivel_formalidade: 3,
       price: 79.99,
       installments: '1x de R$79,99',
-      commission_tag: 'aff_def'
+      commission_tag: 'aff_def',
+      brand_id: 'brand_011', // Exemplo
+      brand_name: 'Brilho Único', // Exemplo
     },
     {
       store_item_id: 'store_005',
@@ -205,10 +228,19 @@ const defaultSellerInput: EStylistInput = {
       product_url: 'https://sualoja.com/blusa-seda-estampada',
       name: 'Blusa de Seda Estampada',
       category: 'blusa',
+      fabric: 'seda pura', // ✅ Adicionado fabric
       nivel_formalidade: 4,
       price: 129.90,
       installments: '2x de R$64,95',
-      commission_tag: 'aff_xyz'
+      commission_tag: 'aff_xyz',
+      brand_id: 'brand_012', // Exemplo
+      brand_name: 'Seda Pura', // Exemplo
+      fit_model: 'Regular',
+      size_specs: [
+        { size_label: 'P', chest_min_cm: 86, chest_max_cm: 90 },
+        { size_label: 'M', chest_min_cm: 90, chest_max_cm: 94 },
+        { size_label: 'G', chest_min_cm: 94, chest_max_cm: 98 },
+      ],
     },
     {
       store_item_id: 'store_006',
@@ -216,10 +248,19 @@ const defaultSellerInput: EStylistInput = {
       product_url: 'https://sualoja.com/saia-midi-plissada',
       name: 'Saia Midi Plissada',
       category: 'saia',
+      fabric: 'viscose', // ✅ Adicionado fabric
       nivel_formalidade: 4,
       price: 219.90,
       installments: '4x de R$54,98',
-      commission_tag: 'aff_xyz'
+      commission_tag: 'aff_xyz',
+      brand_id: 'brand_013', // Exemplo
+      brand_name: 'Elegância Fluida', // Exemplo
+      fit_model: 'Loose',
+      size_specs: [
+        { size_label: 'P', waist_min_cm: 64, waist_max_cm: 68 },
+        { size_label: 'M', waist_min_cm: 68, waist_max_cm: 72 },
+        { size_label: 'G', waist_min_cm: 72, waist_max_cm: 76 },
+      ],
     },
   ],
   mode: 'seller',
@@ -239,17 +280,35 @@ const App: React.FC = () => {
   // NOVO: Estado para o modal de compartilhamento
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
   const [lookToShare, setLookToShare] = useState<Look | null>(null);
+  const [profileForShare, setProfileForShare] = useState<Profile | null>(null); // NOVO: Perfil para compartilhar
 
   // NOVO: Estado para o look compartilhado (quando acessado via link)
-  const [sharedLookData, setSharedLookData] = useState<Look | null>(null);
+  const [sharedLinkData, setSharedLinkData] = useState<SharedLinkData | null>(null); // Alterado para SharedLinkData
   const [isViewingSharedLook, setIsViewingSharedLook] = useState<boolean>(false);
+
+  // NOVO: Estado para controlar a exibição da tela de captura de câmera
+  const [showCameraCapture, setShowCameraCapture] = useState<boolean>(false);
+  const [cameraProfileInitialData, setCameraProfileInitialData] = useState<Profile | null>(null); // Dados para a tela da câmera
 
 
   // Função utilitária para atualizar um campo no JSON de entrada com segurança
   const updateJsonField = useCallback((field: string, value: any) => {
     try {
       const parsed = JSON.parse(inputJson);
-      parsed[field] = value;
+      // Suporta path aninhado para 'profile.body_measurements'
+      if (field.includes('.')) {
+        const parts = field.split('.');
+        let current = parsed;
+        for (let i = 0; i < parts.length - 1; i++) {
+          if (current[parts[i]] === undefined) {
+            current[parts[i]] = {};
+          }
+          current = current[parts[i]];
+        }
+        current[parts[parts.length - 1]] = value;
+      } else {
+        parsed[field] = value;
+      }
       setInputJson(JSON.stringify(parsed, null, 2));
     } catch {
       // JSON inválido: não faz nada (evita quebrar a UI)
@@ -328,11 +387,31 @@ const App: React.FC = () => {
     }
   })();
 
-  // NOVO: Função para abrir o modal de compartilhamento
+  // NOVO: Função para abrir o modal de compartilhamento, agora passando o perfil
   const openShareModal = useCallback((look: Look) => {
     setLookToShare(look);
+    try {
+      const parsedInput = JSON.parse(inputJson);
+      setProfileForShare(parsedInput.profile); // Passa o perfil completo
+    } catch (e) {
+      console.error("Failed to parse input JSON for profile:", e);
+      setProfileForShare(null);
+    }
     setShowShareModal(true);
-  }, []);
+  }, [inputJson]);
+
+  // NOVO: Callback para atualizar as medidas do perfil após a captura da câmera
+  const handleMeasurementsCaptured = useCallback((measurements: DetectedMeasurements, photoBase64: string) => {
+    updateJsonField('profile.body_measurements', {
+      chest_cm: measurements.chest_cm,
+      waist_cm: measurements.waist_cm,
+      hips_cm: measurements.hips_cm,
+      height_cm: measurements.height_cm,
+    });
+    updateJsonField('profile.photo_base64', photoBase64); // Armazena a foto no perfil
+    setShowCameraCapture(false); // Fecha a tela de captura após sucesso
+    alert('Medidas atualizadas com sucesso!');
+  }, [updateJsonField]);
 
   // NOVO: Lógica para detectar e carregar look compartilhado da URL
   useEffect(() => {
@@ -350,11 +429,11 @@ const App: React.FC = () => {
       setError(null);
 
       eStylistService.getSharedLook(token)
-        .then(look => {
-          if (look) {
-            setSharedLookData(look);
+        .then(data => {
+          if (data) {
+            setSharedLinkData(data); // Armazena look E profile
             setIsViewingSharedLook(true);
-            document.title = `e-Stylist: ${look.title}`;
+            document.title = `e-Stylist: ${data.look.title}`;
           } else {
             setError('Look compartilhado não encontrado ou expirado.');
             setIsViewingSharedLook(false);
@@ -371,17 +450,66 @@ const App: React.FC = () => {
     }
   }, []); // Executa apenas uma vez no carregamento
 
+  // Handler para "Confirme suas medidas" e "Salvar Perfil" da SharedLookView
+  const handleSharedViewAction = useCallback((action: 'confirmMeasures' | 'saveProfile', sharedProfile: Profile) => {
+    // Redireciona para a home e abre a câmera ou atualiza o perfil
+    window.history.pushState({}, '', '/');
+    setIsViewingSharedLook(false);
+    setSharedLinkData(null); // Limpa os dados do look compartilhado
+    document.title = 'e-Stylist MVP Frontend';
+
+    if (action === 'confirmMeasures') {
+      setCameraProfileInitialData(sharedProfile); // Prepara para a tela da câmera
+      setShowCameraCapture(true);
+    } else if (action === 'saveProfile') {
+      // Atualiza o inputJson principal com os dados do perfil do look compartilhado
+      setInputJson(JSON.stringify({ ...defaultConsumerInput, profile: sharedProfile }, null, 2));
+      alert('Perfil salvo com sucesso! Você pode gerar novos looks agora.');
+    }
+  }, []);
+
+
   // Renderiza a tela de look compartilhado se estiver ativa
-  if (isViewingSharedLook && sharedLookData) {
+  if (isViewingSharedLook && sharedLinkData) {
     return (
-      <SharedLookView look={sharedLookData} onBack={() => {
-        setIsViewingSharedLook(false);
-        setSharedLookData(null);
-        window.history.pushState({}, '', '/'); // Retorna para a home
-        document.title = 'e-Stylist MVP Frontend';
-      }} />
+      <SharedLookView
+        look={sharedLinkData.look}
+        profile={sharedLinkData.profile} // Passa o profile completo
+        wardrobeItems={defaultConsumerInput.wardrobe} // Usado para a Camada 2
+        onBack={() => {
+          setIsViewingSharedLook(false);
+          setSharedLinkData(null);
+          window.history.pushState({}, '', '/'); // Retorna para a home
+          document.title = 'e-Stylist MVP Frontend';
+        }}
+        onAction={handleSharedViewAction} // Passa o handler de ações
+      />
     );
   }
+
+  // NOVO: Renderiza a tela de captura de câmera se estiver ativa
+  if (showCameraCapture) {
+    let currentProfile: Profile;
+    if (cameraProfileInitialData) {
+      currentProfile = cameraProfileInitialData; // Usa dados iniciais se vierem do SharedLinkView
+    } else {
+      try {
+        currentProfile = JSON.parse(inputJson).profile;
+      } catch (e) {
+        console.error("Failed to parse profile from input JSON for camera capture:", e);
+        currentProfile = defaultConsumerInput.profile; // Fallback
+      }
+    }
+
+    return (
+      <CameraCaptureScreen
+        profile={currentProfile}
+        onMeasurementsCaptured={handleMeasurementsCaptured}
+        onClose={() => setShowCameraCapture(false)}
+      />
+    );
+  }
+
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-8 flex flex-col items-center">
@@ -437,6 +565,21 @@ const App: React.FC = () => {
           >
             {isLoading ? 'Generating...' : 'Generate Looks'}
           </Button>
+          {/* NOVO: Botão para capturar medidas */}
+          <Button
+            onClick={() => {
+              setCameraProfileInitialData(null); // Garante que a câmera começa com o perfil atual
+              setShowCameraCapture(true);
+            }}
+            className="mt-2 w-full bg-purple-600 hover:bg-purple-700"
+            aria-label="Capturar medidas corporais usando a câmera"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.832-1.664A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.832 1.664A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Capturar Medidas
+          </Button>
         </div>
 
         {/* Output Section */}
@@ -481,6 +624,7 @@ const App: React.FC = () => {
               <LookCard
                 key={look.look_id}
                 look={look}
+                // Passa o wardrobe do defaultConsumerInput para a função de imagem
                 wardrobeItems={defaultConsumerInput.wardrobe}
                 onBuyClick={handleBuyClick}
                 onShareClick={openShareModal} // NOVO: Passa a função para abrir o modal
@@ -491,10 +635,14 @@ const App: React.FC = () => {
       )}
 
       {/* NOVO: Renderiza o modal de compartilhamento */}
-      {showShareModal && lookToShare && (
+      {showShareModal && lookToShare && profileForShare && (
         <ShareOptionsModal
           look={lookToShare}
-          onClose={() => setShowShareModal(false)}
+          profile={profileForShare}
+          onClose={() => {
+            setShowShareModal(false);
+            setProfileForShare(null); // Limpa o perfil ao fechar o modal
+          }}
         />
       )}
     </div>
