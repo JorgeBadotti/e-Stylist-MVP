@@ -4,8 +4,18 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+
+
+// Imports Locais
 import connectDB from './config/db.js';
 import { requestLogger, errorHandler } from './middlewares/logger.js';
+
+//Routers
+import authRoutes from './routes/authRouter.js';
+
+
+
+
 
 dotenv.config();
 //Mongo Init
@@ -22,6 +32,9 @@ app.use(express.static(path.join(__dirname, '..', 'dist')));
 
 // Middlewares Custom
 app.use(requestLogger);
+
+// Routers
+app.use('/auth', authRoutes)
 
 // Error Handler 
 app.use(errorHandler);

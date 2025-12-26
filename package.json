@@ -4,12 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
+    "install-all": "npm install && npm install --prefix client && npm install --prefix server",
+    "dev": "concurrently \"npm run dev --prefix client\" \"nodemon --watch server --exec node server/app.js\"",
+    "build:client": "npm run build --prefix client",
     "server": "node server/app.js",
-    "server:dev": "nodemon --watch server --exec node server/app.js",
-    "start": "npm run build && node server/app.js"
+    "start": "npm run build:client && node server/app.js",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@google/genai": "^1.34.0",
@@ -19,6 +19,8 @@
     "express": "^4.22.1",
     "mongodb": "^7.0.0",
     "mongoose": "^9.0.2",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
     "passport-local-mongoose": "^9.0.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
@@ -26,6 +28,7 @@
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.2.1",
     "nodemon": "^3.0.2",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
