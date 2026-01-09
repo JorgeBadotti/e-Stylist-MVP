@@ -23,7 +23,8 @@
     "passport-google-oauth20": "^2.0.0",
     "passport-local-mongoose": "^9.0.1",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "react-dom": "^19.2.3",
+    "vite": "^6.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
