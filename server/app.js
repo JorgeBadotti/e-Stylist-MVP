@@ -15,8 +15,6 @@ import authRoutes from './routes/authRouter.js';
 
 
 
-
-
 dotenv.config();
 //Mongo Init
 connectDB();
@@ -30,11 +28,19 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
+
+
+
 // Middlewares Custom
 app.use(requestLogger);
 
 // Routers
 app.use('/auth', authRoutes)
+
+// Serve index.html for SPA routing
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
+});
 
 // Error Handler 
 app.use(errorHandler);
