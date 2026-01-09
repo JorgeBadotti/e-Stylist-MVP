@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { eStylistService } from './services/eStylistService';
-import { EStylistInput, EStylistOutput, Look, EStylistMode, Profile, DetectedMeasurements, SharedLinkData } from './types';
+import { eStylistService } from './src/services/eStylistService';
+import { EStylistInput, EStylistOutput, Look, EStylistMode, Profile, DetectedMeasurements, SharedLinkData } from './src/types';
 import JsonInput from './components/JsonInput';
 import JsonOutput from './components/JsonOutput';
 import Button from './components/Button';

@@ -3,6 +3,10 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "scripts": {
     "install-all": "npm install && npm install --prefix client && npm install --prefix server",
     "dev": "concurrently \"npm run dev --prefix client\" \"nodemon --watch server --exec node server/app.js\"",
@@ -23,8 +27,7 @@
     "passport-google-oauth20": "^2.0.0",
     "passport-local-mongoose": "^9.0.1",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3",
-    "vite": "^6.2.0"
+    "react-dom": "^19.2.3"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
