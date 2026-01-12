@@ -1,20 +1,32 @@
 import { Router } from 'express';
-import passport from 'passport'; // Caso use Passport para Google
+import passport from 'passport';
 import * as AuthController from '../controllers/AuthController.js';
 
 const router = Router();
 
-// Rota de Autenticação Tradicional (Email/Senha)
-// router.get('/login', render...)
-router.post('/login', AuthController.loginEmail);
+// ROTA REGISTRO (Opcional, se precisar criar conta local)
+router.post('/register', AuthController.register);
 
-// Rota de Autenticação via Google
+// ROTA LOGIN LOCAL
+// O passport.authenticate('local') verifica email/senha automaticamente
+router.post('/login',
+    passport.authenticate('local', { failWithError: true }), // Se falhar, vai pro error handler
+    AuthController.loginSuccess // Se passar, chama o controller de sucesso
+);
+
+// ROTA GOOGLE INICIO
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
-// Callback que o Google chama após o login
+// ROTA GOOGLE CALLBACK
 router.get('/google/callback',
-    passport.authenticate('google', { failureRedirect: '/login' }),
+    passport.authenticate('google', { failureRedirect: '/' }),
     AuthController.googleCallback
 );
+
+// ROTA LOGOUT
+router.post('/logout', AuthController.logout);
+
+// ROTA ME (Para o frontend saber quem está logado ao recarregar a página)
+router.get('/me', AuthController.me);
 
 export default router;
