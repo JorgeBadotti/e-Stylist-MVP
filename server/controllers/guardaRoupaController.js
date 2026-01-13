@@ -19,7 +19,7 @@ export const createGuardaRoupa = async (req, res) => {
     }
 };
 
-export const getMeusGuardaRoupas = async (req, res) => {
+export const getGuardaRoupas = async (req, res) => {
     try {
         const usuarioId = req.user._id;
 

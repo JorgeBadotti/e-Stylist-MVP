@@ -41,10 +41,17 @@ app.use(session({
     secret: process.env.SESSION_SECRET || 'segredo_super_secreto',
     resave: false,
     saveUninitialized: false,
-
     cookie: {
-        secure: true,
-        maxAge: 24 * 60 * 60 * 1000 // 1 dia
+        // MUDANÇA IMPORTANTE:
+        // Se estiver local, TEM que ser false. Se estiver em produção (HTTPS), true.
+        // Vamos forçar false se não tiver certeza que o ambiente é 'production'.
+        secure: process.env.NODE_ENV === 'production',
+
+        httpOnly: true, // Protege contra XSS
+        maxAge: 24 * 60 * 60 * 1000,
+
+        // Adicione isso! Ajuda o cookie a sobreviver ao redirect do Google
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     }
 }));
 
@@ -56,10 +63,10 @@ app.use(passport.session());
 
 // CORS (Atualizado para aceitar credenciais/cookies)
 app.use(cors({
-    origin: 'http://localhost:5173', // URL do Frontend (Vite)
-    credentials: true // Permite envio de cookies de sessão
+    origin: 'http://localhost:5173', // TEM que bater exato com a URL do navegador (sem barra no final)
+    credentials: true, // Permite cookies
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
-
 
 
 app.use(express.static(path.join(__dirname, '..', 'dist')));

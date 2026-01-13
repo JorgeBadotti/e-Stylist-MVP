@@ -2,10 +2,15 @@ import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import HomePage from './components/HomePage';
 import LoginPage from './components/Login';
+import IndiceGuardaRoupas from './components/IndiceGuardaRoupas';
 import RegisterPage from './components/Register';
 import api from './src/services/api';
 
-type AuthView = 'landing' | 'login' | 'register';
+
+// Tipos para as telas de quem NÃO está logado
+type PublicView = 'landing' | 'login' | 'register';
+// Tipos para as telas de quem ESTÁ logado (Novo!)
+type PrivateView = 'home' | 'wardrobes' | 'profile';
 
 // 1. Definir a interface para os dados do usuário
 interface UserData {
@@ -20,8 +25,11 @@ const App: React.FC = () => {
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
     // 2. Estado para armazenar os dados do usuário
     const [userData, setUserData] = useState<UserData | null>(null);
-    const [currentView, setCurrentView] = useState<AuthView>('landing');
     const [isLoading, setIsLoading] = useState<boolean>(true);
+    // Controle de navegação
+    const [publicView, setPublicView] = useState<PublicView>('landing');
+    // Novo estado para controlar a tela interna
+    const [privateView, setPrivateView] = useState<PrivateView>('home');
 
     // Função centralizada para buscar a sessão e os dados do usuário
     const fetchUserSession = async () => {
@@ -54,16 +62,26 @@ const App: React.FC = () => {
         try {
             await api.post('/auth/logout');
             setIsAuthenticated(false);
-            setUserData(null); // Limpa os dados ao sair
-            setCurrentView('landing');
+            setUserData(null);
+            setPublicView('landing');
+            setPrivateView('home'); // Reseta a view privada
         } catch (error) {
             console.error('Logout error:', error);
         }
     };
 
-    // Funções de navegação do menu (placeholders)
-    const handleProfileClick = () => console.log("Navegar para Perfil");
-    const handleWardrobeClick = () => console.log("Navegar para Armário");
+    // Navegação Interna
+    const handleProfileClick = () => setPrivateView('profile');
+
+    // AQUI: Agora muda o estado para exibir a lista
+    const handleWardrobeClick = () => setPrivateView('wardrobes');
+
+    // Voltar para Home ao clicar no Logo
+    const handleLogoClick = () => {
+        if (isAuthenticated) setPrivateView('home');
+        else setPublicView('landing');
+    };
+
 
     // Tela de Carregamento
     if (isLoading) {
@@ -80,20 +98,31 @@ const App: React.FC = () => {
     // --- USUÁRIO LOGADO ---
     if (isAuthenticated) {
         return (
-            <div className="min-h-screen bg-gray-100">
+            <div className="min-h-screen bg-gray-50">
                 <Navbar
                     isAuthenticated={true}
-                    user={userData} // Passa o estado preenchido aqui
+                    user={userData}
                     onLoginClick={() => { }}
                     onLogoutClick={handleLogout}
-                    // Clicar no logo mantém na home logada
-                    onLogoClick={() => { }}
+                    onLogoClick={handleLogoClick}
                     onProfileClick={handleProfileClick}
-                    onWardrobeClick={handleWardrobeClick}
+                    onWardrobeClick={handleWardrobeClick} // Passando a função real agora
                 />
 
-                {/* CORREÇÃO: Adicionada a HomePage aqui, senão ela sumiria */}
-                <HomePage onLogoutClick={handleLogout} />
+                {/* Renderização Condicional das Telas Logadas */}
+                <main className="flex-grow">
+                    {privateView === 'home' && (
+                        <HomePage onLogoutClick={handleLogout} />
+                    )}
+
+                    {privateView === 'wardrobes' && (
+                        <IndiceGuardaRoupas />
+                    )}
+
+                    {privateView === 'profile' && (
+                        <div className="p-8 text-center">Tela de Perfil (Em construção)</div>
+                    )}
+                </main>
             </div>
         );
     }
@@ -104,47 +133,29 @@ const App: React.FC = () => {
             <Navbar
                 isAuthenticated={false}
                 user={null}
-                onLoginClick={() => setCurrentView('login')}
+                onLoginClick={() => setPublicView('login')}
                 onLogoutClick={() => { }}
-                onLogoClick={() => setCurrentView('landing')}
+                onLogoClick={handleLogoClick}
                 onProfileClick={() => { }}
                 onWardrobeClick={() => { }}
             />
 
-            {currentView === 'login' ? (
+            {publicView === 'login' ? (
                 <LoginPage
-                    // CORREÇÃO: Ao logar com sucesso, chamamos fetchUserSession
-                    // para pegar os dados (nome/foto) sem recarregar a tela.
                     onLoginSuccess={() => fetchUserSession()}
-                    onSwitchToRegister={() => setCurrentView('register')}
+                    onSwitchToRegister={() => setPublicView('register')}
                 />
-            ) : currentView === 'register' ? (
+            ) : publicView === 'register' ? (
                 <RegisterPage
-                    onSwitchToLogin={() => setCurrentView('login')}
+                    onSwitchToLogin={() => setPublicView('login')}
                 />
             ) : (
-                // LANDING PAGE
+                // LANDING PAGE (Código resumido para não ficar gigante)
                 <div className="flex flex-col items-center justify-center h-[80vh] px-4 text-center">
-                    <h1 className="text-5xl font-extrabold text-blue-900 mb-6 tracking-tight">
-                        Bem-vindo ao e-Stylist
-                    </h1>
-                    <p className="mb-10 text-xl text-gray-600 max-w-2xl">
-                        Sua plataforma inteligente de consultoria de moda e estilo pessoal.
-                    </p>
-                    <div className="flex gap-4">
-                        <button
-                            onClick={() => setCurrentView('login')}
-                            className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg"
-                        >
-                            Entrar
-                        </button>
-                        <button
-                            onClick={() => setCurrentView('register')}
-                            className="bg-white text-blue-600 border border-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors shadow-sm"
-                        >
-                            Criar Conta
-                        </button>
-                    </div>
+                    <h1 className="text-5xl font-extrabold text-blue-900 mb-6">Bem-vindo ao e-Stylist</h1>
+                    <button onClick={() => setPublicView('login')} className="bg-blue-600 text-white px-8 py-3 rounded-lg">
+                        Entrar
+                    </button>
                 </div>
             )}
         </div>

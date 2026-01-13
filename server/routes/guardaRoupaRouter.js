@@ -1,7 +1,7 @@
 import express from 'express';
 import {
     createGuardaRoupa,
-    getMeusGuardaRoupas,
+    getGuardaRoupas,
     getGuardaRoupaById,
     deleteGuardaRoupa
 } from '../controllers/guardaRoupaController.js';
@@ -14,7 +14,7 @@ router.use(isAuthenticated);
 
 // Rota: /api/guarda-roupas/
 router.post('/', createGuardaRoupa);      // Criar
-router.get('/', getMeusGuardaRoupas);     // Listar todos do usuário
+router.get('/', getGuardaRoupas);     // Listar todos do usuário
 
 // Rota: /api/guarda-roupas/:id
 router.get('/:id', getGuardaRoupaById);   // Ver detalhes de um
