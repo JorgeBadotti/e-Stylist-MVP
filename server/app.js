@@ -22,12 +22,16 @@ await import('./config/passport.js');
 
 // Routers
 import authRoutes from './routes/authRouter.js';
+import guardaRoupaRoutes from './routes/guardaRoupaRouter.js'
+import roupaRoutes from './routes/roupaRouter.js'
 
 
 connectDB();
 
 const app = express();
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+app.set('trust proxy', 1);
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -37,11 +41,14 @@ app.use(session({
     secret: process.env.SESSION_SECRET || 'segredo_super_secreto',
     resave: false,
     saveUninitialized: false,
+
     cookie: {
-        secure: false, // Use 'true' se estiver usando HTTPS em produção
+        secure: true,
         maxAge: 24 * 60 * 60 * 1000 // 1 dia
     }
 }));
+
+
 
 // Inicializa Passport
 app.use(passport.initialize());
@@ -60,6 +67,8 @@ app.use(requestLogger);
 
 // Rotas
 app.use('/auth', authRoutes);
+app.use('/api/guarda-roupas', guardaRoupaRoutes);
+app.use('/api/roupas', roupaRoutes);
 
 // SPA Fallback
 app.get('*', (req, res) => { // Mudamos para '*' para pegar qualquer rota não API
@@ -67,6 +76,7 @@ app.get('*', (req, res) => { // Mudamos para '*' para pegar qualquer rota não A
     if (req.path.startsWith('/api') || req.path.startsWith('/auth')) return res.status(404).send('Not found');
     res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
+
 
 app.use(errorHandler);
 
