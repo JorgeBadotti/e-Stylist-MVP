@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import api from '../src/services/api';
 
 interface Roupa {
@@ -8,11 +8,12 @@ interface Roupa {
     cor: string;
     tamanho: string;
     tecido: string;
+    foto?: string;
 }
 
 interface Props {
     guardaRoupaId: string;
-    onBack: () => void; // Função para voltar para a lista
+    onBack: () => void;
 }
 
 const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
@@ -20,24 +21,25 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
     const [guardaRoupaNome, setGuardaRoupaNome] = useState('');
     const [loading, setLoading] = useState(true);
 
-    // Estado do Formulário de Nova Roupa
+    // Controle do Formulário
     const [showForm, setShowForm] = useState(false);
-    const [newRoupa, setNewRoupa] = useState({
+    const [editingId, setEditingId] = useState<string | null>(null); // Se null = Criando, Se string = Editando
+    const formRef = useRef<HTMLDivElement>(null); // Para rolar até o form ao editar
+
+    const [formData, setFormData] = useState({
         nome: '',
-        categoria: 'Camiseta', // Valor default
+        categoria: 'Camiseta',
         cor: '',
         tamanho: '',
         tecido: ''
     });
+    const [arquivoRoupa, setArquivoRoupa] = useState<File | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Carregar dados
     const fetchData = async () => {
         try {
-            // 1. Pega nome do guarda-roupa
             const grRes = await api.get(`/api/guarda-roupas/${guardaRoupaId}`);
             setGuardaRoupaNome(grRes.data.nome);
-
-            // 2. Pega as roupas
             const roupasRes = await api.get(`/api/roupas/guarda-roupa/${guardaRoupaId}`);
             setRoupas(roupasRes.data);
         } catch (error) {
@@ -52,21 +54,90 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
         fetchData();
     }, [guardaRoupaId]);
 
-    // Envio do formulário
-    const handleAddRoupa = async (e: React.FormEvent) => {
+    // Prepara o formulário para EDIÇÃO
+    const handleEditClick = (roupa: Roupa) => {
+        setEditingId(roupa._id);
+        setFormData({
+            nome: roupa.nome,
+            categoria: roupa.categoria,
+            cor: roupa.cor || '',
+            tamanho: roupa.tamanho || '',
+            tecido: roupa.tecido || ''
+        });
+        setArquivoRoupa(null); // Reseta arquivo (usuário só põe se quiser trocar)
+        setShowForm(true);
+
+        // Rola a tela até o formulário
+        setTimeout(() => {
+            formRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+    };
+
+    // Reseta o formulário
+    const resetForm = () => {
+        setFormData({ nome: '', categoria: 'Camiseta', cor: '', tamanho: '', tecido: '' });
+        setArquivoRoupa(null);
+        setEditingId(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        setShowForm(false);
+    };
+
+    // Submissão (Serve tanto para Criar quanto para Editar)
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
         try {
-            await api.post('/api/roupas', {
-                ...newRoupa,
-                guardaRoupaId // Importante: Vincular ao ID atual
-            });
-            // Limpar form e recarregar lista
-            setNewRoupa({ nome: '', categoria: 'Camiseta', cor: '', tamanho: '', tecido: '' });
-            setShowForm(false);
-            fetchData(); // Recarrega as roupas
+            const payload = new FormData();
+            payload.append('nome', formData.nome);
+            payload.append('categoria', formData.categoria);
+            payload.append('cor', formData.cor);
+            payload.append('tamanho', formData.tamanho);
+            payload.append('tecido', formData.tecido);
+
+            // Só manda o ID do guarda-roupa se for criação nova (opcional no update, mas mal não faz)
+            if (!editingId) {
+                payload.append('guardaRoupaId', guardaRoupaId);
+            }
+
+            if (arquivoRoupa) {
+                payload.append('foto', arquivoRoupa);
+            }
+
+            if (editingId) {
+                // --- MODO EDIÇÃO (PUT) ---
+                await api.put(`/api/roupas/${editingId}`, payload);
+            } else {
+                // --- MODO CRIAÇÃO (POST) ---
+                await api.post('/api/roupas', payload);
+            }
+
+            resetForm();
+            fetchData();
         } catch (error) {
-            console.error(error);
-            alert('Erro ao adicionar roupa');
+            console.error("Erro ao salvar:", error);
+            alert('Erro ao salvar roupa.');
+        }
+    };
+
+    // Função de Deletar
+    const handleDelete = async (id: string) => {
+        if (!window.confirm("Tem certeza que deseja excluir esta peça?")) return;
+
+        try {
+            await api.delete(`/api/roupas/${id}`);
+
+            // --- MUDANÇA AQUI ---
+            // Se o usuário estiver editando justamente a peça que acabou de excluir,
+            // fechamos o formulário e limpamos os estados.
+            if (editingId === id) {
+                resetForm();
+            }
+            // --------------------
+
+            fetchData(); // Recarrega a lista
+        } catch (error) {
+            console.error("Erro ao deletar:", error);
+            alert("Erro ao deletar roupa.");
         }
     };
 
@@ -74,7 +145,6 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-6">
-            {/* Header com Botão Voltar */}
             <button onClick={onBack} className="text-gray-500 hover:text-blue-600 mb-4 flex items-center">
                 &larr; Voltar para Meus Armários
             </button>
@@ -82,29 +152,33 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-3xl font-bold text-gray-800">{guardaRoupaNome}</h2>
                 <button
-                    onClick={() => setShowForm(!showForm)}
-                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                    onClick={() => {
+                        if (showForm) resetForm(); // Se clicar em cancelar
+                        else setShowForm(true);
+                    }}
+                    className={`px-4 py-2 rounded text-white ${showForm ? 'bg-gray-500 hover:bg-gray-600' : 'bg-green-600 hover:bg-green-700'}`}
                 >
-                    {showForm ? 'Cancelar Adição' : '+ Adicionar Roupa'}
+                    {showForm ? 'Cancelar' : '+ Adicionar Roupa'}
                 </button>
             </div>
 
-            {/* FORMULÁRIO DE ADIÇÃO (Condicional) */}
             {showForm && (
-                <div className="bg-white p-6 rounded-lg shadow-md mb-8 border border-green-100">
-                    <h3 className="text-lg font-semibold mb-4 text-gray-700">Nova Peça</h3>
-                    <form onSubmit={handleAddRoupa} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div ref={formRef} className="bg-white p-6 rounded-lg shadow-md mb-8 border border-green-100 animate-fade-in-down">
+                    <h3 className="text-lg font-semibold mb-4 text-gray-700">
+                        {editingId ? 'Editar Peça' : 'Nova Peça'}
+                    </h3>
+                    <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <input
                             placeholder="Nome (ex: Camisa Social)"
                             className="border p-2 rounded"
-                            value={newRoupa.nome}
-                            onChange={e => setNewRoupa({ ...newRoupa, nome: e.target.value })}
+                            value={formData.nome}
+                            onChange={e => setFormData({ ...formData, nome: e.target.value })}
                             required
                         />
                         <select
                             className="border p-2 rounded"
-                            value={newRoupa.categoria}
-                            onChange={e => setNewRoupa({ ...newRoupa, categoria: e.target.value })}
+                            value={formData.categoria}
+                            onChange={e => setFormData({ ...formData, categoria: e.target.value })}
                         >
                             <option>Camiseta</option>
                             <option>Calça</option>
@@ -116,45 +190,92 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
                         <input
                             placeholder="Cor"
                             className="border p-2 rounded"
-                            value={newRoupa.cor}
-                            onChange={e => setNewRoupa({ ...newRoupa, cor: e.target.value })}
+                            value={formData.cor}
+                            onChange={e => setFormData({ ...formData, cor: e.target.value })}
                         />
                         <div className="flex gap-2">
                             <input
-                                placeholder="Tamanho (P, M, 42)"
+                                placeholder="Tam"
                                 className="border p-2 rounded w-1/2"
-                                value={newRoupa.tamanho}
-                                onChange={e => setNewRoupa({ ...newRoupa, tamanho: e.target.value })}
+                                value={formData.tamanho}
+                                onChange={e => setFormData({ ...formData, tamanho: e.target.value })}
                             />
                             <input
-                                placeholder="Tecido (Algodão)"
+                                placeholder="Tecido"
                                 className="border p-2 rounded w-1/2"
-                                value={newRoupa.tecido}
-                                onChange={e => setNewRoupa({ ...newRoupa, tecido: e.target.value })}
+                                value={formData.tecido}
+                                onChange={e => setFormData({ ...formData, tecido: e.target.value })}
                             />
                         </div>
 
-                        <button type="submit" className="md:col-span-2 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
-                            Salvar Roupa
+                        <div className="md:col-span-2">
+                            <label className="block text-sm text-gray-600 mb-1">
+                                {editingId ? 'Trocar Foto (Opcional)' : 'Foto da Peça'}
+                            </label>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                ref={fileInputRef}
+                                onChange={(e) => setArquivoRoupa(e.target.files ? e.target.files[0] : null)}
+                                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                            />
+                        </div>
+
+                        <button type="submit" className="md:col-span-2 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 font-bold transition-colors">
+                            {editingId ? 'Salvar Alterações' : 'Criar Roupa'}
                         </button>
                     </form>
                 </div>
             )}
 
-            {/* LISTA DE ROUPAS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {roupas.map(roupa => (
-                    <div key={roupa._id} className="bg-white rounded-lg shadow overflow-hidden group">
-                        {/* Placeholder de imagem (futuramente será a foto real) */}
-                        <div className="h-48 bg-gray-200 flex items-center justify-center text-gray-400">
-                            <span className="text-4xl">👕</span>
+                    <div key={roupa._id} className="bg-white rounded-lg shadow overflow-hidden group flex flex-col">
+                        <div className="h-64 bg-gray-100 flex items-center justify-center relative overflow-hidden">
+                            {roupa.foto ? (
+                                <img
+                                    src={roupa.foto}
+                                    alt={roupa.nome}
+                                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                />
+                            ) : (
+                                <span className="text-4xl text-gray-300">👕</span>
+                            )}
+
+                            {/* OVERLAY DE AÇÕES (Aparece ao passar o mouse) */}
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center space-x-2 opacity-0 group-hover:opacity-100">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleEditClick(roupa); }}
+                                    className="bg-white text-blue-600 p-2 rounded-full hover:bg-blue-50 shadow-lg"
+                                    title="Editar"
+                                >
+                                    ✏️
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleDelete(roupa._id); }}
+                                    className="bg-white text-red-600 p-2 rounded-full hover:bg-red-50 shadow-lg"
+                                    title="Excluir"
+                                >
+                                    🗑️
+                                </button>
+                            </div>
                         </div>
-                        <div className="p-4">
-                            <h4 className="font-bold text-lg">{roupa.nome}</h4>
-                            <p className="text-sm text-gray-500">{roupa.categoria}</p>
-                            <div className="mt-2 text-sm text-gray-600 space-y-1">
-                                <p>Cor: {roupa.cor}</p>
-                                <p>Tam: {roupa.tamanho}</p>
+
+                        <div className="p-4 flex-grow">
+                            <h4 className="font-bold text-lg text-gray-800">{roupa.nome}</h4>
+                            <p className="text-sm text-blue-600 font-medium mb-2">{roupa.categoria}</p>
+
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {roupa.tamanho && (
+                                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                                        Tam: {roupa.tamanho}
+                                    </span>
+                                )}
+                                {roupa.cor && (
+                                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                                        {roupa.cor}
+                                    </span>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -162,8 +283,11 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
             </div>
 
             {roupas.length === 0 && !showForm && (
-                <div className="text-center text-gray-500 py-10">
-                    Este guarda-roupa está vazio. Adicione sua primeira peça!
+                <div className="text-center text-gray-500 py-10 border-2 border-dashed border-gray-200 rounded-lg">
+                    <p className="mb-2">Este guarda-roupa está vazio.</p>
+                    <button onClick={() => setShowForm(true)} className="text-blue-600 font-semibold hover:underline">
+                        Adicione sua primeira peça agora!
+                    </button>
                 </div>
             )}
         </div>

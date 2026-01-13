@@ -14,6 +14,14 @@ const guardaRoupaSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'Usuario',
         required: true
+    },
+    foto: {
+        type: String, // URL da imagem no Cloudinary
+        default: ''   // Pode começar sem foto
+    },
+    fotoPublicId: {
+        type: String, // Importante guardar o ID para poder deletar a foto depois se precisar
+        select: false // Opcional: esconde das consultas padrões para não poluir
     }
 }, {
     timestamps: true // Cria automaticamente 'createdAt' e 'updatedAt'
