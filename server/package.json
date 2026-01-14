@@ -1,6 +1,9 @@
 {
   "type": "module",
   "dependencies": {
-    "e-stylist-mvp": "file:.."
+    "cloudinary": "^2.8.0",
+    "e-stylist-mvp": "file:..",
+    "express-session": "^1.18.2",
+    "streamifier": "^0.1.1"
   }
 }
