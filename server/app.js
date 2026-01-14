@@ -16,7 +16,7 @@ import session from 'express-session'; // <--- IMPORTANTE
 
 // Imports Locais
 import connectDB from './config/db.js';
-import { initGemini } from './config/gemini.js';
+import { initGemini } from './services/gemini.js';
 import { configCloudinary } from './services/cloudinary.js';
 import { requestLogger, errorHandler } from './middlewares/logger.js';
 import passport from 'passport';
@@ -26,7 +26,9 @@ await import('./config/passport.js');
 // Routers
 import authRoutes from './routes/authRouter.js';
 import guardaRoupaRoutes from './routes/guardaRoupaRouter.js'
-import roupaRoutes from './routes/roupaRouter.js'
+import roupaRoutes from './routes/roupaRouter.js';
+import usuarioRoutes from './routes/usuarioRouter.js';
+import looksRoutes from './routes/looksRouter.js';
 
 
 connectDB();
@@ -81,6 +83,8 @@ app.use(requestLogger);
 app.use('/auth', authRoutes);
 app.use('/api/guarda-roupas', guardaRoupaRoutes);
 app.use('/api/roupas', roupaRoutes);
+app.use('/api/usuario', usuarioRoutes);
+app.use('/api/looks', looksRoutes);
 
 // SPA Fallback
 app.get('*', (req, res) => { // Mudamos para '*' para pegar qualquer rota não API
