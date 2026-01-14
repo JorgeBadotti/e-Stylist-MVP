@@ -4,13 +4,15 @@ import HomePage from './components/HomePage';
 import LoginPage from './components/Login';
 import IndiceGuardaRoupas from './components/IndiceGuardaRoupas';
 import RegisterPage from './components/Register';
+import ProfilePage from './components/ProfilePage';
+import LooksPage from './components/LooksPage';
 import api from './src/services/api';
 
 
 // Tipos para as telas de quem NÃO está logado
 type PublicView = 'landing' | 'login' | 'register';
 // Tipos para as telas de quem ESTÁ logado (Novo!)
-type PrivateView = 'home' | 'wardrobes' | 'profile';
+type PrivateView = 'home' | 'wardrobes' | 'profile' | 'looks';
 
 // 1. Definir a interface para os dados do usuário
 interface UserData {
@@ -72,9 +74,8 @@ const App: React.FC = () => {
 
     // Navegação Interna
     const handleProfileClick = () => setPrivateView('profile');
-
-    // AQUI: Agora muda o estado para exibir a lista
     const handleWardrobeClick = () => setPrivateView('wardrobes');
+    const handleLooksClick = () => setPrivateView('looks');
 
     // Voltar para Home ao clicar no Logo
     const handleLogoClick = () => {
@@ -106,7 +107,8 @@ const App: React.FC = () => {
                     onLogoutClick={handleLogout}
                     onLogoClick={handleLogoClick}
                     onProfileClick={handleProfileClick}
-                    onWardrobeClick={handleWardrobeClick} // Passando a função real agora
+                    onWardrobeClick={handleWardrobeClick}
+                    onLooksClick={handleLooksClick}
                 />
 
                 {/* Renderização Condicional das Telas Logadas */}
@@ -120,7 +122,10 @@ const App: React.FC = () => {
                     )}
 
                     {privateView === 'profile' && (
-                        <div className="p-8 text-center">Tela de Perfil (Em construção)</div>
+                        <ProfilePage />
+                    )}
+                    {privateView === 'looks' && (
+                        <LooksPage onNavigateToProfile={handleProfileClick} />
                     )}
                 </main>
             </div>

@@ -16,6 +16,7 @@ interface NavbarProps {
     // NOVAS PROPS para as ações do menu
     onProfileClick: () => void;
     onWardrobeClick: () => void;
+    onLooksClick: () => void;
 }
 
 const Navbar: React.FC<NavbarProps> = ({
@@ -25,7 +26,8 @@ const Navbar: React.FC<NavbarProps> = ({
     onLogoutClick,
     onLogoClick,
     onProfileClick,
-    onWardrobeClick
+    onWardrobeClick,
+    onLooksClick
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -79,9 +81,14 @@ const Navbar: React.FC<NavbarProps> = ({
                         <button onClick={onLogoClick} className="text-gray-600 hover:text-blue-800 font-medium transition-colors">
                             Home
                         </button>
-                        <button className="text-gray-600 hover:text-blue-800 font-medium transition-colors">
-                            Looks
-                        </button>
+                        {isAuthenticated && (
+                            <button
+                                onClick={onLooksClick}
+                                className="text-gray-600 hover:text-blue-800 font-medium transition-colors"
+                            >
+                                Gerar Looks
+                            </button>
+                        )}
                     </div>
 
                     {/* --- DIREITA: AUTH & MENU --- */}
@@ -122,6 +129,9 @@ const Navbar: React.FC<NavbarProps> = ({
                                             className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                         >
                                             Meu Guarda-Roupa
+                                        </button>
+                                        <button onClick={() => { onLooksClick(); setIsMenuOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-100 font-medium">
+                                            ✨ Gerar Looks IA
                                         </button>
 
                                         <div className="border-t border-gray-100 my-1"></div>
