@@ -8,12 +8,18 @@ import { dirname } from 'path';
 
 // Imports Locais
 import connectDB from './config/db.js';
+import { initGemini } from './services/gemini.js';
+import { configCloudinary } from './services/cloudinary.js';
 import { requestLogger, errorHandler } from './middlewares/logger.js';
 
 //Routers
 import authRoutes from './routes/authRouter.js';
 import lojaRoutes from './routes/lojaRouter.js';
 
+import guardaRoupaRoutes from './routes/guardaRoupaRouter.js'
+import roupaRoutes from './routes/roupaRouter.js';
+import usuarioRoutes from './routes/usuarioRouter.js';
+import looksRoutes from './routes/looksRouter.js';
 
 
 dotenv.config();
@@ -36,8 +42,14 @@ app.use(express.static(path.join(__dirname, '..', 'dist')));
 app.use(requestLogger);
 
 // Routers
-app.use('/auth', authRoutes)
+app.use('/auth', authRoutes);
 app.use('/api/lojas', lojaRoutes);
+
+
+app.use('/api/guarda-roupas', guardaRoupaRoutes);
+app.use('/api/roupas', roupaRoutes);
+app.use('/api/usuario', usuarioRoutes);
+app.use('/api/looks', looksRoutes);
 
 // Serve index.html for SPA routing
 app.get('/', (req, res) => {
