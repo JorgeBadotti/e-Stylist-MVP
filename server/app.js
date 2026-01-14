@@ -16,7 +16,8 @@ import session from 'express-session'; // <--- IMPORTANTE
 
 // Imports Locais
 import connectDB from './config/db.js';
-import { configCloudinary } from './utils/cloudinary.js';
+import { initGemini } from './config/gemini.js';
+import { configCloudinary } from './services/cloudinary.js';
 import { requestLogger, errorHandler } from './middlewares/logger.js';
 import passport from 'passport';
 await import('./config/passport.js');
@@ -30,6 +31,7 @@ import roupaRoutes from './routes/roupaRouter.js'
 
 connectDB();
 configCloudinary();
+initGemini();
 
 const app = express();
 const __dirname = dirname(fileURLToPath(import.meta.url));

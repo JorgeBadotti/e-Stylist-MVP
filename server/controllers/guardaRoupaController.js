@@ -1,5 +1,5 @@
 import GuardaRoupa from '../models/GuardaRoupa.js'; // Ajuste o caminho conforme sua estrutura
-import { uploadImage, deleteImage } from '../utils/cloudinary.js';
+import { uploadImage, deleteImage } from '../services/cloudinary.js';
 
 export const createGuardaRoupa = async (req, res) => {
     try {

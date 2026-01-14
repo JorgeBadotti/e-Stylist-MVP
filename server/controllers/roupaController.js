@@ -2,7 +2,7 @@ import Roupa from '../models/Roupa.js';
 import GuardaRoupa from '../models/GuardaRoupa.js';
 
 // 1. Importar as funções do utilitário
-import { uploadImage, deleteImage } from '../utils/cloudinary.js';
+import { uploadImage, deleteImage } from '../services/cloudinary.js';
 
 export const addRoupa = async (req, res) => {
     try {
