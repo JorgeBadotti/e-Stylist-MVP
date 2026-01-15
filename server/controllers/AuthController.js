@@ -31,7 +31,11 @@ export const loginSuccess = (req, res) => {
 export const googleCallback = (req, res) => {
     // Redireciona para o frontend após sucesso
     // O cookie de sessão já foi configurado pelo passport
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    // Em DEV: localhost:3000 (onde backend tá servindo a app)
+    // Em PROD: domínio configurado em FRONTEND_URL
+    const frontendUrl = process.env.NODE_ENV === 'production'
+        ? process.env.FRONTEND_URL
+        : 'http://localhost:3000';
     res.redirect(`${frontendUrl}/`);
 };
 

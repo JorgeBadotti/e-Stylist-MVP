@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // 1. Adicione 'export' aqui para poder usar essa string em outros lugares
 export const API_BASE_URL = import.meta.env.PROD
-    ? ''
+    ? (import.meta.env.VITE_BACKEND_URL || '')
     : 'http://localhost:3000';
 
 const api = axios.create({

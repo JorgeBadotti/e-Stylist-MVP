@@ -41,7 +41,6 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
-
 // --- CONFIGURAÇÃO DE SESSÃO E PASSPORT ---
 app.use(session({
     secret: process.env.SESSION_SECRET || 'super_secret_key',
