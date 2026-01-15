@@ -32,6 +32,7 @@ dotenv.config();
 connectDB();
 
 const app = express();
+app.set('trust proxy', 1);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Middlewares de terceiros
