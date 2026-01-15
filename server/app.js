@@ -30,8 +30,8 @@ import looksRoutes from './routes/looksRouter.js';
 dotenv.config();
 //Mongo Init
 connectDB();
-// Inicializar Gemini
 initGemini();
+configCloudinary();
 
 const app = express();
 app.set('trust proxy', 1);
