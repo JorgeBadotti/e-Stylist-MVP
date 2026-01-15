@@ -21,7 +21,8 @@ export const loginSuccess = (req, res) => {
         user: {
             id: req.user._id,
             email: req.user.email,
-            nome: req.user.nome
+            nome: req.user.nome,
+            role: req.user.role // <<< ADICIONADO
         }
     });
 };
@@ -52,7 +53,8 @@ export const me = (req, res) => {
                 id: req.user._id,
                 email: req.user.email,
                 nome: req.user.nome,
-                foto: req.user.foto
+                foto: req.user.foto,
+                role: req.user.role // <<< ADICIONADO
             }
         });
     } else {

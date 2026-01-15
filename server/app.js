@@ -4,6 +4,11 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import session from 'express-session';
+import passport from 'passport';
+
+// Importa a configuração do Passport (isso executa o código de configuração)
+import './config/passport.js';
 
 
 // Imports Locais
@@ -36,6 +41,23 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
 
+// --- CONFIGURAÇÃO DE SESSÃO E PASSPORT ---
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'super_secret_key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production', // Em produção, use true com HTTPS
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000 // 1 dia
+    }
+}));
+
+// Inicializa o Passport
+app.use(passport.initialize());
+// Habilita sessões persistentes de login
+app.use(passport.session());
+// -----------------------------------------
 
 
 // Middlewares Custom
