@@ -22,6 +22,11 @@ const guardaRoupaSchema = new Schema({
     fotoPublicId: {
         type: String, // Importante guardar o ID para poder deletar a foto depois se precisar
         select: false // Opcional: esconde das consultas padrões para não poluir
+    },
+    // Novo campo: visibilidade do guarda-roupa
+    isPublic: {
+        type: Boolean,
+        default: false // Por padrão, privado (só o dono vê)
     }
 }, {
     timestamps: true // Cria automaticamente 'createdAt' e 'updatedAt'

@@ -38,6 +38,24 @@ const lookSchema = new Schema({
         default: 0 // 100 se escolhido, 0 se ignorado
     },
 
+    // --- VISUALIZAÇÃO DO LOOK ---
+    // URL da imagem gerada pela IA (resultado da visualização)
+    imagem_visualizada: {
+        type: String,
+        default: null
+    },
+    // Public ID do Cloudinary para deleção futura
+    imagem_visualizada_publicId: {
+        type: String,
+        default: null,
+        select: false // Oculta por padrão
+    },
+    // Data de quando foi visualizado
+    data_visualizacao: {
+        type: Date,
+        default: null
+    },
+
     create_date: {
         type: Date,
         default: Date.now

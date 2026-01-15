@@ -15,4 +15,11 @@ router.post('/gerar', LooksController.gerarLooks);
 
 router.post('/salvar', LooksController.salvarEscolha);
 
+router.post('/visualizar', LooksController.visualizarLook);
+
+// NOVOS ENDPOINTS
+router.get('/', LooksController.listarMeusLooks);
+
+router.get('/:lookId', LooksController.obterDetalhesComunsLook);
+
 export default router;

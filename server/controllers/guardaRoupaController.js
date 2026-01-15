@@ -3,8 +3,11 @@ import { uploadImage, deleteImage } from '../services/cloudinary.js';
 
 export const createGuardaRoupa = async (req, res) => {
     try {
-        const { nome, descricao } = req.body;
+        const { nome, descricao, isPublic } = req.body;
         const usuarioId = req.user._id;
+
+        // Converte isPublic de string "true"/"false" para boolean se necessário
+        const isPublicBoolean = isPublic === 'true' || isPublic === true || false;
 
         let fotoUrl = '';
         let fotoPublicId = '';
@@ -22,7 +25,8 @@ export const createGuardaRoupa = async (req, res) => {
             descricao,
             usuario: usuarioId,
             foto: fotoUrl,
-            fotoPublicId: fotoPublicId
+            fotoPublicId: fotoPublicId,
+            isPublic: isPublicBoolean
         });
 
         res.status(201).json(novoGuardaRoupa);
@@ -45,18 +49,45 @@ export const getGuardaRoupas = async (req, res) => {
     }
 };
 
+export const getGuardaRoupasPublicos = async (req, res) => {
+    try {
+        // Busca todos os guarda-roupas públicos (de qualquer usuário)
+        const guardaRoupasPublicos = await GuardaRoupa.find({ isPublic: true })
+            .populate('usuario', 'nome foto'); // Traz nome e foto do dono
+
+        res.status(200).json(guardaRoupasPublicos);
+    } catch (error) {
+        res.status(500).json({ message: 'Erro ao buscar guarda-roupas públicos', error: error.message });
+    }
+};
+
 export const getGuardaRoupaById = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const guardaRoupa = await GuardaRoupa.findOne({ _id: id, usuario: req.user._id });
+        const guardaRoupa = await GuardaRoupa.findById(id).populate('usuario', 'nome foto');
 
         if (!guardaRoupa) {
-            return res.status(404).json({ message: 'Guarda-roupa não encontrado ou acesso negado' });
+            return res.status(404).json({ message: 'Guarda-roupa não encontrado' });
         }
 
-        res.status(200).json(guardaRoupa);
+        // Verifica se o usuário é proprietário
+        const usuarioIdString = guardaRoupa.usuario._id ? guardaRoupa.usuario._id.toString() : guardaRoupa.usuario;
+        const isOwner = usuarioIdString === req.user._id.toString();
+        const isPublic = guardaRoupa.isPublic || false;
+
+        // Permite ver se é do usuário OU se é público
+        if (!isOwner && !isPublic) {
+            return res.status(403).json({ message: 'Acesso negado: este guarda-roupa é privado' });
+        }
+
+        // Retorna o guarda-roupa com flag isOwner para o frontend
+        const response = guardaRoupa.toObject();
+        response.isOwner = isOwner;
+
+        res.status(200).json(response);
     } catch (error) {
+        console.error('Erro ao buscar guarda-roupa:', error);
         res.status(500).json({ message: 'Erro ao buscar detalhes', error: error.message });
     }
 };
@@ -64,18 +95,33 @@ export const getGuardaRoupaById = async (req, res) => {
 export const updateGuardaRoupa = async (req, res) => {
     try {
         const { id } = req.params;
-        const { nome, descricao } = req.body;
+        const { nome, descricao, isPublic } = req.body;
+        const usuarioId = req.user._id;
 
-        // 1. Busca o guarda-roupa para verificar dono e pegar ID da foto antiga
-        const guardaRoupaAtual = await GuardaRoupa.findOne({ _id: id, usuario: req.user._id }).select('+fotoPublicId');
+        // 1. Busca o guarda-roupa para verificar permissão
+        const guardaRoupaAtual = await GuardaRoupa.findById(id);
 
         if (!guardaRoupaAtual) {
-            return res.status(404).json({ message: 'Guarda-roupa não encontrado ou permissão negada' });
+            return res.status(404).json({ message: 'Guarda-roupa não encontrado' });
         }
 
-        let updateData = { nome, descricao };
+        // 2. Verifica se o usuário é o proprietário
+        if (guardaRoupaAtual.usuario.toString() !== usuarioId.toString()) {
+            return res.status(403).json({ message: 'Permissão negada: você não pode editar este guarda-roupa' });
+        }
 
-        // 2. Se enviou nova foto, processa troca
+        let updateData = {};
+
+        // Atualiza nome e descricao se fornecidos
+        if (nome !== undefined) updateData.nome = nome;
+        if (descricao !== undefined) updateData.descricao = descricao;
+
+        // Converte isPublic de string "true"/"false" para boolean se necessário
+        if (isPublic !== undefined) {
+            updateData.isPublic = isPublic === 'true' || isPublic === true;
+        }
+
+        // 3. Se enviou nova foto, processa troca
         if (req.file) {
             try {
                 // Deleta antiga se existir
@@ -92,7 +138,7 @@ export const updateGuardaRoupa = async (req, res) => {
             }
         }
 
-        // 3. Atualiza
+        // 4. Atualiza
         const atualizado = await GuardaRoupa.findByIdAndUpdate(id, updateData, { new: true });
         res.status(200).json(atualizado);
 
@@ -105,24 +151,30 @@ export const updateGuardaRoupa = async (req, res) => {
 export const deleteGuardaRoupa = async (req, res) => {
     try {
         const { id } = req.params;
+        const usuarioId = req.user._id;
         console.log("------------------------------------------------");
         console.log("🗑️ [DEBUG] Iniciando DELETE Guarda-Roupa");
         console.log("👉 ID recebido na URL:", id);
         console.log("👤 Usuário solicitante:", req.user ? req.user._id : 'NÃO AUTENTICADO');
 
-        // 1. Busca primeiro para pegar o ID da imagem
-        const guardaRoupa = await GuardaRoupa.findOne({ _id: id, usuario: req.user._id }).select('+fotoPublicId');
+        // 1. Busca primeiro para pegar o ID da imagem e verificar proprietário
+        const guardaRoupa = await GuardaRoupa.findById(id).select('+fotoPublicId');
 
         if (!guardaRoupa) {
             return res.status(404).json({ message: 'Guarda-roupa não encontrado' });
         }
 
-        // 2. Deleta imagem do Cloudinary
+        // 2. Verifica se o usuário é o proprietário
+        if (guardaRoupa.usuario.toString() !== usuarioId.toString()) {
+            return res.status(403).json({ message: 'Permissão negada: você não pode deletar este guarda-roupa' });
+        }
+
+        // 3. Deleta imagem do Cloudinary
         if (guardaRoupa.fotoPublicId) {
             await deleteImage(guardaRoupa.fotoPublicId);
         }
 
-        // 3. Deleta do banco
+        // 4. Deleta do banco
         // Nota: O ideal seria deletar também as ROUPAS filhas aqui (cascade delete), 
         // mas para o MVP podemos deixar assim ou adicionar depois.
         await GuardaRoupa.findByIdAndDelete(id);

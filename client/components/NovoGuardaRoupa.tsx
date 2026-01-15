@@ -6,6 +6,7 @@ interface GuardaRoupaData {
     _id?: string;
     nome: string;
     descricao?: string;
+    isPublic?: boolean;
 }
 
 interface NovoGuardaRoupaModalProps {
@@ -23,6 +24,7 @@ const NovoGuardaRoupaModal: React.FC<NovoGuardaRoupaModalProps> = ({
 }) => {
     const [nome, setNome] = useState('');
     const [descricao, setDescricao] = useState('');
+    const [isPublic, setIsPublic] = useState(false);
     const [arquivo, setArquivo] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,10 +34,12 @@ const NovoGuardaRoupaModal: React.FC<NovoGuardaRoupaModalProps> = ({
         if (guardaRoupaParaEditar) {
             setNome(guardaRoupaParaEditar.nome);
             setDescricao(guardaRoupaParaEditar.descricao || '');
+            setIsPublic(guardaRoupaParaEditar.isPublic || false);
         } else {
             // Limpa se for criação nova
             setNome('');
             setDescricao('');
+            setIsPublic(false);
         }
         setArquivo(null); // Arquivo sempre começa vazio
     }, [guardaRoupaParaEditar, isOpen]);
@@ -50,6 +54,7 @@ const NovoGuardaRoupaModal: React.FC<NovoGuardaRoupaModalProps> = ({
             const formData = new FormData();
             formData.append('nome', nome);
             formData.append('descricao', descricao);
+            formData.append('isPublic', String(isPublic));
             if (arquivo) {
                 formData.append('foto', arquivo);
             }
@@ -114,6 +119,24 @@ const NovoGuardaRoupaModal: React.FC<NovoGuardaRoupaModalProps> = ({
                             className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                         />
                     </div>
+
+                    <div className="mb-6 flex items-center gap-3">
+                        <input
+                            type="checkbox"
+                            id="isPublic"
+                            checked={isPublic}
+                            onChange={(e) => setIsPublic(e.target.checked)}
+                            className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                        />
+                        <label htmlFor="isPublic" className="text-gray-700 font-medium cursor-pointer">
+                            🌐 Tornar este guarda-roupa público
+                        </label>
+                    </div>
+                    {isPublic && (
+                        <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
+                            ✓ Este guarda-roupa será visível para todos os usuários e poderá ser usado para gerar looks.
+                        </div>
+                    )}
 
                     <div className="flex justify-end space-x-3">
                         <button
