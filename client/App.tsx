@@ -6,13 +6,14 @@ import IndiceGuardaRoupas from './components/IndiceGuardaRoupas';
 import RegisterPage from './components/Register';
 import ProfilePage from './components/ProfilePage';
 import LooksPage from './components/LooksPage';
+import MyLooksPage from './components/MyLooksPage';
 import api from './src/services/api';
 
 
 // Tipos para as telas de quem NÃO está logado
 type PublicView = 'landing' | 'login' | 'register';
 // Tipos para as telas de quem ESTÁ logado (Novo!)
-type PrivateView = 'home' | 'wardrobes' | 'profile' | 'looks';
+type PrivateView = 'home' | 'wardrobes' | 'profile' | 'looks' | 'myLooks';
 
 // 1. Definir a interface para os dados do usuário
 interface UserData {
@@ -76,6 +77,7 @@ const App: React.FC = () => {
     const handleProfileClick = () => setPrivateView('profile');
     const handleWardrobeClick = () => setPrivateView('wardrobes');
     const handleLooksClick = () => setPrivateView('looks');
+    const handleMyLooksClick = () => setPrivateView('myLooks');
 
     // Voltar para Home ao clicar no Logo
     const handleLogoClick = () => {
@@ -109,6 +111,7 @@ const App: React.FC = () => {
                     onProfileClick={handleProfileClick}
                     onWardrobeClick={handleWardrobeClick}
                     onLooksClick={handleLooksClick}
+                    onMyLooksClick={handleMyLooksClick}
                 />
 
                 {/* Renderização Condicional das Telas Logadas */}
@@ -127,6 +130,10 @@ const App: React.FC = () => {
                     {privateView === 'looks' && (
                         <LooksPage onNavigateToProfile={handleProfileClick} />
                     )}
+
+                    {privateView === 'myLooks' && (
+                        <MyLooksPage />
+                    )}
                 </main>
             </div>
         );
@@ -143,6 +150,8 @@ const App: React.FC = () => {
                 onLogoClick={handleLogoClick}
                 onProfileClick={() => { }}
                 onWardrobeClick={() => { }}
+                onLooksClick={() => { }}
+                onMyLooksClick={() => { }}
             />
 
             {publicView === 'login' ? (

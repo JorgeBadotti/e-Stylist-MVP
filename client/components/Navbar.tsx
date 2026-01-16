@@ -17,6 +17,7 @@ interface NavbarProps {
     onProfileClick: () => void;
     onWardrobeClick: () => void;
     onLooksClick: () => void;
+    onMyLooksClick: () => void;
 }
 
 const Navbar: React.FC<NavbarProps> = ({
@@ -27,7 +28,8 @@ const Navbar: React.FC<NavbarProps> = ({
     onLogoClick,
     onProfileClick,
     onWardrobeClick,
-    onLooksClick
+    onLooksClick,
+    onMyLooksClick
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -82,12 +84,20 @@ const Navbar: React.FC<NavbarProps> = ({
                             Home
                         </button>
                         {isAuthenticated && (
-                            <button
-                                onClick={onLooksClick}
-                                className="text-gray-600 hover:text-blue-800 font-medium transition-colors"
-                            >
-                                Gerar Looks
-                            </button>
+                            <>
+                                <button
+                                    onClick={onMyLooksClick}
+                                    className="text-gray-600 hover:text-blue-800 font-medium transition-colors"
+                                >
+                                    Meus Looks
+                                </button>
+                                <button
+                                    onClick={onLooksClick}
+                                    className="text-gray-600 hover:text-blue-800 font-medium transition-colors"
+                                >
+                                    Gerar Looks
+                                </button>
+                            </>
                         )}
                     </div>
 
@@ -130,6 +140,14 @@ const Navbar: React.FC<NavbarProps> = ({
                                         >
                                             Meu Guarda-Roupa
                                         </button>
+
+                                        <button
+                                            onClick={() => { onMyLooksClick(); setIsMenuOpen(false); }}
+                                            className="block w-full text-left px-4 py-2 text-sm text-purple-600 hover:bg-gray-100 font-medium"
+                                        >
+                                            📖 Meus Looks
+                                        </button>
+
                                         <button onClick={() => { onLooksClick(); setIsMenuOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-100 font-medium">
                                             ✨ Gerar Looks IA
                                         </button>

@@ -4,12 +4,16 @@ import {
     createGuardaRoupa,
     getGuardaRoupas,
     getGuardaRoupaById,
+    getGuardaRoupasPublicos,
     updateGuardaRoupa,
     deleteGuardaRoupa
 } from '../controllers/guardaRoupaController.js';
 import { isAuthenticated } from '../middlewares/authMiddleware.js'; // Importe seu middleware
 
 const router = express.Router();
+
+// Rota PÚBLICA: Listar guardaroupas públicos (NÃO precisa de autenticação)
+router.get('/publicos/lista', getGuardaRoupasPublicos);
 
 // Aplica a proteção em TODAS as rotas deste arquivo de uma vez
 router.use(isAuthenticated);
