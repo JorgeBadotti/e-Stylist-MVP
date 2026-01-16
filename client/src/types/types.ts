@@ -142,3 +142,26 @@ export interface SharedLinkData {
   look: Look;
   profile: Profile;
 }
+
+// --- Tipos da Loja ---
+
+export interface Produto {
+  _id: string;
+  lojaId: string;
+  nome: string;
+  descricao: string;
+  preco: number;
+  sku: string;
+  fotos?: string[];
+  cor?: string;
+  tamanho?: string;
+  colecao?: string;
+  estilo?: string;
+  tags?: string[];
+  estoque: number;
+  codigoSCS?: string;
+  codigoEStylist?: string;
+  disponivel: boolean;
+  createdAt: string;
+  updatedAt: string;
+}

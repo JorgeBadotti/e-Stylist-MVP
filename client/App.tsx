@@ -6,13 +6,15 @@ import IndiceGuardaRoupas from './components/IndiceGuardaRoupas';
 import RegisterPage from './components/Register';
 import ProfilePage from './components/ProfilePage';
 import LooksPage from './components/LooksPage';
+import LojaPage from './components/Loja/LojaPage';
+import ProdutoDetalhe from './components/Loja/ProdutoDetalhe'; // Importar ProdutoDetalhe
 import api from './src/services/api';
 
 
 // Tipos para as telas de quem NÃO está logado
 type PublicView = 'landing' | 'login' | 'register';
-// Tipos para as telas de quem ESTÁ logado (Novo!)
-type PrivateView = 'home' | 'wardrobes' | 'profile' | 'looks';
+// 2. Adicionar 'loja' ao tipo PrivateView
+type PrivateView = 'home' | 'wardrobes' | 'profile' | 'looks' | 'loja';
 
 // 1. Definir a interface para os dados do usuário
 interface UserData {
@@ -32,6 +34,7 @@ const App: React.FC = () => {
     const [publicView, setPublicView] = useState<PublicView>('landing');
     // Novo estado para controlar a tela interna
     const [privateView, setPrivateView] = useState<PrivateView>('home');
+    const [selectedSku, setSelectedSku] = useState<string | null>(null); // 1. Novo estado para o SKU
 
     // Função centralizada para buscar a sessão e os dados do usuário
     const fetchUserSession = async () => {
@@ -73,12 +76,23 @@ const App: React.FC = () => {
     };
 
     // Navegação Interna
-    const handleProfileClick = () => setPrivateView('profile');
-    const handleWardrobeClick = () => setPrivateView('wardrobes');
-    const handleLooksClick = () => setPrivateView('looks');
+    const handleProfileClick = () => { setPrivateView('profile'); setSelectedSku(null); };
+    const handleWardrobeClick = () => { setPrivateView('wardrobes'); setSelectedSku(null); };
+    const handleLooksClick = () => { setPrivateView('looks'); setSelectedSku(null); };
+    const handleLojaClick = () => { setPrivateView('loja'); setSelectedSku(null); }; // Limpa SKU ao ir para loja
+
+    // 2. Funções para selecionar produto e voltar
+    const handleProdutoSelect = (sku: string) => {
+        setSelectedSku(sku);
+    };
+
+    const handleBackToCatalog = () => {
+        setSelectedSku(null);
+    };
 
     // Voltar para Home ao clicar no Logo
     const handleLogoClick = () => {
+        setSelectedSku(null); // Limpa SKU também
         if (isAuthenticated) setPrivateView('home');
         else setPublicView('landing');
     };
@@ -99,33 +113,30 @@ const App: React.FC = () => {
     // --- USUÁRIO LOGADO ---
     if (isAuthenticated) {
         return (
-            <div className="min-h-screen bg-gray-50">
+            <div className="min-h-screen bg-gray-100">
                 <Navbar
-                    isAuthenticated={true}
-                    user={userData}
-                    onLoginClick={() => { }}
-                    onLogoutClick={handleLogout}
-                    onLogoClick={handleLogoClick}
+                    isAuthenticated={isAuthenticated}
+                    onLogout={handleLogout}
                     onProfileClick={handleProfileClick}
                     onWardrobeClick={handleWardrobeClick}
                     onLooksClick={handleLooksClick}
+                    onLojaClick={handleLojaClick}
+                    onLogoClick={handleLogoClick}
+                    userName={userData?.nome}
+                    userPhoto={userData?.foto}
                 />
-
-                {/* Renderização Condicional das Telas Logadas */}
-                <main className="flex-grow">
-                    {privateView === 'home' && (
-                        <HomePage onLogoutClick={handleLogout} />
+                <main className="p-4 sm:p-6 md:p-8">
+                    {privateView === 'home' && <HomePage onNavigate={setPrivateView} />}
+                    {privateView === 'wardrobes' && <IndiceGuardaRoupas />}
+                    {privateView === 'profile' && <ProfilePage />}
+                    {privateView === 'looks' && <LooksPage />}
+                    
+                    {/* 3. Lógica de renderização para Loja/Detalhe */}
+                    {privateView === 'loja' && !selectedSku && (
+                        <LojaPage onProdutoSelect={handleProdutoSelect} />
                     )}
-
-                    {privateView === 'wardrobes' && (
-                        <IndiceGuardaRoupas />
-                    )}
-
-                    {privateView === 'profile' && (
-                        <ProfilePage />
-                    )}
-                    {privateView === 'looks' && (
-                        <LooksPage onNavigateToProfile={handleProfileClick} />
+                    {privateView === 'loja' && selectedSku && (
+                        <ProdutoDetalhe sku={selectedSku} onBack={handleBackToCatalog} />
                     )}
                 </main>
             </div>

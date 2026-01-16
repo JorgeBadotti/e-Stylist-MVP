@@ -10,9 +10,14 @@ const userSchema = new Schema({
         unique: true,
     },
     role: {
-      type: String,
-      enum: ["USER", "STYLIST", "STORE", "ADMIN"],
-      default: "USER",
+        type: String,
+        enum: ['USER', 'SALESPERSON', 'STORE_ADMIN', 'SUPER_ADMIN'],
+        default: 'USER'
+    },
+    lojaId: { // ID da loja para os papéis de SALESPERSON e STORE_ADMIN
+        type: Schema.Types.ObjectId,
+        ref: 'Loja',
+        required: false
     },
     googleId: {
         type: String,

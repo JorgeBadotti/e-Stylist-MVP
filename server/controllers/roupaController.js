@@ -135,3 +135,61 @@ export const deleteRoupa = async (req, res) => {
         res.status(500).json({ message: 'Erro ao deletar roupa', error: error.message });
     }
 };
+
+/**
+ * Atualiza o status e o preço de venda de uma peça de roupa.
+ * Permite que o usuário coloque uma peça à venda, a doe ou a reverta para ativa.
+ */
+export const updateRoupaStatus = async (req, res) => {
+    const { id } = req.params;
+    const { status, precoVenda } = req.body;
+    const userId = req.user._id;
+
+    // Validação básica de entrada
+    if (!status || !['ativo', 'venda', 'doado'].includes(status)) {
+        return res.status(400).json({ message: "O campo 'status' é obrigatório e deve ser 'ativo', 'venda' ou 'doado'." });
+    }
+
+    try {
+        // 1. Encontrar a peça de roupa e verificar a propriedade
+        const roupa = await Roupa.findById(id).populate('guardaRoupa');
+
+        if (!roupa) {
+            return res.status(404).json({ message: 'Peça de roupa não encontrada.' });
+        }
+
+        // Garante que o usuário que está atualizando é o dono do guarda-roupa
+        if (roupa.guardaRoupa.usuario.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'Acesso negado. Você não tem permissão para alterar esta peça.' });
+        }
+
+        // 2. Aplicar a lógica de negócio baseada no status
+        roupa.status = status;
+
+        if (status === 'venda') {
+            // Valida se o preço de venda foi fornecido e é um número válido
+            const preco = parseFloat(precoVenda);
+            if (isNaN(preco) || preco <= 0) {
+                return res.status(400).json({ message: 'Para colocar à venda, é necessário fornecer um preço de venda válido e maior que zero.' });
+            }
+            roupa.precoVenda = preco;
+        } else {
+            // Se o status for 'ativo' ou 'doado', o preço de venda deve ser nulo
+            roupa.precoVenda = null;
+        }
+
+        // 3. Salvar as alterações
+        // O middleware pre-save no modelo Roupa.js também garantirá a limpeza do precoVenda
+        const roupaAtualizada = await roupa.save();
+
+        res.status(200).json({ message: `Status da peça atualizado para '${status}'.`, roupa: roupaAtualizada });
+
+    } catch (error) {
+        console.error('Erro ao atualizar status da roupa:', error);
+        // Trata erros de validação do Mongoose (definidos no schema)
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: error.message });
+        }
+        res.status(500).json({ message: 'Ocorreu um erro inesperado ao atualizar a peça.', error: error.message });
+    }
+};
