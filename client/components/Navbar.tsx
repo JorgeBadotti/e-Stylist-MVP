@@ -17,6 +17,7 @@ interface NavbarProps {
     onProfileClick: () => void;
     onWardrobeClick: () => void;
     onLooksClick: () => void;
+    onLojaClick: () => void; // 1. Adicionar a prop
     onMyLooksClick: () => void;
 }
 
@@ -29,6 +30,7 @@ const Navbar: React.FC<NavbarProps> = ({
     onProfileClick,
     onWardrobeClick,
     onLooksClick,
+    onLojaClick, // 2. Receber a prop
     onMyLooksClick
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -79,13 +81,19 @@ const Navbar: React.FC<NavbarProps> = ({
                     </div>
 
                     {/* --- CENTRO: LINKS (Visível apenas em Desktop) --- */}
-                    <div className="hidden md:flex space-x-6">
+                    <div className="hidden md:flex items-center space-x-6">
                         <button onClick={onLogoClick} className="text-gray-600 hover:text-blue-800 font-medium transition-colors">
                             Home
                         </button>
                         {isAuthenticated && (
                             <>
+
+                                {/* 3. Adicionar o botão Loja */}
                                 <button
+                                    onClick={onLojaClick}
+                                    className="text-gray-600 hover:text-blue-800 font-medium transition-colors"
+                                >
+                                    Loja
                                     onClick={onMyLooksClick}
                                     className="text-gray-600 hover:text-blue-800 font-medium transition-colors"
                                 >
@@ -120,56 +128,68 @@ const Navbar: React.FC<NavbarProps> = ({
 
                                 {/* O Menu Flutuante (Drawer) */}
                                 {isMenuOpen && (
-                                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5 animate-fade-in-down">
-                                        {/* Cabeçalho do Menu (Nome do user) */}
-                                        <div className="px-4 py-2 border-b border-gray-100">
-                                            <p className="text-sm text-gray-500">Olá,</p>
+                                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 py-1">
+                                        <div className="px-4 py-2 border-b">
                                             <p className="text-sm font-medium text-gray-900 truncate">{user?.nome || 'Usuário'}</p>
                                         </div>
-
-                                        <button
-                                            onClick={() => { onProfileClick(); setIsMenuOpen(false); }}
-                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                        >
-                                            Meu Perfil
-                                        </button>
-
-                                        <button
-                                            onClick={() => { onWardrobeClick(); setIsMenuOpen(false); }}
-                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                        <a
+                                            href="#"
+                                            onClick={(e) => { e.preventDefault(); onWardrobeClick(); setIsMenuOpen(false); }}
+                                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                         >
                                             Meu Guarda-Roupa
-                                        </button>
+{/* Fecha o item anterior (provavelmente Guarda-Roupa) */}
+                            </button> 
 
-                                        <button
-                                            onClick={() => { onMyLooksClick(); setIsMenuOpen(false); }}
-                                            className="block w-full text-left px-4 py-2 text-sm text-purple-600 hover:bg-gray-100 font-medium"
+                            {/* Itens da branch MAIN (Looks e IA) */}
+                            <button
+                                onClick={() => { onMyLooksClick(); setIsMenuOpen(false); }}
+                                className="block w-full text-left px-4 py-2 text-sm text-purple-600 hover:bg-gray-100 font-medium"
+                            >
+                                📖 Meus Looks
+                            </button>
+
+                            <button 
+                                onClick={() => { onLooksClick(); setIsMenuOpen(false); }} 
+                                className="block w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-100 font-medium"
+                            >
+                                ✨ Gerar Looks IA
+                            </button>
+
+                            {/* Itens da branch frontend-Loja (Loja e Perfil) - Convertidos para <button> para consistência */}
+                            <button
+                                onClick={() => { onLojaClick(); setIsMenuOpen(false); }}
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            >
+                                Loja
+                            </button>
+
+                            <button
+                                onClick={() => { onProfileClick(); setIsMenuOpen(false); }}
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            >
+                                Meu Perfil
+                            </button>
+
+                            <div className="border-t border-gray-100 my-1"></div>
+
+                            {/* Botão de Logout */}
+                            <button
+                                onClick={() => { onLogoutClick(); setIsMenuOpen(false); }}
+                                className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
                                         >
-                                            📖 Meus Looks
-                                        </button>
-
-                                        <button onClick={() => { onLooksClick(); setIsMenuOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-100 font-medium">
-                                            ✨ Gerar Looks IA
-                                        </button>
-
-                                        <div className="border-t border-gray-100 my-1"></div>
-
-                                        <button
-                                            onClick={() => { onLogoutClick(); setIsMenuOpen(false); }}
-                                            className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
-                                        >
-                                            Logout
-                                        </button>
+                                            Sair
+                                        </a>
                                     </div>
                                 )}
                             </div>
                         ) : (
-                            // BOTÃO LOGIN (Quando deslogado)
+                            // BOTÃO DE LOGIN
                             <button
                                 onClick={onLoginClick}
-                                className="text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded transition-colors"
+                                className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition-colors"
                             >
-                                Login
+                                Entrar
                             </button>
                         )}
                     </div>

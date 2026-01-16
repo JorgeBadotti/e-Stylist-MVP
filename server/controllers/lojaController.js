@@ -1,5 +1,7 @@
 import Usuario from '../models/UsuarioModel.js';
 import Loja from '../models/Loja.js';
+import ProdutoLoja from '../models/ProdutoLoja.js';
+import { uploadImage } from '../services/cloudinary.js';
 
 /**
  * Registra um novo usuário com a role 'STORE' e cria uma loja associada.
@@ -24,10 +26,10 @@ export const registerStore = async (req, res) => {
             return res.status(409).json({ message: 'Este CNPJ já está cadastrado.' });
         }
 
-        // 3. Cria o novo usuário com a role STORE
+        // 3. Cria o novo usuário com a role STORE_ADMIN
         const novoUsuario = new Usuario({
             email,
-            role: 'STORE'
+            role: 'STORE_ADMIN'
         });
 
         // O método 'register' do passport-local-mongoose cuida do hash da senha
@@ -144,5 +146,103 @@ export const updateLoja = async (req, res) => {
     } catch (error) {
         console.error('Erro ao atualizar loja:', error);
         res.status(500).json({ message: 'Erro ao atualizar a loja.', error: error.message });
+    }
+};
+
+/**
+ * Adiciona um novo produto ao catálogo de uma loja.
+ * Apenas o usuário dono da loja pode adicionar produtos.
+ */
+export const adicionarProduto = async (req, res) => {
+    const { lojaId } = req.params;
+    const { nome, descricao, preco, sku, estoque, cor, tamanho, colecao, estilo, tags } = req.body;
+    const userId = req.user._id;
+
+    try {
+        const loja = await Loja.findById(lojaId);
+
+        if (!loja) {
+            return res.status(404).json({ message: 'Loja não encontrada.' });
+        }
+
+        // Verifica se o usuário autenticado é o dono da loja
+        if (loja.usuario.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'Acesso negado. Você não tem permissão para adicionar produtos a esta loja.' });
+        }
+
+        // Validação de campos obrigatórios
+        if (!nome || !descricao || !preco || !sku || estoque === undefined) {
+            return res.status(400).json({ message: 'Campos obrigatórios: nome, descrição, preço, SKU e estoque.' });
+        }
+
+        // Lida com o upload de fotos do produto
+        let fotosUrls = [];
+        if (req.files && req.files.fotos) {
+            const fotosPromises = req.files.fotos.map(file => uploadImage(file.buffer, `produtos_loja/${lojaId}`));
+            const results = await Promise.all(fotosPromises);
+            fotosUrls = results.map(r => r.secure_url);
+        }
+
+        const novoProduto = new ProdutoLoja({
+            lojaId,
+            nome,
+            descricao,
+            preco,
+            sku,
+            estoque,
+            fotos: fotosUrls,
+            cor,
+            tamanho,
+            colecao,
+            estilo,
+            tags
+        });
+
+        await novoProduto.save();
+
+        res.status(201).json({ message: 'Produto adicionado com sucesso!', produto: novoProduto });
+
+    } catch (error) {
+        console.error('Erro ao adicionar produto:', error);
+        // Tratamento de erro de chave duplicada (SKU)
+        if (error.code === 11000) {
+            return res.status(409).json({ message: 'O SKU informado já existe no catálogo.' });
+        }
+        res.status(500).json({ message: 'Erro ao adicionar o produto.', error: error.message });
+    }
+};
+
+/**
+ * Lista todos os produtos de uma loja específica.
+ */
+export const listarProdutosDaLoja = async (req, res) => {
+    const { lojaId } = req.params;
+
+    try {
+        // Verifica se a loja existe para dar um feedback melhor
+        const loja = await Loja.findById(lojaId);
+        if (!loja) {
+            return res.status(404).json({ message: 'Loja não encontrada.' });
+        }
+
+        const produtos = await ProdutoLoja.find({ lojaId });
+        res.status(200).json(produtos);
+
+    } catch (error) {
+        console.error('Erro ao listar produtos da loja:', error);
+        res.status(500).json({ message: 'Erro ao buscar os produtos.', error: error.message });
+    }
+};
+
+/**
+ * Lista todas as lojas cadastradas.
+ */
+export const getAllLojas = async (req, res) => {
+    try {
+        const lojas = await Loja.find({}).populate('usuario', 'email nome');
+        res.status(200).json(lojas);
+    } catch (error) {
+        console.error('Erro ao listar todas as lojas:', error);
+        res.status(500).json({ message: 'Erro ao buscar as lojas.', error: error.message });
     }
 };
