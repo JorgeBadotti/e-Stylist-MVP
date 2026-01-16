@@ -121,17 +121,15 @@ const App: React.FC = () => {
             <div className="min-h-screen bg-gray-100">
                 <Navbar
                     isAuthenticated={isAuthenticated}
-                    onLogout={handleLogout}
+                    user={userData ? { nome: userData.nome, foto: userData.foto, email: userData.email } : null}
+                    onLoginClick={() => setPublicView('login')}
+                    onLogoutClick={handleLogout}
                     onProfileClick={handleProfileClick}
                     onWardrobeClick={handleWardrobeClick}
                     onLooksClick={handleLooksClick}
-
                     onLojaClick={handleLojaClick}
                     onLogoClick={handleLogoClick}
-                    userName={userData?.nome}
-                    userPhoto={userData?.foto}
                     onMyLooksClick={handleMyLooksClick}
-
                 />
                 <main className="p-4 sm:p-6 md:p-8">
                     {privateView === 'home' && <HomePage onNavigate={setPrivateView} />}

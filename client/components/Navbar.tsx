@@ -87,13 +87,13 @@ const Navbar: React.FC<NavbarProps> = ({
                         </button>
                         {isAuthenticated && (
                             <>
-
-                                {/* 3. Adicionar o botão Loja */}
                                 <button
                                     onClick={onLojaClick}
                                     className="text-gray-600 hover:text-blue-800 font-medium transition-colors"
                                 >
                                     Loja
+                                </button>
+                                <button
                                     onClick={onMyLooksClick}
                                     className="text-gray-600 hover:text-blue-800 font-medium transition-colors"
                                 >
@@ -132,54 +132,49 @@ const Navbar: React.FC<NavbarProps> = ({
                                         <div className="px-4 py-2 border-b">
                                             <p className="text-sm font-medium text-gray-900 truncate">{user?.nome || 'Usuário'}</p>
                                         </div>
-                                        <a
-                                            href="#"
-                                            onClick={(e) => { e.preventDefault(); onWardrobeClick(); setIsMenuOpen(false); }}
-                                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                        <button
+                                            onClick={() => { onWardrobeClick(); setIsMenuOpen(false); }}
+                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                         >
                                             Meu Guarda-Roupa
-{/* Fecha o item anterior (provavelmente Guarda-Roupa) */}
-                            </button> 
+                                        </button>
 
-                            {/* Itens da branch MAIN (Looks e IA) */}
-                            <button
-                                onClick={() => { onMyLooksClick(); setIsMenuOpen(false); }}
-                                className="block w-full text-left px-4 py-2 text-sm text-purple-600 hover:bg-gray-100 font-medium"
-                            >
-                                📖 Meus Looks
-                            </button>
+                                        <button
+                                            onClick={() => { onMyLooksClick(); setIsMenuOpen(false); }}
+                                            className="block w-full text-left px-4 py-2 text-sm text-purple-600 hover:bg-gray-100 font-medium"
+                                        >
+                                            📖 Meus Looks
+                                        </button>
 
-                            <button 
-                                onClick={() => { onLooksClick(); setIsMenuOpen(false); }} 
-                                className="block w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-100 font-medium"
-                            >
-                                ✨ Gerar Looks IA
-                            </button>
+                                        <button
+                                            onClick={() => { onLooksClick(); setIsMenuOpen(false); }}
+                                            className="block w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-100 font-medium"
+                                        >
+                                            ✨ Gerar Looks IA
+                                        </button>
 
-                            {/* Itens da branch frontend-Loja (Loja e Perfil) - Convertidos para <button> para consistência */}
-                            <button
-                                onClick={() => { onLojaClick(); setIsMenuOpen(false); }}
-                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                            >
-                                Loja
-                            </button>
+                                        <button
+                                            onClick={() => { onLojaClick(); setIsMenuOpen(false); }}
+                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                        >
+                                            Loja
+                                        </button>
 
-                            <button
-                                onClick={() => { onProfileClick(); setIsMenuOpen(false); }}
-                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                            >
-                                Meu Perfil
-                            </button>
+                                        <button
+                                            onClick={() => { onProfileClick(); setIsMenuOpen(false); }}
+                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                        >
+                                            Meu Perfil
+                                        </button>
 
-                            <div className="border-t border-gray-100 my-1"></div>
+                                        <div className="border-t border-gray-100 my-1"></div>
 
-                            {/* Botão de Logout */}
-                            <button
-                                onClick={() => { onLogoutClick(); setIsMenuOpen(false); }}
-                                className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
+                                        <button
+                                            onClick={() => { onLogoutClick(); setIsMenuOpen(false); }}
+                                            className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
                                         >
                                             Sair
-                                        </a>
+                                        </button>
                                     </div>
                                 )}
                             </div>
