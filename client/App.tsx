@@ -82,7 +82,7 @@ const App: React.FC = () => {
     const handleProfileClick = () => { setPrivateView('profile'); setSelectedSku(null); };
     const handleWardrobeClick = () => { setPrivateView('wardrobes'); setSelectedSku(null); };
     const handleLooksClick = () => { setPrivateView('looks'); setSelectedSku(null); };
-    const handleMyLooksClick = () => { setPrivateView('myLooks'); setSelectedSku(null};
+    const handleMyLooksClick = () => { setPrivateView('myLooks'); setSelectedSku(null) };
     const handleLojaClick = () => { setPrivateView('loja'); setSelectedSku(null); }; // Limpa SKU ao ir para loja
 
     // 2. Funções para selecionar produto e voltar
@@ -130,7 +130,7 @@ const App: React.FC = () => {
                     onLogoClick={handleLogoClick}
                     userName={userData?.nome}
                     userPhoto={userData?.foto}
-                    onMyLooksClick={handleMyLooksClick} 
+                    onMyLooksClick={handleMyLooksClick}
 
                 />
                 <main className="p-4 sm:p-6 md:p-8">
@@ -138,7 +138,7 @@ const App: React.FC = () => {
                     {privateView === 'wardrobes' && <IndiceGuardaRoupas />}
                     {privateView === 'profile' && <ProfilePage />}
                     {privateView === 'looks' && <LooksPage />}
-                    
+
                     {/* 3. Lógica de renderização para Loja/Detalhe */}
                     {privateView === 'loja' && !selectedSku && (
                         <LojaPage onProdutoSelect={handleProdutoSelect} />
