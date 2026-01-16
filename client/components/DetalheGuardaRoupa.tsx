@@ -19,7 +19,10 @@ interface Props {
 const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
     const [roupas, setRoupas] = useState<Roupa[]>([]);
     const [guardaRoupaNome, setGuardaRoupaNome] = useState('');
+    const [guardaRoupaIsPublic, setGuardaRoupaIsPublic] = useState(false);
+    const [isOwner, setIsOwner] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [togglingVisibility, setTogglingVisibility] = useState(false);
 
     // Controle do Formulário
     const [showForm, setShowForm] = useState(false);
@@ -40,6 +43,8 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
         try {
             const grRes = await api.get(`/api/guarda-roupas/${guardaRoupaId}`);
             setGuardaRoupaNome(grRes.data.nome);
+            setGuardaRoupaIsPublic(grRes.data.isPublic || false);
+            setIsOwner(grRes.data.isOwner || false);
             const roupasRes = await api.get(`/api/roupas/guarda-roupa/${guardaRoupaId}`);
             setRoupas(roupasRes.data);
         } catch (error) {
@@ -53,6 +58,22 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
     useEffect(() => {
         fetchData();
     }, [guardaRoupaId]);
+
+    // Função para alternar visibilidade do guarda-roupa
+    const handleToggleVisibility = async () => {
+        setTogglingVisibility(true);
+        try {
+            await api.put(`/api/guarda-roupas/${guardaRoupaId}`, {
+                isPublic: !guardaRoupaIsPublic
+            });
+            setGuardaRoupaIsPublic(!guardaRoupaIsPublic);
+        } catch (error) {
+            console.error("Erro ao alterar visibilidade:", error);
+            alert("Erro ao alterar visibilidade do guarda-roupa");
+        } finally {
+            setTogglingVisibility(false);
+        }
+    };
 
     // Prepara o formulário para EDIÇÃO
     const handleEditClick = (roupa: Roupa) => {
@@ -149,18 +170,55 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
                 &larr; Voltar para Meus Armários
             </button>
 
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-3xl font-bold text-gray-800">{guardaRoupaNome}</h2>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <div className="flex items-center gap-3">
+                    <h2 className="text-3xl font-bold text-gray-800">{guardaRoupaNome}</h2>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleToggleVisibility}
+                            disabled={togglingVisibility || !isOwner}
+                            className={`px-3 py-1 rounded-full text-sm font-semibold transition-colors ${!isOwner
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                                    : guardaRoupaIsPublic
+                                        ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                }`}
+                            title={
+                                !isOwner
+                                    ? 'Você não pode alterar a visibilidade de um guarda-roupa que não é seu'
+                                    : guardaRoupaIsPublic
+                                        ? 'Clique para tornar privado'
+                                        : 'Clique para tornar público'
+                            }
+                        >
+                            {togglingVisibility ? '...' : guardaRoupaIsPublic ? '🌐 Público' : '🔒 Privado'}
+                        </button>
+                    </div>
+                </div>
                 <button
                     onClick={() => {
                         if (showForm) resetForm(); // Se clicar em cancelar
                         else setShowForm(true);
                     }}
-                    className={`px-4 py-2 rounded text-white ${showForm ? 'bg-gray-500 hover:bg-gray-600' : 'bg-green-600 hover:bg-green-700'}`}
+                    disabled={!isOwner}
+                    title={isOwner ? 'Adicionar uma peça' : 'Você não pode editar este guarda-roupa'}
+                    className={`px-4 py-2 rounded text-white ${showForm
+                            ? 'bg-gray-500 hover:bg-gray-600'
+                            : isOwner
+                                ? 'bg-green-600 hover:bg-green-700'
+                                : 'bg-gray-400 cursor-not-allowed opacity-60'
+                        }`}
                 >
                     {showForm ? 'Cancelar' : '+ Adicionar Roupa'}
+
                 </button>
             </div>
+
+            {!isOwner && !showForm && (
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+                    ℹ️ Este é um guarda-roupa público. Você pode visualizar as peças mas não pode editar.
+                </div>
+            )}
 
             {showForm && (
                 <div ref={formRef} className="bg-white p-6 rounded-lg shadow-md mb-8 border border-green-100 animate-fade-in-down">
@@ -243,22 +301,24 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
                             )}
 
                             {/* OVERLAY DE AÇÕES (Aparece ao passar o mouse) */}
-                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center space-x-2 opacity-0 group-hover:opacity-100">
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleEditClick(roupa); }}
-                                    className="bg-white text-blue-600 p-2 rounded-full hover:bg-blue-50 shadow-lg"
-                                    title="Editar"
-                                >
-                                    ✏️
-                                </button>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleDelete(roupa._id); }}
-                                    className="bg-white text-red-600 p-2 rounded-full hover:bg-red-50 shadow-lg"
-                                    title="Excluir"
-                                >
-                                    🗑️
-                                </button>
-                            </div>
+                            {isOwner && (
+                                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center space-x-2 opacity-0 group-hover:opacity-100">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleEditClick(roupa); }}
+                                        className="bg-white text-blue-600 p-2 rounded-full hover:bg-blue-50 shadow-lg"
+                                        title="Editar"
+                                    >
+                                        ✏️
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDelete(roupa._id); }}
+                                        className="bg-white text-red-600 p-2 rounded-full hover:bg-red-50 shadow-lg"
+                                        title="Excluir"
+                                    >
+                                        🗑️
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         <div className="p-4 flex-grow">

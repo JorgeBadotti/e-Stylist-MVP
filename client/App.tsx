@@ -8,13 +8,15 @@ import ProfilePage from './components/ProfilePage';
 import LooksPage from './components/LooksPage';
 import LojaPage from './components/Loja/LojaPage';
 import ProdutoDetalhe from './components/Loja/ProdutoDetalhe'; // Importar ProdutoDetalhe
+import MyLooksPage from './components/MyLooksPage';
 import api from './src/services/api';
 
 
 // Tipos para as telas de quem NÃO está logado
 type PublicView = 'landing' | 'login' | 'register';
-// 2. Adicionar 'loja' ao tipo PrivateView
-type PrivateView = 'home' | 'wardrobes' | 'profile' | 'looks' | 'loja';
+
+type PrivateView = 'home' | 'wardrobes' | 'profile' | 'looks' | 'myLooks' | 'loja';
+
 
 // 1. Definir a interface para os dados do usuário
 interface UserData {
@@ -76,9 +78,11 @@ const App: React.FC = () => {
     };
 
     // Navegação Interna
+
     const handleProfileClick = () => { setPrivateView('profile'); setSelectedSku(null); };
     const handleWardrobeClick = () => { setPrivateView('wardrobes'); setSelectedSku(null); };
     const handleLooksClick = () => { setPrivateView('looks'); setSelectedSku(null); };
+    const handleMyLooksClick = () => { setPrivateView('myLooks'); setSelectedSku(null};
     const handleLojaClick = () => { setPrivateView('loja'); setSelectedSku(null); }; // Limpa SKU ao ir para loja
 
     // 2. Funções para selecionar produto e voltar
@@ -89,6 +93,7 @@ const App: React.FC = () => {
     const handleBackToCatalog = () => {
         setSelectedSku(null);
     };
+
 
     // Voltar para Home ao clicar no Logo
     const handleLogoClick = () => {
@@ -120,10 +125,13 @@ const App: React.FC = () => {
                     onProfileClick={handleProfileClick}
                     onWardrobeClick={handleWardrobeClick}
                     onLooksClick={handleLooksClick}
+
                     onLojaClick={handleLojaClick}
                     onLogoClick={handleLogoClick}
                     userName={userData?.nome}
                     userPhoto={userData?.foto}
+                    onMyLooksClick={handleMyLooksClick} 
+
                 />
                 <main className="p-4 sm:p-6 md:p-8">
                     {privateView === 'home' && <HomePage onNavigate={setPrivateView} />}
@@ -137,6 +145,10 @@ const App: React.FC = () => {
                     )}
                     {privateView === 'loja' && selectedSku && (
                         <ProdutoDetalhe sku={selectedSku} onBack={handleBackToCatalog} />
+                    )}
+
+                    {privateView === 'myLooks' && (
+                        <MyLooksPage />
                     )}
                 </main>
             </div>
@@ -154,6 +166,8 @@ const App: React.FC = () => {
                 onLogoClick={handleLogoClick}
                 onProfileClick={() => { }}
                 onWardrobeClick={() => { }}
+                onLooksClick={() => { }}
+                onMyLooksClick={() => { }}
             />
 
             {publicView === 'login' ? (

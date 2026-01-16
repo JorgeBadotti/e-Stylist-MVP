@@ -18,6 +18,7 @@ interface NavbarProps {
     onWardrobeClick: () => void;
     onLooksClick: () => void;
     onLojaClick: () => void; // 1. Adicionar a prop
+    onMyLooksClick: () => void;
 }
 
 const Navbar: React.FC<NavbarProps> = ({
@@ -30,6 +31,7 @@ const Navbar: React.FC<NavbarProps> = ({
     onWardrobeClick,
     onLooksClick,
     onLojaClick, // 2. Receber a prop
+    onMyLooksClick
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -85,18 +87,23 @@ const Navbar: React.FC<NavbarProps> = ({
                         </button>
                         {isAuthenticated && (
                             <>
-                                <button
-                                    onClick={onLooksClick}
-                                    className="text-gray-600 hover:text-blue-800 font-medium transition-colors"
-                                >
-                                    Gerar Looks
-                                </button>
+
                                 {/* 3. Adicionar o botão Loja */}
                                 <button
                                     onClick={onLojaClick}
                                     className="text-gray-600 hover:text-blue-800 font-medium transition-colors"
                                 >
                                     Loja
+                                    onClick={onMyLooksClick}
+                                    className="text-gray-600 hover:text-blue-800 font-medium transition-colors"
+                                >
+                                    Meus Looks
+                                </button>
+                                <button
+                                    onClick={onLooksClick}
+                                    className="text-gray-600 hover:text-blue-800 font-medium transition-colors"
+                                >
+                                    Gerar Looks
                                 </button>
                             </>
                         )}
@@ -131,27 +138,45 @@ const Navbar: React.FC<NavbarProps> = ({
                                             className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                         >
                                             Meu Guarda-Roupa
-                                        </a>
-                                        {/* 4. Adicionar o link Loja no menu mobile também */}
-                                        <a
-                                            href="#"
-                                            onClick={(e) => { e.preventDefault(); onLojaClick(); setIsMenuOpen(false); }}
-                                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                        >
-                                            Loja
-                                        </a>
-                                        <a
-                                            href="#"
-                                            onClick={(e) => { e.preventDefault(); onProfileClick(); setIsMenuOpen(false); }}
-                                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                        >
-                                            Meu Perfil
-                                        </a>
-                                        <div className="border-t my-1"></div>
-                                        <a
-                                            href="#"
-                                            onClick={(e) => { e.preventDefault(); onLogoutClick(); setIsMenuOpen(false); }}
-                                            className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+{/* Fecha o item anterior (provavelmente Guarda-Roupa) */}
+                            </button> 
+
+                            {/* Itens da branch MAIN (Looks e IA) */}
+                            <button
+                                onClick={() => { onMyLooksClick(); setIsMenuOpen(false); }}
+                                className="block w-full text-left px-4 py-2 text-sm text-purple-600 hover:bg-gray-100 font-medium"
+                            >
+                                📖 Meus Looks
+                            </button>
+
+                            <button 
+                                onClick={() => { onLooksClick(); setIsMenuOpen(false); }} 
+                                className="block w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-100 font-medium"
+                            >
+                                ✨ Gerar Looks IA
+                            </button>
+
+                            {/* Itens da branch frontend-Loja (Loja e Perfil) - Convertidos para <button> para consistência */}
+                            <button
+                                onClick={() => { onLojaClick(); setIsMenuOpen(false); }}
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            >
+                                Loja
+                            </button>
+
+                            <button
+                                onClick={() => { onProfileClick(); setIsMenuOpen(false); }}
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            >
+                                Meu Perfil
+                            </button>
+
+                            <div className="border-t border-gray-100 my-1"></div>
+
+                            {/* Botão de Logout */}
+                            <button
+                                onClick={() => { onLogoutClick(); setIsMenuOpen(false); }}
+                                className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
                                         >
                                             Sair
                                         </a>
