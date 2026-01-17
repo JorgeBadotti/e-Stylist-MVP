@@ -5,6 +5,7 @@ interface UserData {
     nome?: string;
     foto?: string;
     email?: string;
+    role?: string; // ✅ NOVO: Role do usuário para validar acesso à loja
 }
 
 interface NavbarProps {
@@ -19,6 +20,7 @@ interface NavbarProps {
     onLooksClick: () => void;
     onLojaClick: () => void; // 1. Adicionar a prop
     onMyLooksClick: () => void;
+    onInvitacoesClick: () => void; // ✅ NOVO: Para acessar minhas invitações
 }
 
 const Navbar: React.FC<NavbarProps> = ({
@@ -31,7 +33,8 @@ const Navbar: React.FC<NavbarProps> = ({
     onWardrobeClick,
     onLooksClick,
     onLojaClick, // 2. Receber a prop
-    onMyLooksClick
+    onMyLooksClick,
+    onInvitacoesClick // ✅ NOVO
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -46,6 +49,12 @@ const Navbar: React.FC<NavbarProps> = ({
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    // ✅ NOVO: Função para validar se o usuário pode acessar a loja
+    const canAccessLoja = () => {
+        const lojaRoles = ['SALESPERSON', 'STORE_ADMIN', 'SUPER_ADMIN'];
+        return user?.role && lojaRoles.includes(user.role);
+    };
 
     // Função auxiliar para renderizar avatar ou iniciais
     const renderAvatar = () => {
@@ -87,12 +96,15 @@ const Navbar: React.FC<NavbarProps> = ({
                         </button>
                         {isAuthenticated && (
                             <>
-                                <button
-                                    onClick={onLojaClick}
-                                    className="text-gray-600 hover:text-blue-800 font-medium transition-colors"
-                                >
-                                    Loja
-                                </button>
+                                {/* ✅ NOVO: Botão Loja só aparece para SALESPERSON, STORE_ADMIN ou SUPER_ADMIN */}
+                                {canAccessLoja() && (
+                                    <button
+                                        onClick={onLojaClick}
+                                        className="text-gray-600 hover:text-blue-800 font-medium transition-colors"
+                                    >
+                                        {user?.role === 'SALESPERSON' ? 'Lojas Associadas' : 'Loja'}
+                                    </button>
+                                )}
                                 <button
                                     onClick={onMyLooksClick}
                                     className="text-gray-600 hover:text-blue-800 font-medium transition-colors"
@@ -153,11 +165,22 @@ const Navbar: React.FC<NavbarProps> = ({
                                             ✨ Gerar Looks IA
                                         </button>
 
+                                        {/* ✅ NOVO: Botão Loja só aparece para SALESPERSON, STORE_ADMIN ou SUPER_ADMIN */}
+                                        {canAccessLoja() && (
+                                            <button
+                                                onClick={() => { onLojaClick(); setIsMenuOpen(false); }}
+                                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                            >
+                                                {user?.role === 'SALESPERSON' ? 'Lojas Associadas' : 'Loja'}
+                                            </button>
+                                        )}
+
+                                        {/* ✅ NOVO: Botão Notificações */}
                                         <button
-                                            onClick={() => { onLojaClick(); setIsMenuOpen(false); }}
-                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                            onClick={() => { onInvitacoesClick(); setIsMenuOpen(false); }}
+                                            className="block w-full text-left px-4 py-2 text-sm text-orange-600 hover:bg-gray-100 font-medium"
                                         >
-                                            Loja
+                                            🔔 Notificações
                                         </button>
 
                                         <button

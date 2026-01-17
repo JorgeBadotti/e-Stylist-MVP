@@ -4,10 +4,9 @@ import api from '../src/services/api';
 interface Roupa {
     _id: string;
     nome: string;
-    categoria: string;
     cor: string;
     tamanho: string;
-    tecido: string;
+    material: string;
     foto?: string;
 }
 
@@ -45,8 +44,8 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
             setGuardaRoupaNome(grRes.data.nome);
             setGuardaRoupaIsPublic(grRes.data.isPublic || false);
             setIsOwner(grRes.data.isOwner || false);
-            const roupasRes = await api.get(`/api/roupas/guarda-roupa/${guardaRoupaId}`);
-            setRoupas(roupasRes.data);
+            const produtosRes = await api.get(`/api/produtos/guarda-roupa/${guardaRoupaId}`);
+            setRoupas(produtosRes.data);
         } catch (error) {
             console.error(error);
             alert('Erro ao carregar detalhes');
@@ -80,10 +79,10 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
         setEditingId(roupa._id);
         setFormData({
             nome: roupa.nome,
-            categoria: roupa.categoria,
+            categoria: 'Camiseta',
             cor: roupa.cor || '',
             tamanho: roupa.tamanho || '',
-            tecido: roupa.tecido || ''
+            tecido: roupa.material || ''
         });
         setArquivoRoupa(null); // Reseta arquivo (usuário só põe se quiser trocar)
         setShowForm(true);
@@ -110,10 +109,10 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
         try {
             const payload = new FormData();
             payload.append('nome', formData.nome);
-            payload.append('categoria', formData.categoria);
             payload.append('cor', formData.cor);
             payload.append('tamanho', formData.tamanho);
-            payload.append('tecido', formData.tecido);
+            payload.append('material', formData.tecido); // Mapeando tecido para material
+            payload.append('sku', `${formData.nome}-${Date.now()}`); // Gera um SKU único
 
             // Só manda o ID do guarda-roupa se for criação nova (opcional no update, mas mal não faz)
             if (!editingId) {
@@ -126,10 +125,10 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
 
             if (editingId) {
                 // --- MODO EDIÇÃO (PUT) ---
-                await api.put(`/api/roupas/${editingId}`, payload);
+                await api.put(`/api/produtos/${editingId}`, payload);
             } else {
                 // --- MODO CRIAÇÃO (POST) ---
-                await api.post('/api/roupas', payload);
+                await api.post('/api/produtos', payload);
             }
 
             resetForm();
@@ -145,7 +144,7 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
         if (!window.confirm("Tem certeza que deseja excluir esta peça?")) return;
 
         try {
-            await api.delete(`/api/roupas/${id}`);
+            await api.delete(`/api/produtos/${id}`);
 
             // --- MUDANÇA AQUI ---
             // Se o usuário estiver editando justamente a peça que acabou de excluir,
@@ -233,18 +232,6 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
                             onChange={e => setFormData({ ...formData, nome: e.target.value })}
                             required
                         />
-                        <select
-                            className="border p-2 rounded"
-                            value={formData.categoria}
-                            onChange={e => setFormData({ ...formData, categoria: e.target.value })}
-                        >
-                            <option>Camiseta</option>
-                            <option>Calça</option>
-                            <option>Vestido</option>
-                            <option>Casaco</option>
-                            <option>Sapatos</option>
-                            <option>Acessório</option>
-                        </select>
                         <input
                             placeholder="Cor"
                             className="border p-2 rounded"

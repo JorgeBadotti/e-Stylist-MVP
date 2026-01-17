@@ -1,6 +1,6 @@
 import Usuario from '../models/UsuarioModel.js';
 import Loja from '../models/Loja.js';
-import ProdutoLoja from '../models/ProdutoLoja.js';
+import Produto from '../models/Produto.js';
 import { uploadImage } from '../services/cloudinary.js';
 
 /**
@@ -9,8 +9,11 @@ import { uploadImage } from '../services/cloudinary.js';
 export const registerStore = async (req, res) => {
     const { nome, email, password, telefone, cnpj } = req.body;
 
+    console.log('📝 [registerStore] Recebido:', { nome, email, telefone, cnpj });
+
     // 1. Validação básica dos campos obrigatórios
     if (!nome || !email || !password || !telefone || !cnpj) {
+        console.warn('❌ [registerStore] Campos obrigatórios ausentes');
         return res.status(400).json({ message: 'Todos os campos são obrigatórios: Nome, E-mail, Senha, Telefone e CNPJ.' });
     }
 
@@ -18,57 +21,67 @@ export const registerStore = async (req, res) => {
         // 2. Verifica se o usuário ou CNPJ já existem
         const userExists = await Usuario.findOne({ email });
         if (userExists) {
+            console.warn('❌ [registerStore] Email já existe:', email);
             return res.status(409).json({ message: 'Este e-mail já está em uso.' });
         }
 
         const cnpjExists = await Loja.findOne({ cnpj });
         if (cnpjExists) {
+            console.warn('❌ [registerStore] CNPJ já existe:', cnpj);
             return res.status(409).json({ message: 'Este CNPJ já está cadastrado.' });
         }
 
         // 3. Cria o novo usuário com a role STORE_ADMIN
+        console.log('👤 [registerStore] Criando usuário...');
         const novoUsuario = new Usuario({
             email,
             role: 'STORE_ADMIN'
         });
 
-        // O método 'register' do passport-local-mongoose cuida do hash da senha
-        Usuario.register(novoUsuario, password, async (err, usuario) => {
-            if (err) {
-                console.error('Erro ao registrar usuário:', err);
-                return res.status(500).json({ message: 'Erro interno ao criar o usuário.', error: err.message });
+        // ✅ USAR AWAIT - passport-local-mongoose retorna Promise
+        const usuario = await Usuario.register(novoUsuario, password);
+        console.log('✅ [registerStore] Usuário criado:', usuario._id);
+
+        // 4. Cria a loja associada ao novo usuário
+        console.log('🏪 [registerStore] Criando loja associada ao usuário:', usuario._id);
+        const novaLoja = await Loja.create({
+            nome,
+            cnpj,
+            telefone,
+            usuario: usuario._id
+        });
+        console.log('✅ [registerStore] Loja criada:', novaLoja._id);
+
+        // ✅ Fazer login automático
+        console.log('🔐 [registerStore] Fazendo login automático...');
+        req.login(usuario, (loginErr) => {
+            if (loginErr) {
+                console.error('❌ [registerStore] Erro ao fazer login automático:', loginErr);
+                return res.status(500).json({ message: 'Usuário criado, mas erro ao fazer login automático.', error: loginErr.message });
             }
 
-            try {
-                // 4. Cria a loja associada ao novo usuário
-                const novaLoja = await Loja.create({
-                    nome,
-                    cnpj,
-                    telefone,
-                    usuario: usuario._id // Associa a loja ao usuário recém-criado
-                });
+            console.log('✅ [registerStore] Login automático realizado!');
 
-                // 5. Retorna sucesso com os dados criados (sem a senha)
-                res.status(201).json({
-                    message: 'Lojista cadastrado com sucesso!',
-                    usuario: {
-                        id: usuario._id,
-                        email: usuario.email,
-                        role: usuario.role
-                    },
-                    loja: novaLoja
-                });
-            } catch (lojaErr) {
-                console.error('Erro ao criar loja:', lojaErr);
-                // Se a criação da loja falhar, remove o usuário criado para evitar inconsistência
-                await Usuario.findByIdAndDelete(usuario._id);
-                res.status(500).json({ message: 'Erro interno ao criar a loja.', error: lojaErr.message });
-            }
+            // 5. Retorna sucesso
+            res.status(201).json({
+                message: 'Lojista cadastrado com sucesso!',
+                usuario: {
+                    id: usuario._id,
+                    email: usuario.email,
+                    role: usuario.role,
+                    nome: usuario.nome
+                },
+                loja: novaLoja
+            });
         });
 
     } catch (error) {
-        console.error('Erro no processo de cadastro de lojista:', error);
-        res.status(500).json({ message: 'Ocorreu um erro inesperado.', error: error.message });
+        console.error('❌ [registerStore] Erro:', error.message);
+        // Se deu erro ao criar loja, deleta o usuário
+        if (error.message.includes('loja')) {
+            await Usuario.findByIdAndDelete(novoUsuario._id);
+        }
+        res.status(500).json({ message: error.message });
     }
 };
 
@@ -171,31 +184,27 @@ export const adicionarProduto = async (req, res) => {
         }
 
         // Validação de campos obrigatórios
-        if (!nome || !descricao || !preco || !sku || estoque === undefined) {
-            return res.status(400).json({ message: 'Campos obrigatórios: nome, descrição, preço, SKU e estoque.' });
+        if (!nome || !sku) {
+            return res.status(400).json({ message: 'Campos obrigatórios: nome e SKU.' });
         }
 
-        // Lida com o upload de fotos do produto
-        let fotosUrls = [];
-        if (req.files && req.files.fotos) {
-            const fotosPromises = req.files.fotos.map(file => uploadImage(file.buffer, `produtos_loja/${lojaId}`));
-            const results = await Promise.all(fotosPromises);
-            fotosUrls = results.map(r => r.secure_url);
+        // Lida com o upload de foto do produto
+        let fotoUrl = '';
+        let fotoPublicId = '';
+        if (req.file) {
+            const result = await uploadImage(req.file.buffer, `produtos_loja/${lojaId}`);
+            fotoUrl = result.secure_url;
+            fotoPublicId = result.public_id;
         }
 
-        const novoProduto = new ProdutoLoja({
-            lojaId,
+        const novoProduto = new Produto({
             nome,
-            descricao,
-            preco,
-            sku,
-            estoque,
-            fotos: fotosUrls,
             cor,
             tamanho,
-            colecao,
-            estilo,
-            tags
+            material: colecao, // Mapeando colecao para material
+            sku,
+            foto: fotoUrl,
+            fotoPublicId: fotoPublicId
         });
 
         await novoProduto.save();
@@ -219,17 +228,23 @@ export const listarProdutosDaLoja = async (req, res) => {
     const { lojaId } = req.params;
 
     try {
+        console.log(`📦 [listarProdutosDaLoja] Buscando produtos da loja: ${lojaId}`);
+        
         // Verifica se a loja existe para dar um feedback melhor
         const loja = await Loja.findById(lojaId);
         if (!loja) {
+            console.log(`❌ [listarProdutosDaLoja] Loja não encontrada: ${lojaId}`);
             return res.status(404).json({ message: 'Loja não encontrada.' });
         }
 
-        const produtos = await ProdutoLoja.find({ lojaId });
+        // TODO: Implementar busca de produtos da loja
+        // Produtos agora não têm lojaId, precisa adicionar isso ao modelo Produto se necessário
+        const produtos = [];
+        console.log(`✅ [listarProdutosDaLoja] Função não implementada`);
         res.status(200).json(produtos);
 
     } catch (error) {
-        console.error('Erro ao listar produtos da loja:', error);
+        console.error('❌ [listarProdutosDaLoja] Erro:', error);
         res.status(500).json({ message: 'Erro ao buscar os produtos.', error: error.message });
     }
 };

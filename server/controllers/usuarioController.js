@@ -8,6 +8,7 @@ export const updateBodyData = async (req, res) => {
 
         const {
             nome,          // NOVO: Frontend agora envia o nome
+            cpf,           // ✅ NOVO: Recebe CPF do frontend
             busto,
             cintura,
             quadril,
@@ -34,11 +35,18 @@ export const updateBodyData = async (req, res) => {
             updateData.nome = nome;
         }
 
+        // ✅ NOVO: Atualiza o CPF se vier preenchido
+        if (cpf) {
+            updateData.cpf = cpf;
+        }
+
         // Atualiza a foto apenas se ela for enviada
         // NOTA: Como estamos recebendo Base64, a string será grande.
         if (foto_corpo) {
             updateData.foto_corpo = foto_corpo;
         }
+
+        console.log('👤 [updateBodyData] Atualizando usuário:', { userId, updateData });
 
         const userUpdated = await Usuario.findByIdAndUpdate(
             userId,
@@ -50,12 +58,15 @@ export const updateBodyData = async (req, res) => {
             return res.status(404).json({ message: 'Usuário não encontrado' });
         }
 
+        console.log('✅ [updateBodyData] Usuário atualizado com sucesso');
+
         res.status(200).json({
             message: 'Perfil atualizado com sucesso',
             user: {
                 id: userUpdated._id,
                 nome: userUpdated.nome,
                 email: userUpdated.email,
+                cpf: userUpdated.cpf,
                 medidas: userUpdated.medidas,
                 tipo_corpo: userUpdated.tipo_corpo,
                 foto_corpo: userUpdated.foto_corpo,
@@ -64,7 +75,7 @@ export const updateBodyData = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Erro ao atualizar perfil:", error);
+        console.error("❌ [updateBodyData] Erro ao atualizar perfil:", error);
         res.status(500).json({ error: 'Erro ao atualizar dados do perfil.' });
     }
 };
@@ -79,6 +90,26 @@ export const getProfile = async (req, res) => {
         res.status(200).json(user);
     } catch (error) {
         console.error("Erro ao buscar perfil:", error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// ✅ NOVO: Obter usuário por ID com lojas_associadas populadas
+export const getUsuarioById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await Usuario.findById(id).populate('lojas_associadas');
+        
+        if (!user) {
+            return res.status(404).json({ message: 'Usuário não encontrado' });
+        }
+        
+        res.status(200).json({
+            user,
+            lojas_associadas: user.lojas_associadas || []
+        });
+    } catch (error) {
+        console.error("❌ [getUsuarioById] Erro ao buscar usuário:", error);
         res.status(500).json({ error: error.message });
     }
 };

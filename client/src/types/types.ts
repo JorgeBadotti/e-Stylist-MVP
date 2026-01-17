@@ -145,6 +145,18 @@ export interface SharedLinkData {
 
 // --- Tipos da Loja ---
 
+// ✅ NOVO: Tipos para cadastro de usuário/loja
+export interface RegisterUserData {
+  nome: string;
+  email: string;
+  password: string;
+}
+
+export interface RegisterStoreData extends RegisterUserData {
+  telefone: string;
+  cnpj: string;
+}
+
 export interface Produto {
   _id: string;
   lojaId: string;

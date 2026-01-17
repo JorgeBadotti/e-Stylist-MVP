@@ -39,12 +39,15 @@ export const createGuardaRoupa = async (req, res) => {
 export const getGuardaRoupas = async (req, res) => {
     try {
         const usuarioId = req.user._id;
+        console.log(`📚 [getGuardaRoupas] Buscando guarda-roupas do usuário: ${usuarioId}`);
 
         // Busca apenas os guarda-roupas deste usuário
         const guardaRoupas = await GuardaRoupa.find({ usuario: usuarioId });
 
+        console.log(`✅ [getGuardaRoupas] ${guardaRoupas.length} guarda-roupas encontrados`);
         res.status(200).json(guardaRoupas);
     } catch (error) {
+        console.error('❌ [getGuardaRoupas] Erro:', error);
         res.status(500).json({ message: 'Erro ao buscar guarda-roupas', error: error.message });
     }
 };

@@ -1,0 +1,228 @@
+.minhas-invitacoes-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+    border-bottom: 3px solid #007bff;
+    padding-bottom: 16px;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 2rem;
+    color: #333;
+}
+
+.badge-count {
+    background-color: #dc3545;
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1rem;
+}
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    font-size: 1.1rem;
+}
+
+.error-message {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 16px;
+    border-radius: 8px;
+    border-left: 4px solid #dc3545;
+    margin-bottom: 24px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 1.3rem;
+    color: #999;
+    margin-bottom: 8px;
+}
+
+.empty-state small {
+    color: #bbb;
+    font-size: 1rem;
+}
+
+.convites-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+}
+
+.convite-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
+}
+
+.convite-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    flex: 1;
+}
+
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.status-badge.pending {
+    background-color: rgba(255, 193, 7, 0.3);
+    color: #fff;
+    border: 1px solid rgba(255, 193, 7, 0.6);
+}
+
+.card-body {
+    padding: 20px;
+    flex: 1;
+}
+
+.info-item {
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+}
+
+.info-item:last-child {
+    margin-bottom: 0;
+}
+
+.info-item .label {
+    font-weight: 600;
+    color: #666;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.info-item .value {
+    color: #333;
+    font-size: 0.95rem;
+}
+
+.info-item .value.email {
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-size: 0.9rem;
+    color: #0056b3;
+}
+
+.info-item .message {
+    background-color: #f8f9fa;
+    padding: 12px;
+    border-radius: 6px;
+    border-left: 3px solid #007bff;
+    color: #555;
+    margin: 8px 0 0 0;
+    font-style: italic;
+    line-height: 1.5;
+}
+
+.card-footer {
+    padding: 16px 20px;
+    background-color: #f8f9fa;
+    display: flex;
+    gap: 12px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.btn-rejeitar,
+.btn-aceitar {
+    flex: 1;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-rejeitar {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.btn-rejeitar:hover:not(:disabled) {
+    background-color: #f5c6cb;
+    border-color: #f1b0b7;
+}
+
+.btn-aceitar {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.btn-aceitar:hover:not(:disabled) {
+    background-color: #c3e6cb;
+    border-color: #b1dfbb;
+}
+
+.btn-rejeitar:disabled,
+.btn-aceitar:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+    .convites-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .header h1 {
+        font-size: 1.6rem;
+    }
+}

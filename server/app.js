@@ -20,9 +20,10 @@ import { requestLogger, errorHandler } from './middlewares/logger.js';
 //Routers
 import authRoutes from './routes/authRouter.js';
 import lojaRoutes from './routes/lojaRouter.js';
+import conviteRoutes from './routes/conviteRouter.js'; // ✅ NOVO: Rota de convites
 
 import guardaRoupaRoutes from './routes/guardaRoupaRouter.js'
-import roupaRoutes from './routes/roupaRouter.js';
+import produtoRoutes from './routes/produtoRouter.js';
 import usuarioRoutes from './routes/usuarioRouter.js';
 import looksRoutes from './routes/looksRouter.js';
 
@@ -41,7 +42,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
-app.use(express.static(path.join(__dirname, '..', 'dist')));
 
 // --- CONFIGURAÇÃO DE SESSÃO E PASSPORT ---
 app.use(session({
@@ -65,18 +65,21 @@ app.use(passport.session());
 // Middlewares Custom
 app.use(requestLogger);
 
+// ⭐ ROTAS DA API DEVEM VIR ANTES DOS ARQUIVOS ESTÁTICOS
 // Routers
 app.use('/auth', authRoutes);
 app.use('/api/lojas', lojaRoutes);
-
-
 app.use('/api/guarda-roupas', guardaRoupaRoutes);
-app.use('/api/roupas', roupaRoutes);
+app.use('/api/produtos', produtoRoutes);
 app.use('/api/usuario', usuarioRoutes);
 app.use('/api/looks', looksRoutes);
+app.use('/api/convites', conviteRoutes);
 
-// Serve index.html for SPA routing
-app.get('/', (req, res) => {
+// ⭐ ARQUIVOS ESTÁTICOS E SPA ROUTING DEPOIS DAS APIS
+app.use(express.static(path.join(__dirname, '..', 'dist')));
+
+// Serve index.html for SPA routing (fallback)
+app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
 

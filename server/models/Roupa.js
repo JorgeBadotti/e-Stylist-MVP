@@ -58,11 +58,12 @@ const roupaSchema = new Schema({
 });
 
 // Middleware para limpar o precoVenda se o status não for 'venda'
-roupaSchema.pre('save', function(next) {
+roupaSchema.pre('save', function() {
     if (this.status !== 'venda') {
         this.precoVenda = null;
     }
-    next();
+    // Retorna uma Promise ao invés de chamar next()
+    return Promise.resolve();
 });
 
 const Roupa = mongoose.models.Roupa || mongoose.model('Roupa', roupaSchema);
