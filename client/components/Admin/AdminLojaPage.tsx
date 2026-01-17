@@ -3,6 +3,7 @@ import Catalogo from '../Loja/Catalogo';
 import GerenciadorColecoes from '../Loja/GerenciadorColecoes';
 import VendedoresList from '../VendedoresList';
 import ConvidarVendedorModal from '../ConvidarVendedorModal';
+import CadastroProdutoSKU from '../CadastroProdutoSKU';
 import ProdutoDetalhe from '../Loja/ProdutoDetalhe';
 import DetalheGuardaRoupa from '../DetalheGuardaRoupa';
 
@@ -14,11 +15,21 @@ export default function AdminLojaPage({ lojaId }: AdminLojaPageProps) {
   const [selectedSku, setSelectedSku] = useState<string | null>(null);
   const [selectedColecaoId, setSelectedColecaoId] = useState<string | null>(null);
   const [showConviteModal, setShowConviteModal] = useState(false);
+  const [showCadastroProduto, setShowCadastroProduto] = useState(false);
   const [refreshVendedores, setRefreshVendedores] = useState(false);
+  const [refreshCatalogo, setRefreshCatalogo] = useState(false);
   const [activeTab, setActiveTab] = useState<'produtos' | 'colecoes'>('produtos');
 
   const handleConviteSuccess = () => {
     setRefreshVendedores((prev) => !prev);
+  };
+
+  const handleProdutoCriado = (produto: any) => {
+    console.log('✅ [AdminLojaPage] Produto criado:', produto);
+    // Fecha o modal de cadastro
+    setShowCadastroProduto(false);
+    // Recarrega o catálogo
+    setRefreshCatalogo((prev) => !prev);
   };
 
   if (selectedSku) {
@@ -86,7 +97,31 @@ export default function AdminLojaPage({ lojaId }: AdminLojaPageProps) {
 
         {activeTab === 'produtos' && (
           <div className="space-y-4">
-            <Catalogo onProdutoSelect={setSelectedSku} lojaId={lojaId} />
+            {/* Botão de Cadastro de Produto */}
+            {!showCadastroProduto && (
+              <div className="text-center mb-6">
+                <button
+                  onClick={() => setShowCadastroProduto(true)}
+                  className="px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition text-lg shadow-lg"
+                >
+                  ✨ Cadastrar Novo Produto SKU
+                </button>
+              </div>
+            )}
+
+            {/* Formulário de Cadastro */}
+            {showCadastroProduto && (
+              <div className="bg-gray-50 p-6 rounded-lg border-2 border-green-300 mb-6">
+                <CadastroProdutoSKU
+                  lojaId={lojaId}
+                  onProdutoCriado={handleProdutoCriado}
+                  onCancelar={() => setShowCadastroProduto(false)}
+                />
+              </div>
+            )}
+
+            {/* Catálogo */}
+            <Catalogo onProdutoSelect={setSelectedSku} lojaId={lojaId} refresh={refreshCatalogo} />
           </div>
         )}
 

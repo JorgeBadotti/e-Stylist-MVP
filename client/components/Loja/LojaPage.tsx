@@ -2,6 +2,7 @@ import React, { useState, useContext } from 'react';
 import Catalogo from './Catalogo';
 import VendedoresList from '../VendedoresList';
 import ConvidarVendedorModal from '../ConvidarVendedorModal';
+import CadastroProdutoSKU from '../CadastroProdutoSKU';
 import { UserContext } from '../../index';
 
 interface LojaPageProps {
@@ -12,7 +13,9 @@ interface LojaPageProps {
 const LojaPage: React.FC<LojaPageProps> = ({ onProdutoSelect, lojaId }) => {
   const userContext = useContext(UserContext);
   const [showConviteModal, setShowConviteModal] = useState(false);
+  const [showCadastroProduto, setShowCadastroProduto] = useState(false);
   const [refreshVendedores, setRefreshVendedores] = useState(false);
+  const [refreshCatalogo, setRefreshCatalogo] = useState(false);
 
   // Verificar se o usuário é STORE_ADMIN ou SUPER_ADMIN
   const isAdmin =
@@ -22,6 +25,13 @@ const LojaPage: React.FC<LojaPageProps> = ({ onProdutoSelect, lojaId }) => {
   const handleConviteSuccess = () => {
     // Dispara refresh dos vendedores
     setRefreshVendedores((prev) => !prev);
+  };
+
+  const handleProdutoCriado = (produto: any) => {
+    // Fecha o modal de cadastro
+    setShowCadastroProduto(false);
+    // Recarrega o catálogo
+    setRefreshCatalogo((prev) => !prev);
   };
 
   return (
@@ -50,7 +60,30 @@ const LojaPage: React.FC<LojaPageProps> = ({ onProdutoSelect, lojaId }) => {
 
       {/* Catálogo */}
       <h2 className="text-2xl font-bold mb-4">Produtos</h2>
-      <Catalogo onProdutoSelect={onProdutoSelect} lojaId={lojaId} />
+      <Catalogo onProdutoSelect={onProdutoSelect} lojaId={lojaId} refresh={refreshCatalogo} />
+
+      {/* Seção de Cadastro de Produto (apenas para admin) */}
+      {isAdmin && lojaId && !showCadastroProduto && (
+        <div className="mt-8 text-center">
+          <button
+            className="px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition text-lg"
+            onClick={() => setShowCadastroProduto(true)}
+          >
+            ✨ Cadastrar Novo Produto SKU
+          </button>
+        </div>
+      )}
+
+      {/* Formulário de Cadastro de Produto */}
+      {isAdmin && lojaId && showCadastroProduto && (
+        <div className="mt-8 bg-gray-50 p-6 rounded-lg border-2 border-green-300">
+          <CadastroProdutoSKU
+            lojaId={lojaId}
+            onProdutoCriado={handleProdutoCriado}
+            onCancelar={() => setShowCadastroProduto(false)}
+          />
+        </div>
+      )}
 
       {/* Modal de Convite */}
       {isAdmin && lojaId && (

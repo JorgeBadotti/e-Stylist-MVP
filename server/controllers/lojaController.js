@@ -237,10 +237,15 @@ export const listarProdutosDaLoja = async (req, res) => {
             return res.status(404).json({ message: 'Loja não encontrada.' });
         }
 
-        // TODO: Implementar busca de produtos da loja
-        // Produtos agora não têm lojaId, precisa adicionar isso ao modelo Produto se necessário
-        const produtos = [];
-        console.log(`✅ [listarProdutosDaLoja] Função não implementada`);
+        // Busca todos os produtos com lojaId
+        const produtos = await Produto.find({ 
+            lojaId: lojaId,
+            status: { $ne: 'DESCONTINUADO' }
+        })
+        .sort({ createdAt: -1 })
+        .lean(); // lean() para retornar dados simples (mais rápido)
+
+        console.log(`✅ [listarProdutosDaLoja] ${produtos.length} produtos encontrados`);
         res.status(200).json(produtos);
 
     } catch (error) {
