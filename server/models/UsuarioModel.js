@@ -19,6 +19,12 @@ const userSchema = new Schema({
         ref: 'Loja',
         required: false
     },
+    lojas_associadas: [ // ✅ NOVO: Array de lojas que o usuário é vendedor
+        {
+            type: Schema.Types.ObjectId,
+            ref: 'Loja'
+        }
+    ],
     googleId: {
         type: String,
         unique: true,

@@ -21,4 +21,32 @@ const upload = multer({
     }
 });
 
+// Wrapper para tratar erros do multer (arquivo único)
+export const uploadWrapper = (fieldName) => (req, res, next) => {
+    upload.single(fieldName)(req, res, (err) => {
+        if (err) {
+            console.error(`❌ [fileUpload] Erro ao fazer upload: ${err.message}`);
+            return res.status(400).json({
+                message: 'Erro ao processar arquivo',
+                error: err.message
+            });
+        }
+        next();
+    });
+};
+
+// Wrapper para múltiplos arquivos
+export const uploadMultipleWrapper = (fieldName, maxFiles = 10) => (req, res, next) => {
+    upload.array(fieldName, maxFiles)(req, res, (err) => {
+        if (err) {
+            console.error(`❌ [fileUpload] Erro ao fazer upload múltiplo: ${err.message}`);
+            return res.status(400).json({
+                message: 'Erro ao processar arquivos',
+                error: err.message
+            });
+        }
+        next();
+    });
+};
+
 export default upload;

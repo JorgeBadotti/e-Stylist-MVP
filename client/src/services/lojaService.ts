@@ -5,10 +5,23 @@ import { Produto } from '../types/types';
 export const getCatalogo = async (): Promise<Produto[]> => {
   try {
     // A rota no backend foi ajustada para /api/lojas/
-    const response = await api.get('/api/lojas'); 
+    const response = await api.get('/api/lojas');
     return response.data;
   } catch (error) {
     console.error('Erro ao buscar o catálogo:', error);
+    throw error;
+  }
+};
+
+// ✅ NOVO: Busca os produtos de uma loja específica
+export const getProdutosLoja = async (lojaId: string): Promise<Produto[]> => {
+  try {
+    console.log(`🔄 [lojaService] Buscando produtos da loja ${lojaId}...`);
+    const response = await api.get(`/api/lojas/${lojaId}/produtos`);
+    console.log(`✅ [lojaService] ${response.data.length} produtos encontrados`);
+    return response.data;
+  } catch (error) {
+    console.error(`❌ [lojaService] Erro ao buscar produtos da loja ${lojaId}:`, error);
     throw error;
   }
 };
@@ -43,3 +56,4 @@ export const adicionarProduto = async (lojaId: string, formData: FormData): Prom
     throw error;
   }
 };
+

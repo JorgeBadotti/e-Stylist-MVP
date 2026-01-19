@@ -1,9 +1,20 @@
 import React, { useState } from 'react';
 
+interface LookItem {
+    id?: string;
+    name: string;
+    foto?: string;
+    cor_codigo?: string;
+    categoria?: string;
+    tamanho?: string;
+    skuStyleMe?: string;
+}
+
 interface ViewLookProps {
     lookName: string;
     lookImage: string;
     lookExplanation?: string;
+    lookItems?: LookItem[];
     onGenerateNew: () => void;
     onBack?: () => void;
     isLoading?: boolean;
@@ -13,6 +24,7 @@ const ViewLook: React.FC<ViewLookProps> = ({
     lookName,
     lookImage,
     lookExplanation,
+    lookItems = [],
     onGenerateNew,
     onBack,
     isLoading = false
@@ -95,6 +107,48 @@ const ViewLook: React.FC<ViewLookProps> = ({
                                     </p>
                                 )}
                             </div>
+
+                            {/* Peças do Look - Grid Criativo */}
+                            {lookItems && lookItems.length > 0 && (
+                                <div className="pt-2">
+                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M5 3a2 2 0 00-2 2v6h6V5a2 2 0 00-2-2H5zm6 0a2 2 0 00-2 2v6h6V5a2 2 0 00-2-2h-2zm6 0a2 2 0 00-2 2v6h2a2 2 0 002-2V5a2 2 0 00-2-2zm-10 8H3v6a2 2 0 002 2h2v-8zm6 0h-6v8h6v-8zm6 0h-2v8h2a2 2 0 002-2v-6z" />
+                                        </svg>
+                                        Peças Utilizadas
+                                    </h3>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {lookItems.map((item, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="group relative bg-white/5 border border-white/10 rounded-lg overflow-hidden hover:border-purple-500/50 transition-all hover:bg-white/10 cursor-pointer"
+                                                title={`${item.name}${item.cor_codigo ? ' - ' + item.cor_codigo : ''}`}
+                                            >
+                                                {/* Foto do Item */}
+                                                <div className="aspect-square bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center overflow-hidden relative">
+                                                    {item.foto ? (
+                                                        <img
+                                                            src={item.foto}
+                                                            alt={item.name}
+                                                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                                        />
+                                                    ) : (
+                                                        <span className="text-2xl opacity-30">👕</span>
+                                                    )}
+
+                                                    {/* Overlay com info ao hover */}
+                                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2">
+                                                        <p className="text-xs font-semibold text-white truncate">{item.name}</p>
+                                                        {item.cor_codigo && (
+                                                            <p className="text-xs text-purple-200">{item.cor_codigo}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Ações Primárias - Grandes e Clicáveis (Lei de Fitts) */}
                             <div className="pt-4 space-y-3">

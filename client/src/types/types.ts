@@ -145,6 +145,18 @@ export interface SharedLinkData {
 
 // --- Tipos da Loja ---
 
+// ✅ NOVO: Tipos para cadastro de usuário/loja
+export interface RegisterUserData {
+  nome: string;
+  email: string;
+  password: string;
+}
+
+export interface RegisterStoreData extends RegisterUserData {
+  telefone: string;
+  cnpj: string;
+}
+
 export interface Produto {
   _id: string;
   lojaId: string;
@@ -152,7 +164,9 @@ export interface Produto {
   descricao: string;
   preco: number;
   sku: string;
-  fotos?: string[];
+  skuStyleMe?: string; // SKU STYLEME: CAM-M-BRA-37-001-P25
+  cor_codigo?: string; // Código da cor: BRA, PRT, etc
+  foto?: string; // URL da foto no Cloudinary
   cor?: string;
   tamanho?: string;
   colecao?: string;

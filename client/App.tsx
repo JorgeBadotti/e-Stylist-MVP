@@ -1,21 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import HomePage from './components/HomePage';
+import PublicHomePage from './components/PublicHomePage';
 import LoginPage from './components/Login';
 import IndiceGuardaRoupas from './components/IndiceGuardaRoupas';
 import RegisterPage from './components/Register';
 import ProfilePage from './components/ProfilePage';
 import LooksPage from './components/LooksPage';
-import LojaPage from './components/Loja/LojaPage';
-import ProdutoDetalhe from './components/Loja/ProdutoDetalhe'; // Importar ProdutoDetalhe
 import MyLooksPage from './components/MyLooksPage';
+import MinhasInvitacoes from './components/MinhasInvitacoes';
+import AdminLojaPage from './components/Admin/AdminLojaPage';
+import VendorLojasPage from './components/Vendor/VendorLojasPage';
+import VendorLojaPage from './components/Vendor/VendorLojaPage';
 import api from './src/services/api';
+import { UserContext, UserContextType } from './src/contexts/UserContext';
 
 
 // Tipos para as telas de quem NÃO está logado
 type PublicView = 'landing' | 'login' | 'register';
 
-type PrivateView = 'home' | 'wardrobes' | 'profile' | 'looks' | 'myLooks' | 'loja';
+type PrivateView = 'home' | 'wardrobes' | 'profile' | 'looks' | 'myLooks' | 'vendor-lojas' | 'vendor-loja' | 'admin-loja' | 'invitacoes';
 
 
 // 1. Definir a interface para os dados do usuário
@@ -24,6 +28,8 @@ interface UserData {
     nome: string;
     email: string;
     foto?: string;
+    role?: string;
+    lojaId?: string;
 }
 
 const App: React.FC = () => {
@@ -32,11 +38,13 @@ const App: React.FC = () => {
     // 2. Estado para armazenar os dados do usuário
     const [userData, setUserData] = useState<UserData | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [isRedirecting, setIsRedirecting] = useState<boolean>(false); // ✅ NOVO: Evita renderizar view pública durante redirecionamento
     // Controle de navegação
     const [publicView, setPublicView] = useState<PublicView>('landing');
     // Novo estado para controlar a tela interna
     const [privateView, setPrivateView] = useState<PrivateView>('home');
     const [selectedSku, setSelectedSku] = useState<string | null>(null); // 1. Novo estado para o SKU
+    const [selectedLojaId, setSelectedLojaId] = useState<string | null>(null); // ✅ NOVO: Loja selecionada pelo vendedor
 
     // Função centralizada para buscar a sessão e os dados do usuário
     const fetchUserSession = async () => {
@@ -65,6 +73,14 @@ const App: React.FC = () => {
         fetchUserSession();
     }, []);
 
+    // ✅ NOVO: UseEffect para monitorar mudanças de autenticação
+    useEffect(() => {
+        if (isAuthenticated && !isLoading) {
+            // Quando autenticado, muda para view privada
+            setPublicView('landing'); // Isso evita que Landing seja renderizado quando autenticado
+        }
+    }, [isAuthenticated, isLoading]);
+
     const handleLogout = async () => {
         try {
             await api.post('/auth/logout');
@@ -83,7 +99,16 @@ const App: React.FC = () => {
     const handleWardrobeClick = () => { setPrivateView('wardrobes'); setSelectedSku(null); };
     const handleLooksClick = () => { setPrivateView('looks'); setSelectedSku(null); };
     const handleMyLooksClick = () => { setPrivateView('myLooks'); setSelectedSku(null) };
-    const handleLojaClick = () => { setPrivateView('loja'); setSelectedSku(null); }; // Limpa SKU ao ir para loja
+    const handleLojaClick = () => {
+        // ✅ NOVO: Rota diferente para SALESPERSON e STORE_ADMIN
+        if (userData?.role === 'SALESPERSON') {
+            setPrivateView('vendor-lojas');
+        } else {
+            setPrivateView('admin-loja');
+        }
+        setSelectedSku(null);
+    };
+    const handleInvitacoesClick = () => { setPrivateView('invitacoes'); setSelectedSku(null); };
 
     // 2. Funções para selecionar produto e voltar
     const handleProdutoSelect = (sku: string) => {
@@ -103,6 +128,18 @@ const App: React.FC = () => {
     };
 
 
+    // ✅ NOVO: Tela de Carregamento durante redirecionamento após cadastro
+    if (isRedirecting) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                <div className="flex flex-col items-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                    <span className="text-gray-600 font-medium">Entrando na plataforma...</span>
+                </div>
+            </div>
+        );
+    }
+
     // Tela de Carregamento
     if (isLoading) {
         return (
@@ -116,40 +153,56 @@ const App: React.FC = () => {
     }
 
     // --- USUÁRIO LOGADO ---
+    const userContextValue: UserContextType = {
+        user: userData || null
+    };
+
     if (isAuthenticated) {
         return (
-            <div className="min-h-screen bg-gray-100">
-                <Navbar
-                    isAuthenticated={isAuthenticated}
-                    user={userData ? { nome: userData.nome, foto: userData.foto, email: userData.email } : null}
-                    onLoginClick={() => setPublicView('login')}
-                    onLogoutClick={handleLogout}
-                    onProfileClick={handleProfileClick}
-                    onWardrobeClick={handleWardrobeClick}
-                    onLooksClick={handleLooksClick}
-                    onLojaClick={handleLojaClick}
-                    onLogoClick={handleLogoClick}
-                    onMyLooksClick={handleMyLooksClick}
-                />
-                <main className="p-4 sm:p-6 md:p-8">
-                    {privateView === 'home' && <HomePage onNavigate={setPrivateView} />}
-                    {privateView === 'wardrobes' && <IndiceGuardaRoupas />}
-                    {privateView === 'profile' && <ProfilePage />}
-                    {privateView === 'looks' && <LooksPage />}
+            <UserContext.Provider value={userContextValue}>
+                <div className="min-h-screen bg-gray-100">
+                    <Navbar
+                        isAuthenticated={isAuthenticated}
+                        user={userData ? { nome: userData.nome, foto: userData.foto, email: userData.email, role: userData.role } : null}
+                        onLoginClick={() => setPublicView('login')}
+                        onLogoutClick={handleLogout}
+                        onProfileClick={handleProfileClick}
+                        onWardrobeClick={handleWardrobeClick}
+                        onLooksClick={handleLooksClick}
+                        onLojaClick={handleLojaClick}
+                        onLogoClick={handleLogoClick}
+                        onMyLooksClick={handleMyLooksClick}
+                        onInvitacoesClick={handleInvitacoesClick}
+                    />
+                    <main className="p-4 sm:p-6 md:p-8">
+                        {privateView === 'home' && <HomePage onNavigate={setPrivateView} />}
+                        {privateView === 'wardrobes' && <IndiceGuardaRoupas />}
+                        {privateView === 'profile' && <ProfilePage />}
+                        {privateView === 'looks' && <LooksPage />}
+                        {privateView === 'invitacoes' && <MinhasInvitacoes />}
 
-                    {/* 3. Lógica de renderização para Loja/Detalhe */}
-                    {privateView === 'loja' && !selectedSku && (
-                        <LojaPage onProdutoSelect={handleProdutoSelect} />
-                    )}
-                    {privateView === 'loja' && selectedSku && (
-                        <ProdutoDetalhe sku={selectedSku} onBack={handleBackToCatalog} />
-                    )}
+                        {/* ✅ NOVO: Páginas para SALESPERSON (Vendedor) */}
+                        {privateView === 'vendor-lojas' && (
+                            <VendorLojasPage onSelectLoja={(lojaId) => {
+                                setSelectedLojaId(lojaId);
+                                setPrivateView('vendor-loja');
+                            }} />
+                        )}
+                        {privateView === 'vendor-loja' && selectedLojaId && (
+                            <VendorLojaPage lojaId={selectedLojaId} onBack={() => setPrivateView('vendor-lojas')} />
+                        )}
 
-                    {privateView === 'myLooks' && (
-                        <MyLooksPage />
-                    )}
-                </main>
-            </div>
+                        {/* ✅ NOVO: Página para STORE_ADMIN */}
+                        {privateView === 'admin-loja' && userData?.lojaId && (
+                            <AdminLojaPage lojaId={userData.lojaId} />
+                        )}
+
+                        {privateView === 'myLooks' && (
+                            <MyLooksPage />
+                        )}
+                    </main>
+                </div>
+            </UserContext.Provider>
         );
     }
 
@@ -166,6 +219,7 @@ const App: React.FC = () => {
                 onWardrobeClick={() => { }}
                 onLooksClick={() => { }}
                 onMyLooksClick={() => { }}
+                onInvitacoesClick={() => { }}
             />
 
             {publicView === 'login' ? (
@@ -176,15 +230,27 @@ const App: React.FC = () => {
             ) : publicView === 'register' ? (
                 <RegisterPage
                     onSwitchToLogin={() => setPublicView('login')}
+                    onRegisterSuccess={(isStore: boolean) => {
+                        // ✅ ATUALIZADO: Setar redirecionando para evitar renderizar view pública
+                        console.log(`🔐 [Register] Redirecionando para ${isStore ? 'loja' : 'home'}...`);
+                        setIsRedirecting(true); // Mostra tela de carregamento
+                        fetchUserSession().then(() => {
+                            console.log('✅ [Register] Sessão recarregada');
+                            if (isStore) {
+                                setPrivateView('loja');
+                            } else {
+                                setPrivateView('home');
+                            }
+                            setIsRedirecting(false); // Remove tela de carregamento
+                        });
+                    }}
                 />
             ) : (
-                // LANDING PAGE (Código resumido para não ficar gigante)
-                <div className="flex flex-col items-center justify-center h-[80vh] px-4 text-center">
-                    <h1 className="text-5xl font-extrabold text-blue-900 mb-6">Bem-vindo ao e-Stylist</h1>
-                    <button onClick={() => setPublicView('login')} className="bg-blue-600 text-white px-8 py-3 rounded-lg">
-                        Entrar
-                    </button>
-                </div>
+                // LANDING PAGE (Home Pública)
+                <PublicHomePage
+                    onLoginClick={() => setPublicView('login')}
+                    onRegisterClick={() => setPublicView('register')}
+                />
             )}
         </div>
     );
