@@ -78,21 +78,19 @@ const Catalogo: React.FC<CatalogoProps> = ({ onProdutoSelect, lojaId, refresh })
         <div className="flex gap-2">
           <button
             onClick={() => setViewMode('table')}
-            className={`px-4 py-2 rounded-lg transition ${
-              viewMode === 'table'
+            className={`px-4 py-2 rounded-lg transition ${viewMode === 'table'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-            }`}
+              }`}
           >
             📋 Tabela
           </button>
           <button
             onClick={() => setViewMode('grid')}
-            className={`px-4 py-2 rounded-lg transition ${
-              viewMode === 'grid'
+            className={`px-4 py-2 rounded-lg transition ${viewMode === 'grid'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-            }`}
+              }`}
           >
             🎴 Cards
           </button>
@@ -106,11 +104,8 @@ const Catalogo: React.FC<CatalogoProps> = ({ onProdutoSelect, lojaId, refresh })
           <table className="w-full">
             <thead className="bg-gray-100 border-b border-gray-200">
               <tr>
-                <th
-                  onClick={() => handleSort('sku')}
-                  className="px-4 py-3 text-left font-semibold text-sm cursor-pointer hover:bg-gray-200 select-none"
-                >
-                  SKU {sortField === 'sku' && (sortAsc ? '↑' : '↓')}
+                <th className="px-4 py-3 text-left font-semibold text-sm">
+                  Imagem
                 </th>
                 <th
                   onClick={() => handleSort('skuStyleMe')}
@@ -131,10 +126,16 @@ const Catalogo: React.FC<CatalogoProps> = ({ onProdutoSelect, lojaId, refresh })
                   Categoria {sortField === 'categoria' && (sortAsc ? '↑' : '↓')}
                 </th>
                 <th
-                  onClick={() => handleSort('preco')}
-                  className="px-4 py-3 text-right font-semibold text-sm cursor-pointer hover:bg-gray-200 select-none"
+                  onClick={() => handleSort('linha')}
+                  className="px-4 py-3 text-center font-semibold text-sm cursor-pointer hover:bg-gray-200 select-none"
                 >
-                  Preço {sortField === 'preco' && (sortAsc ? '↑' : '↓')}
+                  Linha {sortField === 'linha' && (sortAsc ? '↑' : '↓')}
+                </th>
+                <th
+                  onClick={() => handleSort('cor_codigo')}
+                  className="px-4 py-3 text-center font-semibold text-sm cursor-pointer hover:bg-gray-200 select-none"
+                >
+                  Cor Código {sortField === 'cor_codigo' && (sortAsc ? '↑' : '↓')}
                 </th>
                 <th
                   onClick={() => handleSort('tamanho')}
@@ -143,60 +144,69 @@ const Catalogo: React.FC<CatalogoProps> = ({ onProdutoSelect, lojaId, refresh })
                   Tamanho {sortField === 'tamanho' && (sortAsc ? '↑' : '↓')}
                 </th>
                 <th
-                  onClick={() => handleSort('cor_codigo')}
+                  onClick={() => handleSort('colecao')}
                   className="px-4 py-3 text-center font-semibold text-sm cursor-pointer hover:bg-gray-200 select-none"
                 >
-                  Cor Código {sortField === 'cor_codigo' && (sortAsc ? '↑' : '↓')}
+                  Coleção {sortField === 'colecao' && (sortAsc ? '↑' : '↓')}
                 </th>
-                <th className="px-4 py-3 text-center font-semibold text-sm">Cor</th>
                 <th className="px-4 py-3 text-center font-semibold text-sm">Ação</th>
               </tr>
             </thead>
             <tbody>
               {sortedProdutos.map((produto, idx) => (
                 <tr
-                  key={produto.sku}
-                  className={`border-b border-gray-200 hover:bg-blue-50 transition ${
-                    idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                  }`}
+                  key={produto.skuStyleMe}
+                  className={`border-b border-gray-200 hover:bg-blue-50 transition ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                    }`}
                 >
-                  <td className="px-4 py-3 text-sm font-medium text-blue-600">
-                    {produto.sku}
+                  {/* Miniatura Imagem */}
+                  <td className="px-4 py-3">
+                    <img
+                      src={produto.foto || 'https://via.placeholder.com/50'}
+                      alt={produto.nome}
+                      className="w-12 h-12 object-cover rounded border border-gray-300"
+                    />
                   </td>
-                  <td className="px-4 py-3 text-sm font-mono text-purple-600">
+
+                  {/* SKU STYLEME */}
+                  <td className="px-4 py-3 text-sm font-mono font-bold text-purple-600">
                     {produto.skuStyleMe || '—'}
                   </td>
-                  <td className="px-4 py-3 text-sm">{produto.nome}</td>
+
+                  {/* Nome */}
+                  <td className="px-4 py-3 text-sm font-medium">{produto.nome}</td>
+
+                  {/* Categoria */}
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {produto.categoria || '—'}
                   </td>
-                  <td className="px-4 py-3 text-sm text-right font-semibold">
-                    R$ {parseFloat(String(produto.preco || 0)).toFixed(2)}
+
+                  {/* Linha */}
+                  <td className="px-4 py-3 text-sm text-center font-semibold">
+                    {produto.linha || '—'}
                   </td>
-                  <td className="px-4 py-3 text-sm text-center">
-                    {produto.tamanho || '—'}
-                  </td>
+
+                  {/* Cor Código */}
                   <td className="px-4 py-3 text-sm text-center font-mono font-bold text-indigo-600">
                     {produto.cor_codigo || '—'}
                   </td>
+
+                  {/* Tamanho */}
                   <td className="px-4 py-3 text-sm text-center">
-                    {produto.cor ? (
-                      <span
-                        className="inline-block w-6 h-6 rounded-full border-2 border-gray-300"
-                        style={{
-                          backgroundColor: produto.cor.startsWith('#')
-                            ? produto.cor
-                            : '#cccccc',
-                        }}
-                        title={produto.cor}
-                      />
-                    ) : (
-                      '—'
-                    )}
+                    {produto.tamanho || '—'}
                   </td>
+
+                  {/* Coleção */}
+                  <td className="px-4 py-3 text-sm text-center">
+                    <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-semibold">
+                      {produto.colecao || '—'}
+                    </span>
+                  </td>
+
+                  {/* Ação */}
                   <td className="px-4 py-3 text-sm text-center">
                     <button
-                      onClick={() => onProdutoSelect(produto.sku)}
+                      onClick={() => onProdutoSelect(produto.skuStyleMe)}
                       className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-xs font-medium"
                     >
                       Ver
@@ -214,7 +224,7 @@ const Catalogo: React.FC<CatalogoProps> = ({ onProdutoSelect, lojaId, refresh })
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {produtos.map((produto) => (
             <ProdutoCard
-              key={produto.sku}
+              key={produto.skuStyleMe}
               produto={produto}
               onCardClick={onProdutoSelect}
             />

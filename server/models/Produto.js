@@ -6,7 +6,7 @@ const produtoSchema = new Schema({
     // ═══════════════════════════════════════════════════════════
     // 🔑 SKU STYLEME v1 - IDENTIDADE DA PEÇA
     // ═══════════════════════════════════════════════════════════
-    
+
     // Código SKU visível: [CATEGORIA]-[LINHA]-[COR]-[TAMANHO]-[SEQ]-[COLECAO]
     // Exemplo: CAM-F-PRT-M-023-F24
     skuStyleMe: {
@@ -141,7 +141,7 @@ const produtoSchema = new Schema({
 
     temperatura: {
         type: String,
-        enum: ['COLD', 'MILD', 'HOT'],
+        enum: ['COLD', 'MILD', 'HOT', 'ALL'],
         comment: "Faixa de temperatura recomendada"
     },
 
@@ -262,7 +262,7 @@ produtoSchema.index({ ocasiao: 1, estacao: 1 }); // Para recomendação
 // ═══════════════════════════════════════════════════════════
 // VALIDAÇÕES
 // ═══════════════════════════════════════════════════════════
-produtoSchema.pre('save', async function() {
+produtoSchema.pre('save', async function () {
     // Validar que pelo menos um de guardaRoupaId ou lojaId está preenchido
     if (!this.guardaRoupaId && !this.lojaId) {
         throw new Error('Produto deve estar associado a um GuardaRoupa ou Loja');

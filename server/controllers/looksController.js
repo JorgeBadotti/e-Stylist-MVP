@@ -1,6 +1,6 @@
 import Usuario from '../models/UsuarioModel.js';
 import GuardaRoupa from '../models/GuardaRoupa.js';
-import Roupa from '../models/Roupa.js';
+import Produto from '../models/Produto.js';
 import Look from '../models/LookModel.js';
 import { genAIClient } from '../services/gemini.js';
 import { loadPrompt } from '../services/prompt_loader.js';
@@ -19,16 +19,16 @@ export const gerarLooks = async (req, res) => {
             return res.status(400).json({ error: "Perfil incompleto. Necessário medidas e foto." });
         }
 
-        // 2. Buscar Roupas do Guarda-Roupa Selecionado
-        console.log("Buscando roupas para o guarda-roupa:", wardrobeId);
-        const roupas = await Roupa.find({ guardaRoupa: wardrobeId });
-        console.log("Roupas encontradas:", roupas.length);
-        if (roupas.length < 2) {
+        // 2. Buscar Produtos do Guarda-Roupa Selecionado
+        console.log("Buscando produtos para o guarda-roupa:", wardrobeId);
+        const produtos = await Produto.find({ guardaRoupa: wardrobeId });
+        console.log("Produtos encontrados:", produtos.length);
+        if (produtos.length < 2) {
             return res.status(400).json({ error: "Guarda-roupa precisa ter pelo menos 2 peças para gerar looks." });
         }
 
         // 3. Preparar Dados para o Gemini (Mapeando para o formato que definimos nos prompts)
-        const itemsForAI = roupas.map(r => ({
+        const itemsForAI = produtos.map(r => ({
             id: r._id,
             name: r.nome || r.descricao,
             cor: r.cor || 'sem cor especificada',

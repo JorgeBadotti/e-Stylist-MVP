@@ -34,37 +34,51 @@ export default function CadastroProdutoSKULotes({
     const handleImagensMudadas = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (files) {
-            // Validar tipos de arquivo - apenas JPEG e PNG
-            const extensoesValidas = ['jpg', 'jpeg', 'png'];
+            // Validar tipos de arquivo por extensão - JPEG, PNG e WebP
+            const extensoesValidas = ['jpg', 'jpeg', 'png', 'webp'];
             const novasImagens: File[] = [];
             const novoPreview: string[] = [];
+            let arquivosProcessados = 0;
+
+            console.log(`📁 Total de arquivos selecionados: ${files.length}`);
 
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 const extensao = file.name.split('.').pop()?.toLowerCase();
 
+                // Validar apenas por extensão (mais confiável que MIME type)
                 if (!extensao || !extensoesValidas.includes(extensao)) {
-                    continue; // Ignorar arquivo inválido
+                    console.warn(`❌ Arquivo rejeitado: ${file.name} (extensão inválida)`);
+                    continue;
                 }
 
+                console.log(`✅ Arquivo aceito: ${file.name} (.${extensao})`);
                 novasImagens.push(file);
 
                 // Criar preview
                 const reader = new FileReader();
                 reader.onloadend = () => {
                     novoPreview.push(reader.result as string);
-                    if (novoPreview.length === novasImagens.length) {
-                        setPreview([...preview, ...novoPreview]);
+                    arquivosProcessados++;
+
+                    // Quando todos os previews estiverem prontos
+                    if (arquivosProcessados === novasImagens.length) {
+                        setPreview((prev) => [...prev, ...novoPreview]);
+                        console.log(`✅ ${novasImagens.length} imagens carregadas com sucesso`);
                     }
+                };
+                reader.onerror = () => {
+                    console.error(`❌ Erro ao ler arquivo: ${file.name}`);
+                    arquivosProcessados++;
                 };
                 reader.readAsDataURL(file);
             }
 
-            setImagens([...imagens, ...novasImagens]);
+            setImagens((prev) => [...prev, ...novasImagens]);
             setErro(null);
 
             if (novasImagens.length === 0 && files.length > 0) {
-                setErro('Por favor, selecione apenas imagens em formato JPEG ou PNG');
+                setErro(`Por favor, selecione apenas imagens em formato JPEG, PNG ou WebP. (${files.length} arquivo(s) rejeitado(s))`);
             }
         }
     };
@@ -170,7 +184,7 @@ export default function CadastroProdutoSKULotes({
                         📸 Selecione múltiplas imagens de roupas
                     </p>
                     <p className="text-gray-600 text-sm mb-4">
-                        Formatos aceitos: JPEG, PNG
+                        Formatos aceitos: JPEG, PNG, WebP
                     </p>
 
                     <input

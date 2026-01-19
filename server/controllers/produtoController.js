@@ -179,9 +179,9 @@ export const createProduto = async (req, res) => {
         // 3. GERAR SKU STYLEME
         // ═══════════════════════════════════════════════════════
 
-        let skuStyleMe;
+        let skuGerado;
         try {
-            skuStyleMe = await gerarSKUStyleMe({
+            skuGerado = await gerarSKUStyleMe({
                 categoria,
                 linha,
                 cor_codigo,
@@ -191,11 +191,11 @@ export const createProduto = async (req, res) => {
             }, Produto);
 
             // Verificar duplicata
-            const temDuplicata = await verificarDuplicataSKU(skuStyleMe, Produto);
+            const temDuplicata = await verificarDuplicataSKU(skuGerado.skuStyleMe, Produto);
             if (temDuplicata) {
                 return res.status(400).json({
                     message: 'SKU STYLEME já existe no sistema',
-                    skuDuplicado: skuStyleMe
+                    skuDuplicado: skuGerado.skuStyleMe
                 });
             }
         } catch (error) {
@@ -227,11 +227,11 @@ export const createProduto = async (req, res) => {
         }
 
         // ═══════════════════════════════════════════════════════
-        // 5. EXTRAIR SEQUENCIA DO SKU GERADO
+        // 5. EXTRAIR COMPONENTES DO SKU GERADO
         // ═══════════════════════════════════════════════════════
 
-        const componentes = extrairComponentesSKU(skuStyleMe);
-        const sequenciaFinal = componentes.sequencia;
+        const sequenciaFinal = skuGerado.sequencia;
+        const skuStyleMe = skuGerado.skuStyleMe;
 
         // ═══════════════════════════════════════════════════════
         // 6. CRIAR DOCUMENTO

@@ -27,7 +27,7 @@ export async function gerarSequencial(categoria, colecao, Produto) {
 
         // Próximo sequencial (começar de 001)
         const proximo = String(count + 1).padStart(3, '0');
-        
+
         return proximo;
     } catch (error) {
         console.error('Erro ao gerar sequencial:', error);
@@ -37,6 +37,8 @@ export async function gerarSequencial(categoria, colecao, Produto) {
 
 /**
  * Gera código SKU STYLEME completo
+ * Padrão da indústria: retorna objeto com todos os componentes separados
+ * 
  * @param {Object} dados - Dados do produto
  * @param {string} dados.categoria - Código categoria (ex: CAM)
  * @param {string} dados.linha - Linha gênero (F, M, U)
@@ -45,7 +47,17 @@ export async function gerarSequencial(categoria, colecao, Produto) {
  * @param {string} dados.sequencia - Sequencial (ex: 023) - se não fornecido, gera automático
  * @param {string} dados.colecao - Código coleção (ex: F24)
  * @param {Object} Produto - Model Mongoose do Produto
- * @returns {Promise<string>} SKU gerado (ex: CAM-F-PRT-M-023-F24)
+ * @returns {Promise<Object>} Objeto com SKU e todos os componentes
+ * @example
+ * {
+ *   skuStyleMe: "CAM-F-PRT-M-023-F24",
+ *   categoria: "CAM",
+ *   linha: "F",
+ *   cor_codigo: "PRT",
+ *   tamanho: "M",
+ *   sequencia: "023",
+ *   colecao: "F24"
+ * }
  */
 export async function gerarSKUStyleMe(dados, Produto) {
     const { categoria, linha, cor_codigo, tamanho, colecao } = dados;
@@ -62,15 +74,24 @@ export async function gerarSKUStyleMe(dados, Produto) {
     }
 
     // Montar SKU
-    const sku = `${categoria}-${linha}-${cor_codigo}-${tamanho}-${sequencia}-${colecao}`;
+    const skuStyleMe = `${categoria}-${linha}-${cor_codigo}-${tamanho}-${sequencia}-${colecao}`;
 
     // Validar formato
     const regex = /^[A-Z]{3}-[A-Z]-[A-Z]{3}-[A-Z0-9]{1,2}-\d{3}-[A-Z]\d{2}$/;
-    if (!regex.test(sku)) {
-        throw new Error(`SKU gerado inválido: ${sku}. Verifique os componentes.`);
+    if (!regex.test(skuStyleMe)) {
+        throw new Error(`SKU gerado inválido: ${skuStyleMe}. Verifique os componentes.`);
     }
 
-    return sku;
+    // Retornar objeto com componentes separados (padrão da indústria)
+    return {
+        skuStyleMe,
+        categoria,
+        linha,
+        cor_codigo,
+        tamanho,
+        sequencia,
+        colecao
+    };
 }
 
 /**

@@ -1,4 +1,4 @@
-import Roupa from '../models/Roupa.js';
+import Produto from '../models/Produto.js';
 import GuardaRoupa from '../models/GuardaRoupa.js';
 
 // 1. Importar as funções do utilitário
@@ -32,8 +32,8 @@ export const addRoupa = async (req, res) => {
             }
         }
 
-        // 4. Cria a roupa com os dados da imagem
-        const novaRoupa = await Roupa.create({
+        // 4. Cria o produto com os dados da imagem
+        const novoProduto = await Produto.create({
             nome,
             categoria,
             cor,
@@ -44,7 +44,7 @@ export const addRoupa = async (req, res) => {
             fotoPublicId: fotoPublicId // Salva o ID para poder deletar depois
         });
 
-        res.status(201).json(novaRoupa);
+        res.status(201).json(novoProduto);
     } catch (error) {
         console.error(error); // Bom para debugar
         res.status(500).json({ message: 'Erro ao adicionar roupa', error: error.message });
@@ -70,8 +70,8 @@ export const getRoupasByGuardaRoupa = async (req, res) => {
             return res.status(403).json({ message: 'Acesso negado: este guarda-roupa é privado' });
         }
 
-        const roupas = await Roupa.find({ guardaRoupa: guardaRoupaId });
-        res.status(200).json(roupas);
+        const produtos = await Produto.find({ guardaRoupa: guardaRoupaId });
+        res.status(200).json(produtos);
     } catch (error) {
         res.status(500).json({ message: 'Erro ao listar roupas', error: error.message });
     }
@@ -83,21 +83,21 @@ export const updateRoupa = async (req, res) => {
         const { nome, categoria, cor, tamanho, tecido } = req.body;
         const usuarioId = req.user._id;
 
-        // 1. Buscar a roupa atual (precisamos do publicId antigo caso haja troca de foto)
-        const roupaAtual = await Roupa.findById(id).select('+fotoPublicId');
+        // 1. Buscar o produto atual (precisamos do publicId antigo caso haja troca de foto)
+        const produtoAtual = await Produto.findById(id).select('+fotoPublicId');
 
-        if (!roupaAtual) {
-            return res.status(404).json({ message: 'Roupa não encontrada' });
+        if (!produtoAtual) {
+            return res.status(404).json({ message: 'Produto não encontrado' });
         }
 
         // 2. Verificar se o usuário é dono do guardaroupa
-        const guardaRoupa = await GuardaRoupa.findById(roupaAtual.guardaRoupa);
+        const guardaRoupa = await GuardaRoupa.findById(produtoAtual.guardaRoupa);
         if (!guardaRoupa) {
             return res.status(404).json({ message: 'Guarda-roupa não encontrado' });
         }
 
         if (guardaRoupa.usuario.toString() !== usuarioId.toString()) {
-            return res.status(403).json({ message: 'Permissão negada: você não pode editar roupas deste guarda-roupa' });
+            return res.status(403).json({ message: 'Permissão negada: você não pode editar produtos deste guarda-roupa' });
         }
 
         let updateData = { nome, categoria, cor, tamanho, tecido };
@@ -106,8 +106,8 @@ export const updateRoupa = async (req, res) => {
         if (req.file) {
             try {
                 // A. Deleta a imagem antiga do Cloudinary (se existir)
-                if (roupaAtual.fotoPublicId) {
-                    await deleteImage(roupaAtual.fotoPublicId);
+                if (produtoAtual.fotoPublicId) {
+                    await deleteImage(produtoAtual.fotoPublicId);
                 }
 
                 // B. Upload da nova imagem
@@ -123,9 +123,9 @@ export const updateRoupa = async (req, res) => {
         }
 
         // 4. Atualiza no Banco
-        const roupaAtualizada = await Roupa.findByIdAndUpdate(id, updateData, { new: true });
+        const produtoAtualizado = await Produto.findByIdAndUpdate(id, updateData, { new: true });
 
-        res.status(200).json(roupaAtualizada);
+        res.status(200).json(produtoAtualizado);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Erro ao atualizar roupa', error: error.message });
@@ -138,31 +138,31 @@ export const deleteRoupa = async (req, res) => {
         const usuarioId = req.user._id;
 
         // 1. Busca para pegar o ID da foto
-        const roupa = await Roupa.findById(id).select('+fotoPublicId');
+        const produto = await Produto.findById(id).select('+fotoPublicId');
 
-        if (!roupa) {
-            return res.status(404).json({ message: 'Roupa não encontrada' });
+        if (!produto) {
+            return res.status(404).json({ message: 'Produto não encontrado' });
         }
 
         // 2. Verificar se o usuário é dono do guardaroupa
-        const guardaRoupa = await GuardaRoupa.findById(roupa.guardaRoupa);
+        const guardaRoupa = await GuardaRoupa.findById(produto.guardaRoupa);
         if (!guardaRoupa) {
             return res.status(404).json({ message: 'Guarda-roupa não encontrado' });
         }
 
         if (guardaRoupa.usuario.toString() !== usuarioId.toString()) {
-            return res.status(403).json({ message: 'Permissão negada: você não pode deletar roupas deste guarda-roupa' });
+            return res.status(403).json({ message: 'Permissão negada: você não pode deletar produtos deste guarda-roupa' });
         }
 
         // 3. Deleta do Cloudinary
-        if (roupa.fotoPublicId) {
-            await deleteImage(roupa.fotoPublicId);
+        if (produto.fotoPublicId) {
+            await deleteImage(produto.fotoPublicId);
         }
 
         // 4. Deleta do Banco
-        await Roupa.findByIdAndDelete(id);
+        await Produto.findByIdAndDelete(id);
 
-        res.status(200).json({ message: 'Roupa removida com sucesso' });
+        res.status(200).json({ message: 'Produto removido com sucesso' });
     } catch (error) {
         res.status(500).json({ message: 'Erro ao deletar roupa', error: error.message });
     }
@@ -183,20 +183,20 @@ export const updateRoupaStatus = async (req, res) => {
     }
 
     try {
-        // 1. Encontrar a peça de roupa e verificar a propriedade
-        const roupa = await Roupa.findById(id).populate('guardaRoupa');
+        // 1. Encontrar o produto e verificar a propriedade
+        const produto = await Produto.findById(id).populate('guardaRoupa');
 
-        if (!roupa) {
-            return res.status(404).json({ message: 'Peça de roupa não encontrada.' });
+        if (!produto) {
+            return res.status(404).json({ message: 'Produto não encontrado.' });
         }
 
         // Garante que o usuário que está atualizando é o dono do guarda-roupa
-        if (roupa.guardaRoupa.usuario.toString() !== userId.toString()) {
-            return res.status(403).json({ message: 'Acesso negado. Você não tem permissão para alterar esta peça.' });
+        if (produto.guardaRoupa.usuario.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'Acesso negado. Você não tem permissão para alterar este produto.' });
         }
 
         // 2. Aplicar a lógica de negócio baseada no status
-        roupa.status = status;
+        produto.status = status;
 
         if (status === 'venda') {
             // Valida se o preço de venda foi fornecido e é um número válido
@@ -204,17 +204,17 @@ export const updateRoupaStatus = async (req, res) => {
             if (isNaN(preco) || preco <= 0) {
                 return res.status(400).json({ message: 'Para colocar à venda, é necessário fornecer um preço de venda válido e maior que zero.' });
             }
-            roupa.precoVenda = preco;
+            produto.precoVenda = preco;
         } else {
             // Se o status for 'ativo' ou 'doado', o preço de venda deve ser nulo
-            roupa.precoVenda = null;
+            produto.precoVenda = null;
         }
 
         // 3. Salvar as alterações
-        // O middleware pre-save no modelo Roupa.js também garantirá a limpeza do precoVenda
-        const roupaAtualizada = await roupa.save();
+        // O middleware pre-save no modelo Produto.js também garantirá a limpeza do precoVenda
+        const produtoAtualizado = await produto.save();
 
-        res.status(200).json({ message: `Status da peça atualizado para '${status}'.`, roupa: roupaAtualizada });
+        res.status(200).json({ message: `Status do produto atualizado para '${status}'.`, roupa: produtoAtualizado });
 
     } catch (error) {
         console.error('Erro ao atualizar status da roupa:', error);
