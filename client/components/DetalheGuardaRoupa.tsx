@@ -145,10 +145,13 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
 
     // Função de Deletar
     const handleDelete = async (id: string) => {
+        console.log("handleDelete chamado com ID:", id);
         if (!window.confirm("Tem certeza que deseja excluir esta peça?")) return;
 
         try {
-            await api.delete(`/api/produtos/${id}`);
+            console.log("Enviando DELETE para /api/produtos/" + id);
+            const response = await api.delete(`/api/produtos/${id}`);
+            console.log("Resposta DELETE:", response.data);
 
             // --- MUDANÇA AQUI ---
             // Se o usuário estiver editando justamente a peça que acabou de excluir,
@@ -159,9 +162,10 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
             // --------------------
 
             fetchData(); // Recarrega a lista
+            alert("Peça removida com sucesso!");
         } catch (error) {
             console.error("Erro ao deletar:", error);
-            alert("Erro ao deletar roupa.");
+            alert("Erro ao deletar roupa: " + (error as any)?.response?.data?.message || (error as any).message);
         }
     };
 
