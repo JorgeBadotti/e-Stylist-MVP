@@ -8,6 +8,17 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       host: '0.0.0.0',
+      // Hot Module Replacement (HMR) - detecta mudanças automaticamente
+      hmr: {
+        host: 'localhost',
+        port: 5173,
+        protocol: 'ws',
+      },
+      // Watch com sensibilidade aprimorada
+      watch: {
+        usePolling: true,  // Use polling para detectar mudanças (importante em WSL/VM)
+        interval: 100,     // Verificar a cada 100ms
+      }
     },
     build: {
       outDir: path.resolve(__dirname, '..', 'dist'),

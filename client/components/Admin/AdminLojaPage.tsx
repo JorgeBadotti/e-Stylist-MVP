@@ -3,7 +3,8 @@ import Catalogo from '../Loja/Catalogo';
 import GerenciadorColecoes from '../Loja/GerenciadorColecoes';
 import VendedoresList from '../VendedoresList';
 import ConvidarVendedorModal from '../ConvidarVendedorModal';
-import CadastroProdutoSKU from '../CadastroProdutoSKU';
+import CadastroProdutoSKUManual from '../CadastroProdutoSKUManual';
+import CadastroProdutoSKULotes from '../CadastroProdutoSKULotes';
 import ProdutoDetalhe from '../Loja/ProdutoDetalhe';
 import DetalheGuardaRoupa from '../DetalheGuardaRoupa';
 
@@ -11,11 +12,13 @@ interface AdminLojaPageProps {
   lojaId: string;
 }
 
+type TipoCadastroProduto = 'manual' | 'lotes' | null;
+
 export default function AdminLojaPage({ lojaId }: AdminLojaPageProps) {
   const [selectedSku, setSelectedSku] = useState<string | null>(null);
   const [selectedColecaoId, setSelectedColecaoId] = useState<string | null>(null);
   const [showConviteModal, setShowConviteModal] = useState(false);
-  const [showCadastroProduto, setShowCadastroProduto] = useState(false);
+  const [tipoCadastroProduto, setTipoCadastroProduto] = useState<TipoCadastroProduto>(null);
   const [refreshVendedores, setRefreshVendedores] = useState(false);
   const [refreshCatalogo, setRefreshCatalogo] = useState(false);
   const [activeTab, setActiveTab] = useState<'produtos' | 'colecoes'>('produtos');
@@ -27,7 +30,15 @@ export default function AdminLojaPage({ lojaId }: AdminLojaPageProps) {
   const handleProdutoCriado = (produto: any) => {
     console.log('✅ [AdminLojaPage] Produto criado:', produto);
     // Fecha o modal de cadastro
-    setShowCadastroProduto(false);
+    setTipoCadastroProduto(null);
+    // Recarrega o catálogo
+    setRefreshCatalogo((prev) => !prev);
+  };
+
+  const handleProdutosCriados = (produtos: any[]) => {
+    console.log('✅ [AdminLojaPage] Produtos criados em lote:', produtos);
+    // Fecha o modal de cadastro
+    setTipoCadastroProduto(null);
     // Recarrega o catálogo
     setRefreshCatalogo((prev) => !prev);
   };
@@ -72,11 +83,10 @@ export default function AdminLojaPage({ lojaId }: AdminLojaPageProps) {
               console.log('🔄 [AdminLojaPage] Mudando para aba: produtos');
               setActiveTab('produtos');
             }}
-            className={`px-6 py-3 font-bold transition-all ${
-              activeTab === 'produtos'
+            className={`px-6 py-3 font-bold transition-all ${activeTab === 'produtos'
                 ? 'text-blue-600 border-b-4 border-blue-600'
                 : 'text-gray-600 hover:text-gray-900'
-            }`}
+              }`}
           >
             📦 Produtos
           </button>
@@ -85,11 +95,10 @@ export default function AdminLojaPage({ lojaId }: AdminLojaPageProps) {
               console.log('🔄 [AdminLojaPage] Mudando para aba: colecoes');
               setActiveTab('colecoes');
             }}
-            className={`px-6 py-3 font-bold transition-all ${
-              activeTab === 'colecoes'
+            className={`px-6 py-3 font-bold transition-all ${activeTab === 'colecoes'
                 ? 'text-blue-600 border-b-4 border-blue-600'
                 : 'text-gray-600 hover:text-gray-900'
-            }`}
+              }`}
           >
             📚 Coleções
           </button>
@@ -97,25 +106,42 @@ export default function AdminLojaPage({ lojaId }: AdminLojaPageProps) {
 
         {activeTab === 'produtos' && (
           <div className="space-y-4">
-            {/* Botão de Cadastro de Produto */}
-            {!showCadastroProduto && (
-              <div className="text-center mb-6">
+            {/* Botões de Seleção do Tipo de Cadastro */}
+            {tipoCadastroProduto === null && (
+              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
                 <button
-                  onClick={() => setShowCadastroProduto(true)}
-                  className="px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition text-lg shadow-lg"
+                  onClick={() => setTipoCadastroProduto('manual')}
+                  className="px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition text-lg shadow-lg flex-1 sm:flex-none"
                 >
-                  ✨ Cadastrar Novo Produto SKU
+                  ✍️ Cadastrar Manualmente
+                </button>
+                <button
+                  onClick={() => setTipoCadastroProduto('lotes')}
+                  className="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition text-lg shadow-lg flex-1 sm:flex-none"
+                >
+                  📥 Cadastro por Lotes
                 </button>
               </div>
             )}
 
-            {/* Formulário de Cadastro */}
-            {showCadastroProduto && (
+            {/* Formulário de Cadastro Manual */}
+            {tipoCadastroProduto === 'manual' && (
               <div className="bg-gray-50 p-6 rounded-lg border-2 border-green-300 mb-6">
-                <CadastroProdutoSKU
+                <CadastroProdutoSKUManual
                   lojaId={lojaId}
                   onProdutoCriado={handleProdutoCriado}
-                  onCancelar={() => setShowCadastroProduto(false)}
+                  onCancelar={() => setTipoCadastroProduto(null)}
+                />
+              </div>
+            )}
+
+            {/* Formulário de Cadastro em Lotes */}
+            {tipoCadastroProduto === 'lotes' && (
+              <div className="bg-gray-50 p-6 rounded-lg border-2 border-blue-300 mb-6">
+                <CadastroProdutoSKULotes
+                  lojaId={lojaId}
+                  onProdutosCriados={handleProdutosCriados}
+                  onCancelar={() => setTipoCadastroProduto(null)}
                 />
               </div>
             )}
@@ -127,8 +153,8 @@ export default function AdminLojaPage({ lojaId }: AdminLojaPageProps) {
 
         {activeTab === 'colecoes' && (
           <div className="space-y-4">
-            <GerenciadorColecoes 
-              titulo="📚 Minhas Coleções" 
+            <GerenciadorColecoes
+              titulo="📚 Minhas Coleções"
               mostraBotaoCriar={true}
               onSelectColecao={setSelectedColecaoId}
             />

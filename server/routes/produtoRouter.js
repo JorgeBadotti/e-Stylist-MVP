@@ -43,6 +43,39 @@ router.use(isAuthenticated);
 router.post('/', uploadWrapper('foto'), createProduto);
 
 /**
+ * POST /api/produtos/lotes/imagens
+ * Cadastrar produtos em lotes através de imagens
+ * Análise automática de imagens para extração de dados
+ */
+router.post('/lotes/imagens', uploadWrapper('imagens'), async (req, res) => {
+    try {
+        console.log('📸 [ProdutoRouter] Recebido requisição POST /lotes/imagens');
+        console.log('📊 Arquivos recebidos:', req.files?.length || 0);
+        console.log('🏪 lojaId:', req.body.lojaId);
+
+        // TODO: Implementar lógica de processamento de imagens
+        // 1. Validar imagens
+        // 2. Enviar para análise de IA (Gemini/Claude)
+        // 3. Extrair dados visuais (cor, material, estilo, etc)
+        // 4. Criar SKUs automaticamente
+        // 5. Salvar produtos no banco
+
+        return res.status(200).json({
+            mensagem: '⚠️ Endpoint em implementação',
+            quantidade: 0,
+            produtos: [],
+            status: 'em_desenvolvimento'
+        });
+    } catch (erro) {
+        console.error('❌ [ProdutoRouter] Erro ao processar lotes de imagens:', erro);
+        return res.status(500).json({
+            message: 'Erro ao processar imagens',
+            erro: erro.message
+        });
+    }
+});
+
+/**
  * GET /api/produtos/guarda-roupa/:guardaRoupaId
  * Obter produtos de um GuardaRoupa
  */
