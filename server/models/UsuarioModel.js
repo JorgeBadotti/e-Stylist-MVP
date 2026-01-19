@@ -25,6 +25,11 @@ const userSchema = new Schema({
         sparse: true
     },
     nome: String,
+    cpf: { // ✅ NOVO: Campo CPF opcional
+        type: String,
+        sparse: true, // permite múltiplos null/undefined
+        default: null
+    },
     foto: String, // Foto do avatar (perfil)
 
     // --- NOVOS CAMPOS PARA O STYLEME AI ---
