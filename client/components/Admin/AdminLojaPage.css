@@ -1,0 +1,73 @@
+.admin-loja-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+.admin-loja-container h1 {
+    font-size: 2rem;
+    color: #333;
+    margin-bottom: 32px;
+    border-bottom: 3px solid #28a745;
+    padding-bottom: 16px;
+}
+
+.admin-loja-container h2 {
+    font-size: 1.5rem;
+    color: #333;
+    margin: 0;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    gap: 16px;
+}
+
+.btn-convidar {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-convidar:hover {
+    background-color: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 86, 179, 0.3);
+}
+
+.gerenciar-vendedores-section,
+.catalogo-section {
+    margin-bottom: 40px;
+}
+
+@media (max-width: 768px) {
+    .admin-loja-container {
+        padding: 20px;
+    }
+
+    .admin-loja-container h1 {
+        font-size: 1.5rem;
+    }
+
+    .admin-loja-container h2 {
+        font-size: 1.2rem;
+    }
+
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .btn-convidar {
+        width: 100%;
+    }
+}

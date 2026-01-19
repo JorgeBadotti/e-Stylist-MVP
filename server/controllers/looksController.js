@@ -1,7 +1,8 @@
 import Usuario from '../models/UsuarioModel.js';
 import GuardaRoupa from '../models/GuardaRoupa.js';
-import Roupa from '../models/Roupa.js';
+import Produto from '../models/Produto.js';
 import Look from '../models/LookModel.js';
+import DicionarioStyleMe from '../models/DicionarioStyleMe.js';
 import { genAIClient } from '../services/gemini.js';
 import { loadPrompt } from '../services/prompt_loader.js';
 import { uploadImage } from '../services/cloudinary.js';
@@ -19,22 +20,28 @@ export const gerarLooks = async (req, res) => {
             return res.status(400).json({ error: "Perfil incompleto. Necessário medidas e foto." });
         }
 
-        // 2. Buscar Roupas do Guarda-Roupa Selecionado
-        console.log("Buscando roupas para o guarda-roupa:", wardrobeId);
-        const roupas = await Roupa.find({ guardaRoupa: wardrobeId });
-        console.log("Roupas encontradas:", roupas.length);
-        if (roupas.length < 2) {
+        // 2. Buscar Produtos do Guarda-Roupa Selecionado
+        console.log("Buscando produtos para o guarda-roupa:", wardrobeId);
+        const produtos = await Produto.find({ guardaRoupaId: wardrobeId });
+        console.log("Produtos encontrados:", produtos.length);
+        if (produtos.length < 2) {
             return res.status(400).json({ error: "Guarda-roupa precisa ter pelo menos 2 peças para gerar looks." });
         }
 
-        // 3. Preparar Dados para o Gemini (Mapeando para o formato que definimos nos prompts)
-        const itemsForAI = roupas.map(r => ({
-            id: r._id,
-            name: r.nome || r.descricao,
-            cor: r.cor || 'sem cor especificada',
+        // 3. Preparar Dados para o Gemini (Usando SKU + Cor Extensa)
+        // Buscar o dicionário de cores
+        const coresDict = await DicionarioStyleMe.find({ tipo: 'COR' });
+        const coresMap = {};
+        coresDict.forEach(cor => {
+            coresMap[cor.codigo] = cor.descricao;
+        });
+
+        const itemsForAI = produtos.map(r => ({
+            sku: r.skuStyleMe,
+            nome: r.nome || r.descricao,
+            cor: coresMap[r.cor_codigo] || r.cor_codigo || 'sem cor especificada',
             tamanho: r.tamanho || '',
-            categoria: r.categoria || '',
-            source: 'closet'
+            categoria: r.categoria || ''
         }));
 
         // 4. Carregar o Prompt do arquivo e fazer as substituições
@@ -59,6 +66,42 @@ export const gerarLooks = async (req, res) => {
         const result = await model.generateContent(systemInstruction);
         const responseText = result.response.text();
         const jsonResponse = JSON.parse(responseText);
+
+        // 6. Enriquecer os itens com dados do Produto (usando SKU como chave)
+        if (jsonResponse.looks && Array.isArray(jsonResponse.looks)) {
+            // Criar mapa de produtos por SKU para busca rápida
+            const produtoMapBySku = {};
+            produtos.forEach(p => {
+                produtoMapBySku[p.skuStyleMe] = p;
+            });
+
+            for (const look of jsonResponse.looks) {
+                if (look.items && Array.isArray(look.items)) {
+                    // Buscar dados completos de cada item usando SKU
+                    const itemsEnriquecidos = look.items.map((item) => {
+                        const produto = produtoMapBySku[item.sku];
+
+                        if (produto) {
+                            return {
+                                id: produto._id, // Manter ID para referência
+                                sku: item.sku,
+                                name: item.name || produto.nome || produto.descricao,
+                                foto: produto.foto || null,
+                                cor: coresMap[produto.cor_codigo] || produto.cor_codigo || null,
+                                cor_codigo: produto.cor_codigo || null,
+                                categoria: produto.categoria || null,
+                                tamanho: produto.tamanho || null,
+                                skuStyleMe: produto.skuStyleMe || null
+                            };
+                        }
+                        // Se não encontrar, retorna item com aviso
+                        console.warn(`Produto com SKU ${item.sku} não encontrado no mapa`);
+                        return item;
+                    });
+                    look.items = itemsEnriquecidos;
+                }
+            }
+        }
 
         res.json(jsonResponse);
 
@@ -217,45 +260,107 @@ export const visualizarLook = async (req, res) => {
             return res.status(400).json({ error: "Necessário foto de corpo inteiro do usuário." });
         }
 
-        // 3. Buscar as fotos de todas as peças do look
-        const itemIds = lookData.items.map(item => item.id);
-        const roupas = await Roupa.find({ _id: { $in: itemIds } });
+        // 3. Buscar as informações completas dos produtos usando SKU
+        const skus = lookData.items.map(item => item.skuStyleMe || item.sku);
+        const produtosDB = await Produto.find({ skuStyleMe: { $in: skus } });
 
-        if (roupas.length !== itemIds.length) {
-            return res.status(400).json({ error: "Algumas peças não foram encontradas." });
+        console.log("Produtos encontrados no DB:", produtosDB.length);
+
+        if (produtosDB.length === 0) {
+            return res.status(400).json({ error: "Nenhuma peça encontrada no banco de dados." });
         }
 
-        // 4. Validar que todas as peças têm foto
-        const roupasComFoto = roupas.filter(r => r.foto);
-        if (roupasComFoto.length !== roupas.length) {
-            return res.status(400).json({ error: "Algumas peças não têm foto de referência." });
-        }
-
-        // 5. Preparar as URLs das fotos para o Gemini
-        const fotoPessoa = usuario.foto_corpo;
-        const fotasPecas = roupasComFoto.map(r => r.foto);
-
-        // 6. Carrega o prompt do arquivo
-        const promptText = await loadPrompt('vizualize_look.md', {
-            look_description: lookData.explanation || lookData.name
+        // 4. Criar mapa dos produtos por SKU para fácil acesso
+        const produtoMap = {};
+        produtosDB.forEach(produto => {
+            produtoMap[produto.skuStyleMe] = produto;
         });
 
-        // 7. Função auxiliar para converter URL de imagem para base64
+        // 5. Buscar dicionário de cores para enriquecimento
+        const coresDict = await DicionarioStyleMe.find({ tipo: 'COR' });
+        const coresMap = {};
+        coresDict.forEach(cor => {
+            coresMap[cor.codigo] = cor.descricao;
+        });
+
+        // 6. Enriquecer os items com dados do banco de dados e filtrar os que têm foto
+        const itemsComFoto = [];
+        const itemsSemFoto = [];
+
+        for (const item of lookData.items) {
+            const sku = item.skuStyleMe || item.sku;
+            const produto = produtoMap[sku];
+
+            if (produto) {
+                if (produto.foto) {
+                    itemsComFoto.push({
+                        id: produto._id,
+                        sku: produto.skuStyleMe,
+                        name: item.name || produto.nome || produto.descricao,
+                        foto: produto.foto,
+                        cor: coresMap[produto.cor_codigo] || produto.cor_codigo,
+                        cor_codigo: produto.cor_codigo,
+                        categoria: produto.categoria,
+                        tamanho: produto.tamanho
+                    });
+                } else {
+                    itemsSemFoto.push(item.name || produto.nome);
+                }
+            } else {
+                itemsSemFoto.push(item.name);
+            }
+        }
+
+        // 7. Se houver items sem foto, avisar ao usuário
+        if (itemsSemFoto.length > 0) {
+            console.warn("Items sem foto encontrados:", itemsSemFoto);
+            return res.status(400).json({
+                error: `As seguintes peças não possuem foto de referência: ${itemsSemFoto.join(', ')}. Adicione fotos para gerar a visualização.`
+            });
+        }
+
+        // 8. Preparar as URLs das fotos para o Gemini
+        const fotoPessoa = usuario.foto_corpo;
+        const fotasPecas = itemsComFoto.map(item => item.foto);
+
+        console.log("Fotos das peças coletadas:", fotasPecas.length);
+
+        // 9. Preparar descrição detalhada dos items para o prompt
+        const itemsDescription = itemsComFoto.map(item => {
+            return `- ${item.nome || item.name}${item.categoria ? ' (' + item.categoria + ')' : ''}${item.cor ? ' - ' + item.cor : ''}${item.tamanho ? ' (' + item.tamanho + ')' : ''}`;
+        }).join('\n');
+
+        console.log("Items description:\n", itemsDescription);
+
+        // 10. Carrega o prompt do arquivo
+        const promptText = await loadPrompt('vizualize_look.md', {
+            look_description: lookData.explanation || lookData.name,
+            items_list: itemsDescription
+        });
+
+        console.log("Prompt carregado com sucesso");
+
+        // 11. Função auxiliar para converter URL de imagem para base64
         const fetchImageAsBase64 = async (imageUrl) => {
             const response = await fetch(imageUrl);
             const arrayBuffer = await response.arrayBuffer();
             return Buffer.from(arrayBuffer).toString('base64');
         };
 
-        // 8. Buscar as imagens como base64
+        // 12. Buscar as imagens como base64
+        console.log("Convertendo imagem da pessoa para base64...");
         const fotoPessoaBase64 = await fetchImageAsBase64(fotoPessoa);
+
+        console.log("Convertendo imagens das peças para base64...");
         const fotasPecasBase64 = [];
         for (const fotoUrl of fotasPecas) {
             const base64 = await fetchImageAsBase64(fotoUrl);
             fotasPecasBase64.push(base64);
         }
 
-        // 9. Montar o array de parts para Gemini (texto + imagens)
+        console.log("Total de imagens em base64:", fotasPecasBase64.length + 1);
+
+        // 13. Montar o array de parts para Gemini (texto + imagens)
         const parts = [
             {
                 text: promptText
@@ -280,7 +385,7 @@ export const visualizarLook = async (req, res) => {
             });
         }
 
-        // 10. Chamar Gemini 3 Pro Image Preview para gerar a imagem
+        // 14. Chamar Gemini 3 Pro Image Preview para gerar a imagem
         const model = genAIClient.getGenerativeModel({
             model: "gemini-3-pro-image-preview"
         });
@@ -301,7 +406,7 @@ export const visualizarLook = async (req, res) => {
 
         console.log("Resposta recebida do Gemini");
 
-        // 11. Extrair a imagem gerada
+        // 15. Extrair a imagem gerada
         let geradoImagemBuffer = null;
         let imagemDescricao = '';
 
@@ -340,7 +445,7 @@ export const visualizarLook = async (req, res) => {
             throw new Error("Gemini não conseguiu gerar a imagem - nenhuma imagem encontrada na resposta");
         }
 
-        // 12. Faz upload para Cloudinary
+        // 16. Faz upload para Cloudinary
         const cloudinaryResult = await uploadImage(
             geradoImagemBuffer,
             'looks-visualizacoes'

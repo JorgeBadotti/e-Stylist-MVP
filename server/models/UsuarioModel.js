@@ -19,12 +19,24 @@ const userSchema = new Schema({
         ref: 'Loja',
         required: false
     },
+    lojas_associadas: [ // ✅ NOVO: Array de lojas que o usuário é vendedor
+        {
+            type: Schema.Types.ObjectId,
+            ref: 'Loja'
+        }
+    ],
     googleId: {
         type: String,
         unique: true,
         sparse: true
     },
     nome: String,
+    cpf: { // ✅ NOVO: Campo CPF opcional
+        type: String,
+        unique: true,
+        sparse: true, // permite múltiplos null/undefined
+        default: null
+    },
     foto: String, // Foto do avatar (perfil)
 
     // --- NOVOS CAMPOS PARA O STYLEME AI ---

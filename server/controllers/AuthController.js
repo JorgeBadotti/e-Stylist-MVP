@@ -1,14 +1,40 @@
 import Usuario from '../models/UsuarioModel.js';
 
-// Cadastro Local simples
+// ✅ ATUALIZADO: Cadastro com auto-login (igual à loja)
 export const register = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, nome } = req.body;
+        console.log('👤 [register] Criando usuário:', { email, nome });
+
         // O método .register vem do plugin passport-local-mongoose
-        const newUser = new Usuario({ email });
-        await Usuario.register(newUser, password);
-        res.status(201).json({ message: 'Usuário criado com sucesso' });
+        const novoUsuario = new Usuario({
+            email,
+            nome: nome || ''
+        });
+
+        // Aguarda o registro ser criado
+        const usuario = await Usuario.register(novoUsuario, password);
+        console.log('✅ [register] Usuário criado:', usuario._id);
+
+        // ✅ NOVO: Auto-login após cadastro (igual ao registerStore)
+        req.login(usuario, (err) => {
+            if (err) {
+                console.error('❌ [register] Erro ao fazer login:', err);
+                return res.status(500).json({ error: 'Erro ao fazer login automático' });
+            }
+            console.log('🔐 [register] Usuário logado automaticamente');
+            res.status(201).json({
+                message: 'Usuário criado e logado com sucesso',
+                usuario: {
+                    id: usuario._id,
+                    email: usuario.email,
+                    nome: usuario.nome,
+                    role: usuario.role
+                }
+            });
+        });
     } catch (error) {
+        console.error('❌ [register] Erro:', error.message);
         res.status(500).json({ error: error.message });
     }
 };
@@ -48,19 +74,49 @@ export const logout = (req, res, next) => {
 };
 
 // Verificar sessão atual (Para o React persistir o login)
-export const me = (req, res) => {
+export const me = async (req, res) => {
     // Retorna sempre 200 para evitar cair no catch do frontend
     if (req.isAuthenticated()) {
-        res.json({
-            isAuthenticated: true,
-            user: {
-                id: req.user._id,
-                email: req.user.email,
-                nome: req.user.nome,
-                foto: req.user.foto,
-                role: req.user.role // <<< ADICIONADO
+        try {
+            // Se for STORE_ADMIN, busca o lojaId associado
+            // Se for SALESPERSON, busca a primeira loja em lojas_associadas
+            let lojaId = null;
+            
+            if (req.user.role === 'STORE_ADMIN') {
+                const Loja = (await import('../models/Loja.js')).default;
+                const loja = await Loja.findOne({ usuario: req.user._id });
+                lojaId = loja ? loja._id : null;
+            } else if (req.user.role === 'SALESPERSON' && req.user.lojas_associadas && req.user.lojas_associadas.length > 0) {
+                // ✅ NOVO: Para SALESPERSON, pega a primeira loja associada
+                lojaId = req.user.lojas_associadas[0];
             }
-        });
+
+            res.json({
+                isAuthenticated: true,
+                user: {
+                    id: req.user._id,
+                    email: req.user.email,
+                    nome: req.user.nome,
+                    foto: req.user.foto,
+                    role: req.user.role,
+                    lojaId: lojaId // <<< NOVO: Inclui lojaId para STORE_ADMIN e SALESPERSON
+                }
+            });
+        } catch (error) {
+            console.error('❌ [me] Erro ao buscar lojaId:', error);
+            // Retorna sem lojaId em caso de erro
+            res.json({
+                isAuthenticated: true,
+                user: {
+                    id: req.user._id,
+                    email: req.user.email,
+                    nome: req.user.nome,
+                    foto: req.user.foto,
+                    role: req.user.role,
+                    lojaId: null
+                }
+            });
+        }
     } else {
         // MUDANÇA: Status 200, mas com flag false.
         // Isso impede que interceptors do Axios tentem tratar como erro.

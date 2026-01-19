@@ -6,7 +6,8 @@ import {
     getGuardaRoupaById,
     getGuardaRoupasPublicos,
     updateGuardaRoupa,
-    deleteGuardaRoupa
+    deleteGuardaRoupa,
+    addProdutoExistenteAoGuardaRoupa
 } from '../controllers/guardaRoupaController.js';
 import { isAuthenticated } from '../middlewares/authMiddleware.js'; // Importe seu middleware
 
@@ -28,5 +29,8 @@ router.post('/', upload.single('foto'), createGuardaRoupa);      // Criar
 router.get('/:id', getGuardaRoupaById);   // Ver detalhes de um
 router.put('/:id', upload.single('foto'), updateGuardaRoupa);
 router.delete('/:id', deleteGuardaRoupa); // Deletar
+
+// Rota: /api/guarda-roupas/:guardaRoupaId/produtos/:skuStyleMe
+router.post('/:guardaRoupaId/produtos/:skuStyleMe', addProdutoExistenteAoGuardaRoupa);
 
 export default router;

@@ -2,6 +2,7 @@
   "name": "e-stylist-frontend",
   "type": "module",
   "scripts": {
+    "start": "vite",
     "dev": "vite",
     "build": "vite build"
   },

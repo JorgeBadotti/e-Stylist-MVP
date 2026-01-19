@@ -17,6 +17,9 @@ router.use(ensureAuthenticated);
 // Rota: GET /api/usuario/perfil
 router.get('/perfil', UsuarioController.getProfile);
 
+// ✅ NOVO: Rota: GET /api/usuario/:id (com lojas_associadas populadas)
+router.get('/:id', UsuarioController.getUsuarioById);
+
 // Rota: PUT /api/usuario/medidas
 router.put('/medidas', UsuarioController.updateBodyData);
 

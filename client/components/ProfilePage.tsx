@@ -12,6 +12,7 @@ interface Medidas {
 interface UserProfileData {
     nome: string;
     email: string;
+    cpf?: string;
     foto?: string;
     foto_corpo?: string;
     tipo_corpo?: string;
@@ -28,6 +29,7 @@ const ProfilePage: React.FC = () => {
     const [formData, setFormData] = useState<UserProfileData>({
         nome: '',
         email: '',
+        cpf: '',
         foto_corpo: '',
         tipo_corpo: '',
         estilo_pessoal: '',
@@ -48,6 +50,7 @@ const ProfilePage: React.FC = () => {
                     // Se user.nome for undefined/null, usa string vazia para permitir edição
                     nome: user.nome || '',
                     email: user.email || '',
+                    cpf: user.cpf || '',
                     foto_corpo: user.foto_corpo || '',
                     tipo_corpo: user.tipo_corpo || '',
                     estilo_pessoal: user.estilo_pessoal || '',
@@ -115,6 +118,7 @@ const ProfilePage: React.FC = () => {
             // Nota: Enviando 'nome' também para atualizar caso esteja vazio
             const payload = {
                 nome: formData.nome,
+                cpf: formData.cpf,
                 busto: formData.medidas.busto,
                 cintura: formData.medidas.cintura,
                 quadril: formData.medidas.quadril,
@@ -171,6 +175,17 @@ const ProfilePage: React.FC = () => {
                             value={formData.email}
                             disabled
                             className="mt-1 block w-full bg-gray-100 border-gray-300 rounded-md shadow-sm p-2 text-gray-500 cursor-not-allowed"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">CPF <span className="text-gray-500 text-xs">(opcional)</span></label>
+                        <input
+                            type="text"
+                            name="cpf"
+                            placeholder="000.000.000-00"
+                            value={formData.cpf}
+                            onChange={handleChange}
+                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                     </div>
                 </div>

@@ -57,7 +57,7 @@ const ProdutoDetalhe: React.FC<ProdutoDetalheProps> = ({ sku, onBack }) => {
         <div>
           <h1 className="text-4xl font-bold mb-2">{produto.nome}</h1>
           <p className="text-gray-500 mb-4">SKU: {produto.sku}</p>
-          <p className="text-3xl font-light text-blue-600 mb-4">R$ {produto.preco.toFixed(2)}</p>
+          <p className="text-3xl font-light text-blue-600 mb-4">R$ {(produto.preco || 0).toFixed(2)}</p>
           
           <div className="mb-6">
             <h3 className="font-semibold text-lg mb-2">Descrição</h3>

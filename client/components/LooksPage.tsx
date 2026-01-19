@@ -8,11 +8,21 @@ interface Wardrobe {
     isPublic?: boolean;
 }
 
+interface LookItem {
+    id: string;
+    name: string;
+    foto?: string;
+    cor_codigo?: string;
+    categoria?: string;
+    tamanho?: string;
+    skuStyleMe?: string;
+}
+
 interface GeneratedLook {
     look_id: string;
     name: string;
     explanation: string;
-    items: { id: string, name: string }[];
+    items: LookItem[];
     body_affinity_index: number;
 }
 
@@ -33,6 +43,7 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile }) => {
     const [generatedImage, setGeneratedImage] = useState<string | null>(null);
     const [selectedLookName, setSelectedLookName] = useState<string>('');
     const [selectedLookExplanation, setSelectedLookExplanation] = useState<string>('');
+    const [selectedLookItems, setSelectedLookItems] = useState<LookItem[]>([]);
 
     // Carregar dados iniciais
     useEffect(() => {
@@ -113,6 +124,7 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile }) => {
             setGeneratedImage(visualizeResponse.data.imagem_url);
             setSelectedLookName(selectedLook.name);
             setSelectedLookExplanation(selectedLook.explanation);
+            setSelectedLookItems(selectedLook.items); // ← Guardar os items
             setSuccessMsg(`✨ Sua visualização foi criada! ${selectedLook.name} ficou sensacional!`);
 
             // 4. Mudar para o step 'visualized' para mostrar a imagem permanentemente
@@ -132,6 +144,7 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile }) => {
         setLooks([]);
         setGeneratedImage(null);
         setSelectedLookName('');
+        setSelectedLookItems([]); // ← Limpar items também
         setSuccessMsg('');
         setError('');
         setSelectedWardrobe('');
@@ -250,14 +263,35 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile }) => {
                                             </svg>
                                             Peças do Look
                                         </h4>
-                                        <ul className="space-y-2">
+                                        <div className="grid grid-cols-3 gap-2">
                                             {look.items.map((item, idx) => (
-                                                <li key={idx} className="text-sm text-gray-700 flex items-center gap-3 p-2 bg-white rounded border border-blue-100">
-                                                    <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></span>
-                                                    <span className="font-medium flex-grow">{item.name}</span>
-                                                </li>
+                                                <div key={idx} className="bg-white rounded border border-blue-100 overflow-hidden hover:shadow-md transition">
+                                                    {/* Foto do item */}
+                                                    <div className="h-20 bg-gray-100 flex items-center justify-center border-b border-blue-100">
+                                                        {item.foto ? (
+                                                            <img
+                                                                src={item.foto}
+                                                                alt={item.name}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        ) : (
+                                                            <span className="text-2xl text-gray-300">👕</span>
+                                                        )}
+                                                    </div>
+                                                    {/* Informações */}
+                                                    <div className="p-2">
+                                                        <p className="text-xs font-semibold text-gray-700 truncate" title={item.name}>
+                                                            {item.name}
+                                                        </p>
+                                                        {item.cor_codigo && (
+                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                Cor: <span className="font-medium">{item.cor_codigo}</span>
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             ))}
-                                        </ul>
+                                        </div>
                                     </div>
 
                                     <div className="pt-2">
@@ -277,6 +311,7 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile }) => {
                     lookName={selectedLookName}
                     lookImage={generatedImage || ''}
                     lookExplanation={selectedLookExplanation}
+                    lookItems={selectedLookItems}
                     onGenerateNew={handleGerarNovamente}
                 />
             )}

@@ -1,0 +1,54 @@
+.vendor-loja-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+.btn-back {
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 24px;
+    transition: all 0.2s;
+}
+
+.btn-back:hover {
+    background-color: #e0e0e0;
+    transform: translateX(-4px);
+}
+
+.vendor-loja-container h1 {
+    font-size: 2rem;
+    color: #333;
+    margin: 24px 0 32px;
+    border-bottom: 3px solid #007bff;
+    padding-bottom: 16px;
+}
+
+.vendor-loja-container h2 {
+    font-size: 1.5rem;
+    color: #333;
+    margin: 32px 0 24px;
+}
+
+.vendedores-section,
+.catalogo-section {
+    margin-bottom: 40px;
+}
+
+@media (max-width: 768px) {
+    .vendor-loja-container {
+        padding: 20px;
+    }
+
+    .vendor-loja-container h1 {
+        font-size: 1.5rem;
+    }
+
+    .vendor-loja-container h2 {
+        font-size: 1.2rem;
+    }
+}

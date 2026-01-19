@@ -18,7 +18,7 @@ const lookSchema = new Schema({
 
     // Lista de itens usados no look
     itens: [{
-        id: String, // ID do item no banco (Roupa)
+        id: String, // ID do item no banco (Produto)
         nome: String,
         origem: String // 'closet' ou 'store'
     }],
