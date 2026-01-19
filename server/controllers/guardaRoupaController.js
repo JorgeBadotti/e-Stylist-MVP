@@ -1,4 +1,5 @@
 import GuardaRoupa from '../models/GuardaRoupa.js'; // Ajuste o caminho conforme sua estrutura
+import Produto from '../models/Produto.js';
 import { uploadImage, deleteImage } from '../services/cloudinary.js';
 
 export const createGuardaRoupa = async (req, res) => {
@@ -185,5 +186,55 @@ export const deleteGuardaRoupa = async (req, res) => {
         res.status(200).json({ message: 'Guarda-roupa deletado com sucesso' });
     } catch (error) {
         res.status(500).json({ message: 'Erro ao deletar', error: error.message });
+    }
+};
+
+/**
+ * POST /api/guarda-roupas/:guardaRoupaId/produtos/:skuStyleMe
+ * Associar um produto EXISTENTE a um guarda-roupa
+ */
+export const addProdutoExistenteAoGuardaRoupa = async (req, res) => {
+    try {
+        const { guardaRoupaId, skuStyleMe } = req.params;
+        const usuarioId = req.user._id;
+
+        // 1. Verificar se guarda-roupa existe e usuário é dono
+        const guardaRoupa = await GuardaRoupa.findById(guardaRoupaId);
+        if (!guardaRoupa) {
+            return res.status(404).json({ message: 'Guarda-roupa não encontrado' });
+        }
+
+        if (guardaRoupa.usuario.toString() !== usuarioId.toString()) {
+            return res.status(403).json({ message: 'Permissão negada: você não é o dono deste guarda-roupa' });
+        }
+
+        // 2. Encontrar o produto pelo skuStyleMe
+        const produto = await Produto.findOne({ skuStyleMe });
+        if (!produto) {
+            return res.status(404).json({ message: `Produto com SKU ${skuStyleMe} não encontrado` });
+        }
+
+        // 3. Verificar se já está associado
+        if (produto.guardaRoupaId?.toString() === guardaRoupaId) {
+            return res.status(400).json({ message: 'Este produto já está neste guarda-roupa' });
+        }
+
+        // 4. Associar produto ao guarda-roupa
+        const produtoAtualizado = await Produto.findByIdAndUpdate(
+            produto._id,
+            { guardaRoupaId },
+            { new: true }
+        );
+
+        res.status(200).json({
+            message: 'Produto adicionado ao guarda-roupa com sucesso',
+            produto: produtoAtualizado
+        });
+    } catch (error) {
+        console.error('❌ [addProdutoExistenteAoGuardaRoupa] Erro:', error);
+        res.status(500).json({
+            message: 'Erro ao adicionar produto ao guarda-roupa',
+            error: error.message
+        });
     }
 };

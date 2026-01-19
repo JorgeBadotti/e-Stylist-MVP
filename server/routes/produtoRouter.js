@@ -6,7 +6,8 @@ import {
     updateProduto,
     deleteProduto,
     getDicionarios,
-    sugerirSKU
+    sugerirSKU,
+    getProdutosDisponiveisParaGuardaRoupa
 } from '../controllers/produtoController.js';
 import { isAuthenticated } from '../middlewares/authMiddleware.js';
 import upload, { uploadWrapper, uploadMultipleWrapper } from '../middlewares/fileUpload.js';
@@ -252,6 +253,12 @@ router.post('/lotes/imagens', uploadMultipleWrapper('imagens', 50), async (req, 
  * Obter produtos de um GuardaRoupa
  */
 router.get('/guarda-roupa/:guardaRoupaId', getProdutosByGuardaRoupa);
+
+/**
+ * GET /api/produtos/disponiveis/:guardaRoupaId
+ * Obter produtos DISPONÍVEIS para serem adicionados a um GuardaRoupa
+ */
+router.get('/disponiveis/:guardaRoupaId', isAuthenticated, getProdutosDisponiveisParaGuardaRoupa);
 
 /**
  * GET /api/produtos/loja/:lojaId

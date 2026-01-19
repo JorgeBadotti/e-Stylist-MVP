@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import api from '../src/services/api';
+import { Produto } from '../src/types/types';
 
 interface Roupa {
     _id: string;
@@ -26,6 +27,8 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
     // Controle do Formulário
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null); // Se null = Criando, Se string = Editando
+    const [modoAdicionar, setModoAdicionar] = useState<'novo' | 'existente'>('novo'); // Toggle entre novo ou existente
+    const [showSearchModal, setShowSearchModal] = useState(false);
     const formRef = useRef<HTMLDivElement>(null); // Para rolar até o form ao editar
 
     const [formData, setFormData] = useState({
@@ -161,6 +164,20 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
         }
     };
 
+    // Função para associar um produto EXISTENTE ao guarda-roupa
+    const handleAddExistingProduto = async (skuStyleMe: string) => {
+        try {
+            await api.post(`/api/guarda-roupas/${guardaRoupaId}/produtos/${skuStyleMe}`);
+            setShowSearchModal(false);
+            setModoAdicionar('novo');
+            resetForm();
+            fetchData(); // Recarrega a lista
+        } catch (error) {
+            console.error("Erro ao adicionar produto:", error);
+            alert('Erro ao adicionar o produto ao guarda-roupa.');
+        }
+    };
+
     if (loading) return <div>Carregando detalhes...</div>;
 
     return (
@@ -177,10 +194,10 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
                             onClick={handleToggleVisibility}
                             disabled={togglingVisibility || !isOwner}
                             className={`px-3 py-1 rounded-full text-sm font-semibold transition-colors ${!isOwner
-                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
-                                    : guardaRoupaIsPublic
-                                        ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                                : guardaRoupaIsPublic
+                                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                                 }`}
                             title={
                                 !isOwner
@@ -194,23 +211,39 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
                         </button>
                     </div>
                 </div>
-                <button
-                    onClick={() => {
-                        if (showForm) resetForm(); // Se clicar em cancelar
-                        else setShowForm(true);
-                    }}
-                    disabled={!isOwner}
-                    title={isOwner ? 'Adicionar uma peça' : 'Você não pode editar este guarda-roupa'}
-                    className={`px-4 py-2 rounded text-white ${showForm
-                            ? 'bg-gray-500 hover:bg-gray-600'
-                            : isOwner
-                                ? 'bg-green-600 hover:bg-green-700'
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => {
+                            setModoAdicionar('novo');
+                            if (showForm && modoAdicionar === 'novo') resetForm();
+                            else setShowForm(true);
+                        }}
+                        disabled={!isOwner}
+                        title={isOwner ? 'Criar um novo produto' : 'Você não pode editar este guarda-roupa'}
+                        className={`px-4 py-2 rounded text-white font-semibold transition ${showForm && modoAdicionar === 'novo'
+                                ? 'bg-gray-500 hover:bg-gray-600'
+                                : isOwner
+                                    ? 'bg-green-600 hover:bg-green-700'
+                                    : 'bg-gray-400 cursor-not-allowed opacity-60'
+                            }`}
+                    >
+                        {showForm && modoAdicionar === 'novo' ? 'Cancelar' : '✏️ Novo Produto'}
+                    </button>
+                    <button
+                        onClick={() => {
+                            setModoAdicionar('existente');
+                            setShowSearchModal(true);
+                        }}
+                        disabled={!isOwner}
+                        title={isOwner ? 'Adicionar um produto existente' : 'Você não pode editar este guarda-roupa'}
+                        className={`px-4 py-2 rounded text-white font-semibold transition ${isOwner
+                                ? 'bg-blue-600 hover:bg-blue-700'
                                 : 'bg-gray-400 cursor-not-allowed opacity-60'
-                        }`}
-                >
-                    {showForm ? 'Cancelar' : '+ Adicionar Roupa'}
-
-                </button>
+                            }`}
+                    >
+                        🔍 Produto Existente
+                    </button>
+                </div>
             </div>
 
             {!isOwner && !showForm && (
@@ -337,6 +370,189 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
                     </button>
                 </div>
             )}
+
+            {/* MODAL DE BUSCA DE PRODUTOS EXISTENTES */}
+            {showSearchModal && (
+                <SearchProdutosModal
+                    guardaRoupaId={guardaRoupaId}
+                    onSelectProduto={handleAddExistingProduto}
+                    onClose={() => setShowSearchModal(false)}
+                />
+            )}
+        </div>
+    );
+};
+
+// ========== COMPONENTE MODAL DE BUSCA DE PRODUTOS ==========
+interface SearchProdutosModalProps {
+    guardaRoupaId: string;
+    onSelectProduto: (skuStyleMe: string) => void;
+    onClose: () => void;
+}
+
+const SearchProdutosModal: React.FC<SearchProdutosModalProps> = ({ guardaRoupaId, onSelectProduto, onClose }) => {
+    const [produtos, setProdutos] = useState<Produto[]>([]);
+    const [filteredProdutos, setFilteredProdutos] = useState<Produto[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterCategoria, setFilterCategoria] = useState<string>('');
+    const [sortField, setSortField] = useState<string>('skuStyleMe');
+    const [sortAsc, setSortAsc] = useState(true);
+
+    useEffect(() => {
+        const fetchProdutos = async () => {
+            try {
+                const res = await api.get(`/api/produtos/disponiveis/${guardaRoupaId}`);
+                setProdutos(res.data);
+                setFilteredProdutos(res.data);
+            } catch (error) {
+                console.error('Erro ao buscar produtos disponíveis:', error);
+                alert('Erro ao carregar produtos disponíveis');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchProdutos();
+    }, [guardaRoupaId]);
+
+    // Filtrar e ordenar produtos
+    useEffect(() => {
+        let filtered = produtos.filter(p => {
+            const matchesSearch = p.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                p.skuStyleMe?.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesCategoria = !filterCategoria || p.categoria === filterCategoria;
+            return matchesSearch && matchesCategoria;
+        });
+
+        // Ordenar
+        filtered.sort((a, b) => {
+            let aVal = a[sortField as keyof Produto];
+            let bVal = b[sortField as keyof Produto];
+
+            if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+            if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+
+            if (aVal < bVal) return sortAsc ? -1 : 1;
+            if (aVal > bVal) return sortAsc ? 1 : -1;
+            return 0;
+        });
+
+        setFilteredProdutos(filtered);
+    }, [searchTerm, filterCategoria, sortField, sortAsc, produtos]);
+
+    const categorias = Array.from(new Set(produtos.map(p => p.categoria).filter(Boolean)));
+
+    if (loading) return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-8">Carregando produtos...</div>
+        </div>
+    );
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
+                <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+                    <h2 className="text-2xl font-bold text-gray-800">Selecionar Produto Existente</h2>
+                    <button
+                        onClick={onClose}
+                        className="text-gray-500 hover:text-gray-700 text-2xl"
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-4">
+                    {/* Barra de busca */}
+                    <div className="flex gap-4 flex-col md:flex-row">
+                        <input
+                            type="text"
+                            placeholder="Buscar por nome ou SKU..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <select
+                            value={filterCategoria}
+                            onChange={(e) => setFilterCategoria(e.target.value)}
+                            className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">Todas as categorias</option>
+                            {categorias.map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Tabela de produtos */}
+                    {filteredProdutos.length === 0 ? (
+                        <div className="text-center py-10 text-gray-500">
+                            {produtos.length === 0
+                                ? 'Nenhum produto disponível.'
+                                : 'Nenhum produto corresponde aos filtros.'}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                            <table className="w-full">
+                                <thead className="bg-gray-100 border-b border-gray-200">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left font-semibold text-sm">Imagem</th>
+                                        <th
+                                            onClick={() => {
+                                                if (sortField === 'skuStyleMe') setSortAsc(!sortAsc);
+                                                else { setSortField('skuStyleMe'); setSortAsc(true); }
+                                            }}
+                                            className="px-4 py-3 text-left font-semibold text-sm cursor-pointer hover:bg-gray-200 select-none"
+                                        >
+                                            SKU {sortField === 'skuStyleMe' && (sortAsc ? '↑' : '↓')}
+                                        </th>
+                                        <th
+                                            onClick={() => {
+                                                if (sortField === 'nome') setSortAsc(!sortAsc);
+                                                else { setSortField('nome'); setSortAsc(true); }
+                                            }}
+                                            className="px-4 py-3 text-left font-semibold text-sm cursor-pointer hover:bg-gray-200 select-none"
+                                        >
+                                            Nome {sortField === 'nome' && (sortAsc ? '↑' : '↓')}
+                                        </th>
+                                        <th className="px-4 py-3 text-center font-semibold text-sm">Categoria</th>
+                                        <th className="px-4 py-3 text-center font-semibold text-sm">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredProdutos.map(produto => (
+                                        <tr key={produto._id} className="border-b border-gray-100 hover:bg-gray-50">
+                                            <td className="px-4 py-3">
+                                                {produto.foto ? (
+                                                    <img
+                                                        src={produto.foto}
+                                                        alt={produto.nome}
+                                                        className="w-12 h-12 object-cover rounded"
+                                                    />
+                                                ) : (
+                                                    <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400">
+                                                        👕
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-3 font-mono text-sm text-gray-700">{produto.skuStyleMe}</td>
+                                            <td className="px-4 py-3 text-gray-700">{produto.nome}</td>
+                                            <td className="px-4 py-3 text-center text-sm text-gray-600">{produto.categoria}</td>
+                                            <td className="px-4 py-3 text-center">
+                                                <button
+                                                    onClick={() => onSelectProduto(produto.skuStyleMe || '')}
+                                                    className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-semibold transition"
+                                                >
+                                                    Adicionar
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 };

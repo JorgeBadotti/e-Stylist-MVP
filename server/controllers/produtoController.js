@@ -622,6 +622,40 @@ export const sugerirSKU = async (req, res) => {
     }
 };
 
+/**
+ * GET PRODUTOS DISPONÍVEIS PARA UM GUARDA-ROUPA
+ * Retorna produtos que NÃO estão associados a este guarda-roupa
+ */
+export const getProdutosDisponiveisParaGuardaRoupa = async (req, res) => {
+    try {
+        const { guardaRoupaId } = req.params;
+
+        // Verificar se guarda-roupa existe e se usuário tem permissão
+        const guardaRoupa = await GuardaRoupa.findById(guardaRoupaId);
+        if (!guardaRoupa) {
+            return res.status(404).json({ message: 'GuardaRoupa não encontrado' });
+        }
+
+        const isOwner = guardaRoupa.usuario.toString() === req.user._id.toString();
+        if (!isOwner) {
+            return res.status(403).json({ message: 'Acesso negado: você não é o dono deste guarda-roupa' });
+        }
+
+        // Buscar todos os produtos que NÃO estão neste guarda-roupa
+        const produtosDisponiveis = await Produto.find({
+            guardaRoupaId: { $ne: guardaRoupaId }
+        }).sort({ skuStyleMe: 1 });
+
+        res.status(200).json(produtosDisponiveis);
+    } catch (error) {
+        console.error('❌ [getProdutosDisponiveisParaGuardaRoupa] Erro:', error);
+        res.status(500).json({
+            message: 'Erro ao buscar produtos disponíveis',
+            error: error.message
+        });
+    }
+};
+
 export default {
     createProduto,
     getProdutosByGuardaRoupa,
@@ -629,5 +663,6 @@ export default {
     updateProduto,
     deleteProduto,
     getDicionarios,
-    sugerirSKU
+    sugerirSKU,
+    getProdutosDisponiveisParaGuardaRoupa
 };
