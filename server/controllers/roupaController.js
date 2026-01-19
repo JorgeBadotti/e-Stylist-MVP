@@ -39,7 +39,7 @@ export const addRoupa = async (req, res) => {
             cor,
             tamanho,
             tecido,
-            guardaRoupa: guardaRoupaId,
+            guardaRoupaId: guardaRoupaId,
             foto: fotoUrl,          // Salva a URL
             fotoPublicId: fotoPublicId // Salva o ID para poder deletar depois
         });
@@ -70,7 +70,7 @@ export const getRoupasByGuardaRoupa = async (req, res) => {
             return res.status(403).json({ message: 'Acesso negado: este guarda-roupa é privado' });
         }
 
-        const produtos = await Produto.find({ guardaRoupa: guardaRoupaId });
+        const produtos = await Produto.find({ guardaRoupaId: guardaRoupaId });
         res.status(200).json(produtos);
     } catch (error) {
         res.status(500).json({ message: 'Erro ao listar roupas', error: error.message });
@@ -91,7 +91,7 @@ export const updateRoupa = async (req, res) => {
         }
 
         // 2. Verificar se o usuário é dono do guardaroupa
-        const guardaRoupa = await GuardaRoupa.findById(produtoAtual.guardaRoupa);
+        const guardaRoupa = await GuardaRoupa.findById(produtoAtual.guardaRoupaId);
         if (!guardaRoupa) {
             return res.status(404).json({ message: 'Guarda-roupa não encontrado' });
         }
@@ -145,7 +145,7 @@ export const deleteRoupa = async (req, res) => {
         }
 
         // 2. Verificar se o usuário é dono do guardaroupa
-        const guardaRoupa = await GuardaRoupa.findById(produto.guardaRoupa);
+        const guardaRoupa = await GuardaRoupa.findById(produto.guardaRoupaId);
         if (!guardaRoupa) {
             return res.status(404).json({ message: 'Guarda-roupa não encontrado' });
         }
@@ -191,8 +191,11 @@ export const updateRoupaStatus = async (req, res) => {
         }
 
         // Garante que o usuário que está atualizando é o dono do guarda-roupa
-        if (produto.guardaRoupa.usuario.toString() !== userId.toString()) {
-            return res.status(403).json({ message: 'Acesso negado. Você não tem permissão para alterar este produto.' });
+        if (produto.guardaRoupaId) {
+            const guardaRoupa = await GuardaRoupa.findById(produto.guardaRoupaId);
+            if (!guardaRoupa || guardaRoupa.usuario.toString() !== userId.toString()) {
+                return res.status(403).json({ message: 'Acesso negado. Você não tem permissão para alterar este produto.' });
+            }
         }
 
         // 2. Aplicar a lógica de negócio baseada no status

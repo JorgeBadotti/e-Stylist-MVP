@@ -7,7 +7,8 @@ interface Roupa {
     nome: string;
     cor: string;
     tamanho: string;
-    material: string;
+    material?: string;
+    categoria?: string;
     foto?: string;
 }
 
@@ -82,7 +83,7 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
         setEditingId(roupa._id);
         setFormData({
             nome: roupa.nome,
-            categoria: 'Camiseta',
+            categoria: roupa.categoria || 'Camiseta',
             cor: roupa.cor || '',
             tamanho: roupa.tamanho || '',
             tecido: roupa.material || ''
@@ -221,10 +222,10 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
                         disabled={!isOwner}
                         title={isOwner ? 'Criar um novo produto' : 'Você não pode editar este guarda-roupa'}
                         className={`px-4 py-2 rounded text-white font-semibold transition ${showForm && modoAdicionar === 'novo'
-                                ? 'bg-gray-500 hover:bg-gray-600'
-                                : isOwner
-                                    ? 'bg-green-600 hover:bg-green-700'
-                                    : 'bg-gray-400 cursor-not-allowed opacity-60'
+                            ? 'bg-gray-500 hover:bg-gray-600'
+                            : isOwner
+                                ? 'bg-green-600 hover:bg-green-700'
+                                : 'bg-gray-400 cursor-not-allowed opacity-60'
                             }`}
                     >
                         {showForm && modoAdicionar === 'novo' ? 'Cancelar' : '✏️ Novo Produto'}
@@ -237,8 +238,8 @@ const DetalhesGuardaRoupa: React.FC<Props> = ({ guardaRoupaId, onBack }) => {
                         disabled={!isOwner}
                         title={isOwner ? 'Adicionar um produto existente' : 'Você não pode editar este guarda-roupa'}
                         className={`px-4 py-2 rounded text-white font-semibold transition ${isOwner
-                                ? 'bg-blue-600 hover:bg-blue-700'
-                                : 'bg-gray-400 cursor-not-allowed opacity-60'
+                            ? 'bg-blue-600 hover:bg-blue-700'
+                            : 'bg-gray-400 cursor-not-allowed opacity-60'
                             }`}
                     >
                         🔍 Produto Existente
