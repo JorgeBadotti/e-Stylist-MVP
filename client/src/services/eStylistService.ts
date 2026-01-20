@@ -1,191 +1,11 @@
 // services/eStylistService.ts
 
 import { EStylistInput, EStylistOutput, LookItem, ItemSource, SalesPriority, StoreItem, LookHighlight, EStylistMode, Look, ShareScope, Profile, SharedLinkData } from '../types';
-// ✅ SDK oficial (já funciona no template do AI Studio quando habilitado)
-import { GoogleGenAI } from '@google/genai';
+import api from './api';
 
 // ✅ NOVOS: Importa o motor determinístico e os templates de cópia
 import { buildLooksDeterministic } from './lookEngine';
 import { applyTemplates } from './copyTemplates';
-
-/**
- * System Instruction definitivo (MVP)
- * - Determinístico
- * - Não inventa dados
- * - Retorna APENAS JSON
- */
-const SYSTEM_INSTRUCTION = `
-Você é o e-Stylist MVP, um assistente de styling pessoal inteligente.
-
-Sua missão é criar looks coerentes, explicáveis e acessíveis, usando exclusivamente os dados fornecidos no input.
-Você atua como:
-- Consultor de moda prática
-- Avaliador de harmonia e formalidade
-- Assistente acessível (voz)
-- Sistema determinístico para MVP (respostas previsíveis)
-
-🧠 OBJETIVO PRINCIPAL:
-Dado:
-- um perfil de cliente (agora incluindo body_measurements)
-- um guarda-roupa limitado (se modo for 'consumer', agora incluindo brand_id/name e fabric)
-- um catálogo de lojas (se modo for 'seller' ou 'consumer', agora incluindo brand_id/name, size_specs e fabric)
-- uma ocasião específica
-- um "mode" ('consumer' ou 'seller')
-
-Você deve gerar exatamente 3 looks, explicando por que funcionam, alertando conflitos quando existirem e produzindo um texto pronto para leitura em voz alta.
-
-📏 REGRAS OBRIGATÓRIAS (NÃO NEGOCIÁVEIS):
-1) NUNCA invente peças, cores, tecidos, categorias, estilos, marcas ou especificações de tamanho que não estejam explicitamente no "wardrobe" ou no "store_catalog".
-2) Para a intent "create_looks", gere EXATAMENTE 3 looks. Nem mais, nem menos.
-3) Cada look DEVE conter obrigatoriamente:
-   - "look_id" sequencial (look_01, look_02, look_03)
-   - "title" curto e descritivo
-   - "formalidade_calculada" (1 a 5)
-   - "items" (peças do guarda-roupa ou loja, ou sugestões externas genéricas)
-   - "why_it_works" → explicação clara, objetiva, sem jargão técnico
-   - "warnings" → lista vazia se não houver problemas
-   - "highlight" → APENAS UM dos 3 looks deve ter um highlight ("versatil", "custo-beneficio", "formalidade-ideal"). Os outros dois looks devem ter "highlight": null.
-
-4) Para cada item dentro de "items", as regras variam com o "mode":
-
-   --- Se "mode": "consumer" (usuário final) ---
-   - Prioridade: 1º guarda-roupa do cliente, 2º catálogo de lojas, 3º sugestões genéricas externas.
-   - Para peça do "wardrobe" (guarda-roupa do cliente):
-     - "wardrobe_item_id": preenchido com o ID do item, "is_external": false, "source": "user", "can_purchase": false.
-     - Campos de loja (store_item_id, product_url, price, installments, sales_support, size_recommendation) DEVEM ser NULOS.
-     - "brand_id" e "brand_name" devem vir do "wardrobe_item".
-     - "fabric" DEVE vir do "wardrobe_item".
-   - Para peça que FALTA no "wardrobe" mas está disponível no "store_catalog":
-     - "wardrobe_item_id": null, "store_item_id": ID da loja, "name": nome da loja, "is_external": true, "source": "store", "can_purchase": true.
-     - "product_url", "price", "installments" preenchidos do "store_catalog".
-     - "brand_id" e "brand_name" devem vir do "store_catalog".
-     - "fabric" DEVE vir do "store_catalog".
-     - "size_recommendation": DEVE ser preenchido com a sugestão de tamanho baseada em "profile.body_measurements" e "store_catalog.size_specs", considerando o "fabric" do item.
-     - "sales_support": DEVE ser preenchido com:
-       - "why_it_works": uma justificativa clara de por que essa peça é boa para o look/cliente.
-       - "versatility": explicação sobre a versatilidade da peça.
-       - "priority": "essencial" ou "opcional".
-   - Para peça que FALTA e NÃO está no "store_catalog":
-     - "wardrobe_item_id": null, "store_item_id": null, "name": nome genérico, "is_external": true, "source": null, "can_purchase": false.
-     - Campos de compra/venda (product_url, price, installments, sales_support, size_recommendation, brand_id, brand_name, fabric) DEVEM ser NULOS.
-
-   --- Se "mode": "seller" (vendedor de loja) ---
-   - O guarda-roupa do cliente ("wardrobe") é APENAS para referência de ESTILO e PREFERÊNCIAS. NÃO use-o como inventário para os looks.
-   - Prioridade: 1º catálogo de lojas ("store_catalog").
-   - Todos os "items" nos looks DEVEM vir do "store_catalog". Se não houver itens suficientes no "store_catalog" para um look completo (pelo menos 3 itens), você DEVE:
-     - Incluir os itens do "store_catalog" que conseguiu encontrar.
-     - Completar o look com sugestões genéricas externas (ex: "Bolsa Preta") se necessário, marcando "is_external": true, "source": null, "can_purchase": false.
-     - Adicionar um "warning" específico sobre "estoque limitado" ou "sugestão externa para completar o look" no campo "warnings" do look.
-   - Para peça do "store_catalog":
-     - "wardrobe_item_id": null, "store_item_id": ID da loja, "name": nome da loja, "is_external": true, "source": "store", "can_purchase": true.
-     - "product_url", "price", "installments" preenchidos do "store_catalog".
-     - "brand_id" e "brand_name" devem vir do "store_catalog".
-     - "fabric" DEVE vir do "store_catalog".
-     - "size_recommendation": DEVE ser preenchido com a sugestão de tamanho baseada em "profile.body_measurements" e "store_catalog.size_specs", considerando o "fabric" do item.
-     - "sales_support": DEVE ser preenchido com:
-       - "why_it_works": uma justificativa clara de por que essa peça é boa para o look/cliente.
-       - "versatility": explicação sobre a versatilidade da peça.
-       - "priority": "essencial" ou "opcional".
-   - Para peça genérica externa (se "store_catalog" insuficiente):
-     - "wardrobe_item_id": null, "store_item_id": null, "name": nome genérico,
-     - "is_external": true, "source": null, "can_purchase": false.
-     - Campos de compra/venda (product_url, price, installments, sales_support, size_recommendation, brand_id, brand_name, fabric) DEVEM ser NULOS.
-   - NENHUMA peça do "wardrobe" do cliente DEVE aparecer nos "items" dos looks no "seller" mode.
-
-   --- Regras Comuns para AMBOS os modos ---
-   - O campo "why_it_works" (do look) DEVE mencionar CLARAMENTE a origem de cada item (guarda-roupa, loja ou sugestão externa genérica).
-   - A formalidade do look ("formalidade_calculada") deve estar dentro de ±1 do "nivel_formalidade_esperado" da ocasião. Se estiver fora, adicione alerta em "warnings" explicando o motivo.
-
-5) Acessibilidade (obrigatório):
-   - Sempre gere o campo "voice_text".
-   - O texto deve: estar em português, ser natural para leitura em voz alta, explicar os 3 looks e orientar a navegação (ex: “diga próximo look”).
-   - Se itens de loja forem usados, o "voice_text" DEVE mencionar que essas peças podem ser adquiridas e que há um botão "Comprar".
-   - Se NÃO houver "store_catalog" no input E o modo for 'consumer', o "voice_text" DEVE adotar um tom "vendedor" e educativo, sugerindo o cadastro de peças ou um catálogo de lojas parceiras para completar looks futuros, mas SEM vender produtos inexistentes.
-   - Se NÃO houver "store_catalog" no input E o modo for 'seller', o "voice_text" DEVE informar sobre a falta de estoque no catálogo e sugerir o cadastro de produtos.
-
-6) "next_question": use somente se faltar informação essencial. Se nada faltar, retorne "" (string vazia). Nunca faça perguntas desnecessárias.
-
-7) Retorne APENAS JSON válido. NUNCA escreva absolutamente nada fora do JSON.
-8) NUNCA use "is_external: true" com "source: 'user'". Esta combinação é PROIBIDA.
-9) NUNCA use "wardrobe_item_id" preenchido no "seller" mode. Esta combinação é PROIBIDA.
-10) NOVO: Para itens de "source: 'store'", DEVE haver "brand_id", "brand_name", "fabric" e "size_recommendation".
-11) NOVO: Para itens de "source: 'user'", DEVE haver "brand_id", "brand_name" e "fabric".
-12) NOVO: Para itens de "source: null" (genéricos externos), "brand_id", "brand_name", "fabric" e "size_recommendation" DEVEM ser NULOS.
-
-Você deve responder EXCLUSIVAMENTE com um JSON no seguinte formato:
-{
-  "looks": [
-    {
-      "look_id": "string",
-      "title": "string",
-      "formalidade_calculada": 1,
-      "items": [
-        {
-          "wardrobe_item_id": "string | null",
-          "store_item_id": "string | null",
-          "name": "string",
-          "is_external": boolean,
-          "source": "user" | "store" | null,
-          "can_purchase": boolean,
-          "product_url": "string | null",
-          "price": number | null,
-          "installments": "string | null",
-          "brand_id": "string | null",
-          "brand_name": "string | null",
-          "fabric": "string | null",
-          "size_recommendation": "string | null",
-          "sales_support": {
-            "why_it_works": "string",
-            "versatility": "string",
-            "priority": "essencial" | "opcional"
-          } | null
-        }
-      ],
-      "why_it_works": "string",
-      "warnings": ["string"],
-      "highlight": "versatil" | "custo-beneficio" | "formalidade-ideal" | null
-    }
-  ],
-  "voice_text": "string",
-  "next_question": "string"
-}
-`;
-
-/**
- * Pega a API KEY do jeito mais compatível possível.
- * - Em muitos projetos Vite: import.meta.env.VITE_GEMINI_API_KEY
- * - Em alguns setups: process.env.API_KEY
- */
-function getApiKey(): string | undefined {
-  // Vite / bundlers modernos
-  const viteKey = (import.meta as any)?.env?.VITE_GEMINI_API_KEY;
-  if (viteKey && typeof viteKey === 'string') return viteKey;
-
-  // Fallback (alguns templates)
-  const nodeKey = (process as any)?.env?.API_KEY;
-  if (nodeKey && typeof nodeKey === 'string') return nodeKey;
-
-  return undefined;
-}
-
-/**
- * Extrai JSON “limpo” caso o modelo venha com algum wrapper.
- */
-function extractJson(text: string): string {
-  const trimmed = text.trim();
-
-  // caso já seja JSON puro
-  if (trimmed.startsWith('{') && trimmed.endsWith('}')) return trimmed;
-
-  // tenta localizar o primeiro bloco JSON
-  const first = trimmed.indexOf('{');
-  const last = trimmed.lastIndexOf('}');
-  if (first >= 0 && last > first) {
-    return trimmed.slice(first, last + 1);
-  }
-
-  return trimmed;
-}
 
 /**
  * Validação mínima para não quebrar o app E garantir a blindagem lógica dos testes A e B.
@@ -985,69 +805,16 @@ export const eStylistService = {
     }
     console.log('Cache Miss: Gerando nova resposta.');
 
-    // 4) Se Smart Copy habilitado e API Key presente, chama a IA para refinamento
+    // 4) Se Smart Copy habilitado, chama o backend para refinamento com IA
     if (input.smart_copy) {
-      const apiKey = getApiKey();
-
-      if (!apiKey) {
-        console.warn('API Key não encontrada. Retornando output determinístico mesmo com smart_copy habilitado.');
-        // Salva o output determinístico no cache antes de retornar
-        localStorage.setItem(cacheKey, JSON.stringify(baseOutput));
-        return enrichWithStoreOrTextFallback(baseOutput, input);
-      }
-
       try {
-        const genAI = new GoogleGenAI({ apiKey: apiKey });
+        console.log('Chamando backend para refinar textos...');
+        const response = await api.post('/api/looks/refinar-texto', { baseOutput });
+        const parsed: EStylistOutput = response.data;
 
-        // Prompt para reescrever APENAS os textos
-        const prompt = `
-Reescreva APENAS os textos para vender melhor sem exagero, SEM alterar os itens (array "items").
-Mantenha a formalidade calculada e as flags de externalidade/compra, e os campos de marca e sugestão de tamanho.
-Entrada (JSON dos looks gerados deterministicamente):
-${JSON.stringify(baseOutput)}
-
-Regras:
-- NÃO adicione ou remova objetos dentro do array "items" de cada look.
-- NÃO altere os valores de "wardrobe_item_id", "store_item_id", "is_external", "source", "can_purchase", "product_url", "price", "installments", "brand_id", "brand_name", "fabric", "size_recommendation".
-- Melhore os textos de: "why_it_works" (do look), "sales_support.why_it_works" (dos itens da loja), "sales_support.versatility", "voice_text", "next_question".
-- Garanta que a formalidade calculada do look seja mantida (não reavalie).
-- Retorne APENAS o JSON COMPLETO e VÁLIDO no formato especificado.
-`;
-
-        // Fix: Use ai.models.generateContent directly and move systemInstruction into the config object.
-        const result = await genAI.models.generateContent({
-          model: 'gemini-2.5-flash', // Modelo recomendado para MVP (rápido)
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: prompt }],
-            },
-          ],
-          config: {
-            systemInstruction: SYSTEM_INSTRUCTION,
-            temperature: 0.7, // Um pouco mais criativo para textos
-            responseMimeType: 'application/json',
-          },
-        });
-
-        const rawText = result.text; // Corrigido para acessar a propriedade .text
-        const jsonText = extractJson(rawText);
-
-        let parsed: EStylistOutput;
-        try {
-          parsed = JSON.parse(jsonText);
-        } catch (parseError: any) {
-          console.error('Falha ao analisar resposta JSON do Gemini:', jsonText, parseError);
-          // Em caso de erro de parsing, retorna a base determinística
-          // Salva o output determinístico no cache antes de retornar
-          localStorage.setItem(cacheKey, JSON.stringify(baseOutput));
-          return enrichWithStoreOrTextFallback(baseOutput, input);
-        }
-
-        if (!validateOutputShape(parsed, input)) { // ✅ Passa input para validação robusta
-          console.error('Resposta do modelo fora do formato esperado (EStylistOutput):', parsed);
+        if (!validateOutputShape(parsed, input)) {
+          console.error('Resposta do backend (IA) fora do formato esperado (EStylistOutput):', parsed);
           // Em caso de validação falha, retorna a base determinística
-          // Salva o output determinístico no cache antes de retornar
           localStorage.setItem(cacheKey, JSON.stringify(baseOutput));
           return enrichWithStoreOrTextFallback(baseOutput, input);
         }
@@ -1058,9 +825,8 @@ Regras:
         return enrichWithStoreOrTextFallback(parsed, input);
 
       } catch (err: any) {
-        console.error('Erro no Gemini:', err);
+        console.error('Erro ao chamar backend para refinar textos:', err);
         // Fallback seguro: não derruba o app, retorna o output determinístico
-        // Salva o output determinístico no cache antes de retornar
         localStorage.setItem(cacheKey, JSON.stringify(baseOutput));
         return enrichWithStoreOrTextFallback(baseOutput, input);
       }

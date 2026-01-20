@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -28,7 +28,6 @@ import usuarioRoutes from './routes/usuarioRouter.js';
 import looksRoutes from './routes/looksRouter.js';
 
 
-dotenv.config();
 //Mongo Init
 connectDB();
 initGemini();
@@ -41,7 +40,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // Middlewares de terceiros
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
+
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [])
+];
+
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 
 // --- CONFIGURAÇÃO DE SESSÃO E PASSPORT ---
 app.use(session({

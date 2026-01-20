@@ -17,6 +17,8 @@ router.post('/salvar', LooksController.salvarEscolha);
 
 router.post('/visualizar', LooksController.visualizarLook);
 
+router.post('/refinar-texto', LooksController.refinarTexto);
+
 // NOVOS ENDPOINTS
 router.get('/', LooksController.listarMeusLooks);
 

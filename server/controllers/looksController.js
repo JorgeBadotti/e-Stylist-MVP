@@ -482,3 +482,51 @@ export const visualizarLook = async (req, res) => {
         res.status(500).json({ error: "Erro ao gerar visualização do look.", detalhes: error.message });
     }
 };
+
+export const refinarTexto = async (req, res) => {
+    try {
+        const { baseOutput } = req.body;
+
+        if (!baseOutput) {
+            return res.status(400).json({ error: "baseOutput é obrigatório." });
+        }
+
+        const systemInstruction = await loadPrompt('estylist_system.md', {});
+
+        const prompt = `
+Reescreva APENAS os textos para vender melhor sem exagero, SEM alterar os itens (array "items").
+Mantenha a formalidade calculada e as flags de externalidade/compra, e os campos de marca e sugestão de tamanho.
+Entrada (JSON dos looks gerados deterministicamente):
+${JSON.stringify(baseOutput)}
+
+Regras:
+- NÃO adicione ou remova objetos dentro do array "items" de cada look.
+- NÃO altere os valores de "wardrobe_item_id", "store_item_id", "is_external", "source", "can_purchase", "product_url", "price", "installments", "brand_id", "brand_name", "fabric", "size_recommendation".
+- Melhore os textos de: "why_it_works" (do look), "sales_support.why_it_works" (dos itens da loja), "sales_support.versatility", "voice_text", "next_question".
+- Garanta que a formalidade calculada do look seja mantida (não reavalie).
+- Retorne APENAS o JSON COMPLETO e VÁLIDO no formato especificado.
+`;
+
+        const model = genAIClient.getGenerativeModel({
+            model: "gemini-2.0-flash",
+            systemInstruction: systemInstruction,
+            generationConfig: {
+                responseMimeType: "application/json",
+                temperature: 0.7
+            }
+        });
+
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+
+        // Ensure clean JSON (remove markdown blocks if present)
+        const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const jsonResponse = JSON.parse(cleanText);
+
+        res.json(jsonResponse);
+
+    } catch (error) {
+        console.error("Erro ao refinar texto com IA:", error);
+        res.status(500).json({ error: "Erro interno ao refinar textos." });
+    }
+};
