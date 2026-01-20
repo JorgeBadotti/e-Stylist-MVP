@@ -151,3 +151,122 @@ export const getUsuarioById = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+// ✅ NOVO: Analisar foto do corpo e descrever características
+export const describeBody = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { foto_base64 } = req.body;
+
+        if (!foto_base64) {
+            return res.status(400).json({ error: "Foto não fornecida" });
+        }
+
+        console.log('👁️ [describeBody] Analisando foto do corpo do usuário:', userId);
+
+        // Importações necessárias para usar Gemini e loadPrompt
+        const { genAIClient } = await import('../services/gemini.js');
+        const { loadPrompt } = await import('../services/prompt_loader.js');
+
+        // Extrair dados base64 (remover prefixo "data:image/...;base64,")
+        const base64Data = foto_base64.split(',')[1] || foto_base64;
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        // Obter o modelo Gemini para análise de imagens
+        const model = genAIClient.getGenerativeModel({
+            model: 'gemini-2.0-flash-exp'
+        });
+
+        // Carregar prompt do arquivo analyze_body.md
+        const promptText = await loadPrompt('analyze_body.md', {});
+
+        const resposta = await model.generateContent([
+            {
+                inlineData: {
+                    data: base64Data,
+                    mimeType: 'image/jpeg'
+                }
+            },
+            promptText
+        ]);
+
+        const texto = resposta.response.text();
+        console.log('🤖 ============ RESPOSTA COMPLETA DO GEMINI (describeBody) ============');
+        console.log(texto);
+        console.log('🤖 ============ FIM DA RESPOSTA ============');
+
+        // Extrair JSON da resposta
+        const jsonMatch = texto.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            throw new Error('Não foi possível extrair JSON da análise do corpo');
+        }
+
+        const analise = JSON.parse(jsonMatch[0]);
+        console.log('✅ [describeBody] Análise JSON Parseada:');
+        console.log(JSON.stringify(analise, null, 2));
+        console.log('✅ [describeBody] Proporções recebidas:', analise.proportions);
+        console.log('✅ [describeBody] ombros_vs_quadril (raw):', analise.proportions?.ombros_vs_quadril);
+        console.log('✅ [describeBody] Tipo de corpo:', analise.bodyType);
+        console.log('✅ [describeBody] Sexo:', analise.sexo);
+        console.log('✅ [describeBody] Medidas:', analise.measurements);
+        console.log('✅ [describeBody] Análise concluída com sucesso');
+
+        // Mapear nomes de campos de voltar em português (compatível com UsuarioModel)
+        const mapeamentos = {
+            'hourglass': 'ampulheta',
+            'rectangle': 'retangulo',
+            'pear': 'pera',
+            'apple': 'maca',
+            'inverted-triangle': 'triangulo-invertido'
+        };
+
+        const tipoCorpoMapeado = mapeamentos[analise.bodyType?.toLowerCase()] || analise.bodyType;
+
+        res.status(200).json({
+            message: "Corpo analisado com sucesso",
+            analise: {
+                sexo: analise.sexo || null,
+                altura_estimada_cm: analise.measurements?.height || 0,
+                tipo_corpo: tipoCorpoMapeado,
+                proporcoes: {
+                    pernas: analise.proportions?.pernas || null,
+                    torso: analise.proportions?.torso || null,
+                    ombros_vs_quadril: analise.proportions?.ombros_vs_quadril || null
+                },
+                medidas: {
+                    // Medidas básicas
+                    busto: analise.measurements?.bust || 0,
+                    cintura: analise.measurements?.waist || 0,
+                    quadril: analise.measurements?.hips || 0,
+                    altura: analise.measurements?.height || 0,
+                    // Medidas superiores
+                    pescoco: analise.measurements?.neck || 0,
+                    ombro: analise.measurements?.shoulder || 0,
+                    braco: analise.measurements?.arm || 0,
+                    antebraco: analise.measurements?.forearm || 0,
+                    pulso: analise.measurements?.wrist || 0,
+                    torax: analise.measurements?.chest || 0,
+                    sobpeito: analise.measurements?.underBust || 0,
+                    costelas: analise.measurements?.ribs || 0,
+                    // Medidas inferiores
+                    coxa: analise.measurements?.thigh || 0,
+                    panturrilha: analise.measurements?.calf || 0,
+                    tornozelo: analise.measurements?.ankle || 0,
+                    // Comprimentos
+                    comprimento_torso: analise.measurements?.torsoLength || 0,
+                    comprimento_perna: analise.measurements?.legLength || 0,
+                    comprimento_braco: analise.measurements?.armLength || 0
+                },
+                descricao: analise.descricao || "Análise corporal realizada",
+                confianca: analise.confidence || 75
+            }
+        });
+
+    } catch (error) {
+        console.error("❌ [describeBody] Erro ao descrever corpo:", error);
+        res.status(500).json({
+            error: "Erro ao analisar corpo.",
+            detalhes: error.message
+        });
+    }
+};

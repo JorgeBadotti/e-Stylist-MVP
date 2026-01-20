@@ -179,8 +179,8 @@ const ProfilePage: React.FC = () => {
         }
     };
 
-    // 3. Manipular Upload de Imagem (Converte para Base64)
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // 3. Manipular Upload de Imagem (Converte para Base64 e Chama Análise)
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
             // Verifica tamanho (ex: max 5MB para não travar o envio string)
@@ -190,9 +190,91 @@ const ProfilePage: React.FC = () => {
             }
 
             const reader = new FileReader();
-            reader.onloadend = () => {
+            reader.onloadend = async () => {
+                const base64String = reader.result as string;
                 // O resultado é uma string longa: "data:image/jpeg;base64,..."
-                setFormData(prev => ({ ...prev, foto_corpo: reader.result as string }));
+                setFormData(prev => ({ ...prev, foto_corpo: base64String }));
+
+                // ✅ NOVO: Chamar API describe_body assim que foto é enviada
+                try {
+                    console.log('📸 Enviando foto para análise do corpo...');
+                    const response = await api.post('/api/usuario/descrever-corpo', {
+                        foto_base64: base64String
+                    });
+
+                    console.log('✅ Análise do corpo recebida:', response.data);
+
+                    const { analise } = response.data;
+
+                    console.log('📋 ============ DADOS DA ANÁLISE RECEBIDOS ============');
+                    console.log('Sexo:', analise.sexo);
+                    console.log('Altura:', analise.altura_estimada_cm);
+                    console.log('Tipo de Corpo:', analise.tipo_corpo);
+                    console.log('Medidas:', analise.medidas);
+                    console.log('Proporções (RAW):', analise.proporcoes);
+                    console.log('  - pernas:', analise.proporcoes?.pernas);
+                    console.log('  - torso:', analise.proporcoes?.torso);
+                    console.log('  - ombros_vs_quadril:', analise.proporcoes?.ombros_vs_quadril);
+                    console.log('  - confidence:', analise.proporcoes?.confidence);
+                    console.log('Confiança:', analise.confianca);
+                    console.log('📋 ============ FIM DOS DADOS ============');
+
+                    // Atualizar formulário com dados da análise
+                    setFormData(prev => {
+                        const novoFormData = {
+                            ...prev,
+                            sexo: analise.sexo || prev.sexo,
+                            altura_cm: analise.altura_estimada_cm || prev.altura_cm,
+                            tipo_corpo: analise.tipo_corpo || prev.tipo_corpo,
+                            medidas: {
+                                ...prev.medidas,
+                                // Medidas básicas
+                                busto: analise.medidas?.busto || prev.medidas.busto,
+                                cintura: analise.medidas?.cintura || prev.medidas.cintura,
+                                quadril: analise.medidas?.quadril || prev.medidas.quadril,
+                                altura: analise.medidas?.altura || prev.medidas.altura,
+                                // Medidas superiores
+                                pescoco: analise.medidas?.pescoco || prev.medidas.pescoco || 0,
+                                ombro: analise.medidas?.ombro || prev.medidas.ombro || 0,
+                                braco: analise.medidas?.braco || prev.medidas.braco || 0,
+                                antebraco: analise.medidas?.antebraco || prev.medidas.antebraco || 0,
+                                pulso: analise.medidas?.pulso || prev.medidas.pulso || 0,
+                                torax: analise.medidas?.torax || prev.medidas.torax || 0,
+                                sobpeito: analise.medidas?.sobpeito || prev.medidas.sobpeito || 0,
+                                costelas: analise.medidas?.costelas || prev.medidas.costelas || 0,
+                                // Medidas inferiores
+                                coxa: analise.medidas?.coxa || prev.medidas.coxa || 0,
+                                panturrilha: analise.medidas?.panturrilha || prev.medidas.panturrilha || 0,
+                                tornozelo: analise.medidas?.tornozelo || prev.medidas.tornozelo || 0,
+                                // Comprimentos
+                                comprimento_torso: analise.medidas?.comprimento_torso || prev.medidas.comprimento_torso || 0,
+                                comprimento_perna: analise.medidas?.comprimento_perna || prev.medidas.comprimento_perna || 0,
+                                comprimento_braco: analise.medidas?.comprimento_braco || prev.medidas.comprimento_braco || 0
+                            },
+                            proporcoes: {
+                                ...prev.proporcoes,
+                                pernas: analise.proporcoes?.pernas || prev.proporcoes?.pernas,
+                                torso: analise.proporcoes?.torso || prev.proporcoes?.torso,
+                                ombros_vs_quadril: analise.proporcoes?.ombros_vs_quadril || prev.proporcoes?.ombros_vs_quadril,
+                                confidence: analise.confianca || prev.proporcoes?.confidence
+                            }
+                        };
+                        console.log('📝 FormData após setFormData (proporcoes):', novoFormData.proporcoes);
+                        return novoFormData;
+                    });
+
+                    setMessage({
+                        type: 'success',
+                        text: `✅ Corpo analisado com sucesso! (Confiança: ${analise.confianca}%)\n${analise.descricao}`
+                    });
+
+                } catch (error) {
+                    console.error('❌ Erro ao analisar corpo:', error);
+                    setMessage({
+                        type: 'error',
+                        text: 'Foto enviada, mas erro ao analisar corpo. Você pode preencher os dados manualmente.'
+                    });
+                }
             };
             reader.readAsDataURL(file);
         }

@@ -23,4 +23,7 @@ router.get('/:id', UsuarioController.getUsuarioById);
 // Rota: PUT /api/usuario/medidas
 router.put('/medidas', UsuarioController.updateBodyData);
 
+// ✅ NOVO: Rota: POST /api/usuario/descrever-corpo (Análise de foto do corpo)
+router.post('/descrever-corpo', UsuarioController.describeBody);
+
 export default router;
