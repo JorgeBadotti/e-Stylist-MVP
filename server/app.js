@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -28,7 +28,6 @@ import usuarioRoutes from './routes/usuarioRouter.js';
 import looksRoutes from './routes/looksRouter.js';
 
 
-dotenv.config();
 //Mongo Init
 connectDB();
 initGemini();

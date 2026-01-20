@@ -252,7 +252,6 @@ const produtoSchema = new Schema({
 // ═══════════════════════════════════════════════════════════
 // ÍNDICES
 // ═══════════════════════════════════════════════════════════
-produtoSchema.index({ skuStyleMe: 1 }, { unique: true });
 produtoSchema.index({ categoria: 1, linha: 1 });
 produtoSchema.index({ guardaRoupaId: 1 });
 produtoSchema.index({ lojaId: 1 });
