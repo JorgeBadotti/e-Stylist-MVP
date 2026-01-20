@@ -218,6 +218,7 @@ const App: React.FC = () => {
                 onProfileClick={() => { }}
                 onWardrobeClick={() => { }}
                 onLooksClick={() => { }}
+                onLojaClick={() => { }}
                 onMyLooksClick={() => { }}
                 onInvitacoesClick={() => { }}
             />
@@ -237,7 +238,7 @@ const App: React.FC = () => {
                         fetchUserSession().then(() => {
                             console.log('✅ [Register] Sessão recarregada');
                             if (isStore) {
-                                setPrivateView('loja');
+                                setPrivateView('admin-loja');
                             } else {
                                 setPrivateView('home');
                             }
