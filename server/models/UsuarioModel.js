@@ -38,7 +38,9 @@ const userSchema = new Schema({
     },
     foto: String, // Foto do avatar (perfil)
 
-    // --- NOVOS CAMPOS PARA O STYLEME AI ---
+    // ═══════════════════════════════════════════════════════════
+    // 📏 MEDIDAS ANTROPOMÓRFICAS EXPANDIDAS (SKU_CLIENT)
+    // ═══════════════════════════════════════════════════════════
 
     // Foto de corpo inteiro para referência da IA
     foto_corpo: {
@@ -46,25 +48,205 @@ const userSchema = new Schema({
         default: null // Será uma URL (do Cloudinary, S3 ou local)
     },
 
-    // Dados físicos para os cálculos de geometria vestimentar
-    tipo_corpo: {
+    // BASE: Dados físicos fundamentais
+    sexo: {
         type: String,
-        enum: ['ampulheta', 'retangulo', 'pera', 'maca', 'triangulo-invertido', null],
+        enum: ['feminino', 'masculino', 'outro', null],
         default: null
     },
 
+    tipo_corpo: {
+        type: String,
+        enum: ['ampulheta', 'retangulo', 'pera', 'maca', 'triangulo-invertido', null],
+        default: null,
+        comment: "Classificação do tipo de corpo (sistema Vesttag)"
+    },
+
+    altura_cm: {
+        type: Number,
+        default: 0,
+        comment: "Altura em centímetros"
+    },
+
+    // Medidas detalhadas (em cm)
+    medidas: {
+        busto: { type: Number, default: 0, comment: "Medida do busto em cm" },
+        cintura: { type: Number, default: 0, comment: "Medida da cintura em cm" },
+        quadril: { type: Number, default: 0, comment: "Medida do quadril em cm" },
+        altura: { type: Number, default: 0, comment: "Altura em cm (duplicado por compatibilidade)" },
+
+        // Novos campos antropomórficos
+        pescoco: { type: Number, default: 0, comment: "Medida do pescoço em cm" },
+        ombro: { type: Number, default: 0, comment: "Largura de ombro em cm" },
+        braco: { type: Number, default: 0, comment: "Circunferência do braço em cm" },
+        antebraco: { type: Number, default: 0, comment: "Circunferência do antebraço em cm" },
+        pulso: { type: Number, default: 0, comment: "Circunferência do pulso em cm" },
+        torax: { type: Number, default: 0, comment: "Medida do tórax em cm" },
+        sobpeito: { type: Number, default: 0, comment: "Medida sob o peito em cm" },
+        costelas: { type: Number, default: 0, comment: "Medida das costelas em cm" },
+        panturrilha: { type: Number, default: 0, comment: "Circunferência da panturrilha em cm" },
+        coxa: { type: Number, default: 0, comment: "Circunferência da coxa em cm" },
+        tornozelo: { type: Number, default: 0, comment: "Circunferência do tornozelo em cm" },
+
+        // Proporções
+        comprimento_torso: { type: Number, default: 0, comment: "Comprimento do tronco em cm" },
+        comprimento_perna: { type: Number, default: 0, comment: "Comprimento da perna em cm" },
+        comprimento_braco: { type: Number, default: 0, comment: "Comprimento do braço em cm" }
+    },
+
+    // Proporções corporais (perfil de proporção)
+    proporcoes: {
+        pernas: {
+            type: String,
+            enum: ['curtas', 'balanced', 'longas', null],
+            default: null,
+            comment: "Proporção das pernas em relação ao corpo"
+        },
+        torso: {
+            type: String,
+            enum: ['curto', 'balanced', 'longo', null],
+            default: null,
+            comment: "Proporção do tronco"
+        },
+        ombros_vs_quadril: {
+            type: String,
+            enum: ['ombros_larcos', 'balanced', 'quadril_largo', null],
+            default: null,
+            comment: "Proporção entre ombros e quadril"
+        },
+        confidence: {
+            type: Number,
+            default: 0,
+            comment: "Confiança da medição (0-1)"
+        }
+    },
+
+    // Restrições e preferências de ajuste
+    restricoes: {
+        aversoes_ajuste: [
+            {
+                type: String,
+                enum: [
+                    'very_tight_on_arms',
+                    'very_tight_on_chest',
+                    'very_tight_on_waist',
+                    'very_loose_on_arms',
+                    'loose_in_torso',
+                    'low_waist'
+                ]
+            }
+        ],
+        notas: {
+            type: String,
+            default: '',
+            comment: "Notas adicionais sobre restrições pessoais"
+        }
+    },
+
+    // LEARNED: Dados aprendidos pela IA com base em comportamento
+    preferencias_aprendidas: {
+        // Distribuição de estilos preferidos
+        estilos: [
+            {
+                estilo: { type: String, enum: ['casual', 'formal', 'smart_casual', 'sportwear', 'classico', 'fashion'] },
+                peso: { type: Number, default: 0, comment: "Peso/preferência (0-1)" }
+            }
+        ],
+
+        // Distribuição de ajustes preferidos
+        ajustes: [
+            {
+                ajuste: { type: String, enum: ['ajustado', 'regular', 'solto', 'oversize'] },
+                peso: { type: Number, default: 0, comment: "Peso/preferência (0-1)" }
+            }
+        ],
+
+        // Distribuição de paletas de cor
+        paletas_cor: [
+            {
+                paleta: { type: String, enum: ['neutral', 'warm', 'cool', 'vibrant'] },
+                peso: { type: Number, default: 0, comment: "Peso/preferência (0-1)" }
+            }
+        ],
+
+        // Afinidade com categorias de produto
+        afinidade_categorias: [
+            {
+                categoria: { type: String },
+                score: { type: Number, default: 0, comment: "Score de afinidade (0-1)" }
+            }
+        ],
+
+        // Afinidade com marcas
+        afinidade_marcas: [
+            {
+                marca_id: { type: Schema.Types.ObjectId, ref: 'Marca' },
+                score: { type: Number, default: 0, comment: "Score de afinidade (0-1)" }
+            }
+        ],
+
+        // Sensibilidade de preço
+        sensibilidade_preco: {
+            moeda: { type: String, default: 'BRL' },
+            faixa_tipica: {
+                minimo: { type: Number, default: 0 },
+                maximo: { type: Number, default: 0 }
+            },
+            confianca: { type: Number, default: 0, comment: "Confiança da estimativa (0-1)" }
+        },
+
+        // Estado de aprendizado
+        estado_aprendizado: {
+            total_sinais: { type: Number, default: 0, comment: "Quantidade de eventos de aprendizado" },
+            ultimo_evento_em: { type: Date, default: null },
+            estabilidade: { type: Number, default: 0, comment: "Estabilidade do padrão (0-1)" }
+        }
+    },
+
+    // CONTEXT: Contexto da preferência atual
+    contexto_atual: {
+        ocasiao: {
+            type: String,
+            enum: ['casual', 'work', 'formal', 'sport', 'night', 'beach', null],
+            default: null
+        },
+        localizacao: {
+            pais: { type: String, default: 'BR' },
+            cidade: { type: String, default: '' },
+            timezone: { type: String, default: 'America/Sao_Paulo' }
+        },
+        clima: {
+            temperatura_c: { type: Number, default: null },
+            condicao: {
+                type: String,
+                enum: ['sunny', 'cloudy', 'rain', 'cold', 'hot', null],
+                default: null
+            },
+            atualizado_em: { type: Date, default: null }
+        },
+        preferencias_agora: {
+            nivel_formal: {
+                type: String,
+                enum: ['casual', 'smart_casual', 'business_casual', 'formal', null],
+                default: null
+            },
+            prioridade_conforto: { type: Number, default: 0.5, comment: "0=Estética, 1=Conforto" }
+        }
+    },
+
+    // Estilo pessoal (campo legado, mantido por compatibilidade)
     estilo_pessoal: {
         type: String,
         default: ''
     },
 
-    medidas: {
-        busto: { type: Number, default: 0 },
-        cintura: { type: Number, default: 0 },
-        quadril: { type: Number, default: 0 },
-        altura: { type: Number, default: 0 } // em cm
+    // Data de última verificação de medidas
+    medidas_verificadas_em: {
+        type: Date,
+        default: null
     },
-    // ---------------------------------------
+
+    // ═══════════════════════════════════════════════════════════
 
     origem_cadastro: {
         type: String,
