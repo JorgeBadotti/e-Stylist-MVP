@@ -52,10 +52,19 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
             try {
                 // 1. Checa perfil (se tem foto/medidas)
                 const userRes = await api.get('/api/usuario/perfil');
-                if (userRes.data.foto_corpo && userRes.data.medidas?.altura > 0) {
+                console.log('👤 [LooksPage] Perfil carregado:', userRes.data);
+
+                const temFoto = !!userRes.data.foto_corpo;
+                const temAltura = userRes.data.medidas?.altura > 0;
+
+                console.log(`📷 [LooksPage] Tem foto_corpo: ${temFoto}, Tem altura: ${temAltura}`);
+
+                if (temFoto && temAltura) {
                     setHasBodyPhoto(true);
+                    console.log('✅ [LooksPage] Perfil COMPLETO');
                 } else {
                     setHasBodyPhoto(false);
+                    console.log('❌ [LooksPage] Perfil INCOMPLETO');
                 }
 
                 // 2. Busca Guarda-Roupas (meus + públicos)
@@ -68,7 +77,8 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                 const allWardrobes = [...myWardrobesRes.data, ...publicWardrobesRes.data];
                 setWardrobes(allWardrobes);
             } catch (err) {
-                console.error(err);
+                console.error('❌ [LooksPage] Erro ao carregar dados:', err);
+                setHasBodyPhoto(false);  // ← Se der erro, considera incompleto
                 setError("Erro ao carregar dados. Verifique sua conexão.");
             }
         };
@@ -150,6 +160,10 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
         setError('');
         setSelectedWardrobe('');
         setOccasion('');
+    };
+
+    // ✅ VERIFICAR se tem foto de referência ANTES de renderizar
+    if (hasBodyPhoto === false) {
         return (
             <div className="max-w-4xl mx-auto p-8 text-center mt-10 bg-white rounded-lg shadow-sm">
                 <div className="text-yellow-500 mb-4 text-6xl">⚠️</div>
@@ -163,6 +177,16 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                 >
                     Completar Meu Perfil Agora
                 </button>
+            </div>
+        );
+    }
+
+    // Enquanto carrega, mostrar loading
+    if (hasBodyPhoto === null) {
+        return (
+            <div className="max-w-4xl mx-auto p-8 text-center mt-10">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Carregando perfil...</p>
             </div>
         );
     }

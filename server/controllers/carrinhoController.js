@@ -10,8 +10,17 @@ import Produto from '../models/Produto.js';
  */
 export const adicionarItemAtomic = async (req, res) => {
     try {
-        const usuarioId = req.user?.id || req.user?._id;
+        // Pegar usuarioId com fallback para campo _id direto
+        let usuarioId = req.user?.id || req.user?._id;
+
+        // Se usuarioId ainda for falso, tentar acessar como Mongoose object
+        if (!usuarioId && req.user) {
+            usuarioId = req.user._id?.toString() || req.user.id;
+        }
+
         const { produtoId, skuStyleMe, quantidade } = req.body;
+
+        console.log(`📝 [adicionarItemAtomic] usuarioId: ${usuarioId}, isAnon: ${req.isAnonymousUser}, user: ${req.user?._id}`);
 
         if (!usuarioId) {
             return res.status(401).json({ message: 'Usuário não autenticado' });

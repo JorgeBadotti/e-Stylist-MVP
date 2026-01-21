@@ -23,6 +23,7 @@ import { initGemini } from './services/gemini.js';
 import { configCloudinary } from './services/cloudinary.js';
 import { initPassport } from './config/passport.js';
 import { requestLogger, errorHandler } from './middlewares/logger.js';
+import anonymousSessionMiddleware from './middlewares/anonymousSessionMiddleware.js';
 
 //Routers
 import authRoutes from './routes/authRouter.js';
@@ -61,6 +62,10 @@ app.use(passport.session());
 
 // Middlewares Custom
 app.use(requestLogger);
+
+// ⭐ MIDDLEWARE DE SESSÃO ANÔNIMA (ANTES das rotas)
+// Cria ou recupera usuário anônimo para quem não está autenticado
+app.use(anonymousSessionMiddleware);
 
 // ⭐ ROTAS DA API DEVEM VIR ANTES DOS ARQUIVOS ESTÁTICOS
 // Routers
