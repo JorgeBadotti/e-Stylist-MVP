@@ -2,16 +2,35 @@ import React, { useState, useEffect } from 'react';
 import ViewLook from './ViewLook';
 import { API_BASE_URL } from '../src/services/api';
 
+interface LookItem {
+    id: string;
+    sku: string;
+    nome: string;
+    foto?: string;
+    cor?: string;
+    cor_codigo?: string;
+    categoria?: string;
+    tamanho?: string;
+    skuStyleMe?: string;
+    layer_role?: string;
+    color_role?: string;
+    fit?: string;
+    style_base?: string;
+    _deletado?: boolean;
+}
+
 interface Look {
     _id: string;
     nome: string;
     explicacao?: string;
-    itens: Array<{ id: string; name: string }>;
+    itens: LookItem[];
     afinidade_ia: number;
     imagem_visualizada?: string;
     data_visualizacao?: string;
     temVisualizacao: boolean;
     createdAt: string;
+    escolhido_pelo_usuario?: boolean;
+    score_relevancia?: number;
 }
 
 interface PaginationData {
@@ -57,8 +76,24 @@ const MyLooksPage: React.FC = () => {
         }
     };
 
-    const handleViewLook = (look: Look) => {
-        setSelectedLook(look);
+    const handleViewLook = async (look: Look) => {
+        // Buscar detalhes completos do look com itens enriquecidos
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/looks/${look._id}`, {
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                throw new Error('Erro ao buscar detalhes do look');
+            }
+
+            const detalhesLook = await response.json();
+            setSelectedLook(detalhesLook);
+        } catch (err) {
+            console.error('Erro ao buscar detalhes:', err);
+            // Se falhar, usa os dados que já temos
+            setSelectedLook(look);
+        }
     };
 
     const handleCloseDetail = () => {
@@ -77,6 +112,7 @@ const MyLooksPage: React.FC = () => {
                 lookName={selectedLook.nome}
                 lookImage={selectedLook.imagem_visualizada || ''}
                 lookExplanation={selectedLook.explicacao}
+                lookItems={selectedLook.itens}
                 onGenerateNew={handleGenerateNew}
                 onBack={handleCloseDetail}
                 isLoading={false}

@@ -374,8 +374,8 @@ export const updateProduto = async (req, res) => {
         const { id } = req.params;
         const usuarioId = req.user._id;
 
-        // Buscar produto
-        const produtoAtual = await Produto.findById(id).select('+fotoPublicId');
+        // Buscar produto por SKU STYLEME (o 'id' é na verdade o SKU)
+        const produtoAtual = await Produto.findOne({ skuStyleMe: id }).select('+fotoPublicId');
 
         if (!produtoAtual) {
             return res.status(404).json({
@@ -410,20 +410,38 @@ export const updateProduto = async (req, res) => {
 
         // Campos que podem ser atualizados
         const camposAtualizaveis = [
-            'nome',
-            'descricao',
+            // Componentes do SKU STYLEME (EDITÁVEIS)
+            'categoria',
+            'linha',
+            'cor_codigo',
+            'tamanho',
+            'colecao',
+
+            // Núcleo de Combinação (IMPORTANTE: estes são os campos principais!)
+            'layer_role',
+            'color_role',
+            'fit',
+            'style_base',
+
+            // Recomendados
             'silhueta',
             'comprimento',
             'posicao_cintura',
             'ocasiao',
             'estacao',
             'temperatura',
+
+            // Opcionais
             'material_principal',
             'eco_score',
             'care_level',
             'faixa_preco',
             'peca_hero',
             'classe_margem',
+
+            // Técnicos
+            'nome',
+            'descricao',
             'status'
         ];
 
@@ -453,7 +471,7 @@ export const updateProduto = async (req, res) => {
         }
 
         // Atualizar
-        const produtoAtualizado = await Produto.findByIdAndUpdate(id, updateData, {
+        const produtoAtualizado = await Produto.findByIdAndUpdate(produtoAtual._id, updateData, {
             new: true
         });
 
@@ -656,10 +674,40 @@ export const getProdutosDisponiveisParaGuardaRoupa = async (req, res) => {
     }
 };
 
+/**
+ * GET PRODUTO POR SKU (PÚBLICO)
+ * GET /api/produtos/:sku
+ * Retorna detalhes de um produto pelo SKU STYLEME
+ * Rota pública - sem autenticação
+ */
+export const getProdutoPorSKU = async (req, res) => {
+    try {
+        const { sku } = req.params;
+
+        // Buscar produto por SKU STYLEME
+        const produto = await Produto.findOne({ skuStyleMe: sku });
+
+        if (!produto) {
+            return res.status(404).json({
+                message: `Produto com SKU ${sku} não encontrado`
+            });
+        }
+
+        res.status(200).json(produto);
+    } catch (error) {
+        console.error(`❌ [getProdutoPorSKU] Erro ao buscar produto ${req.params.sku}:`, error);
+        res.status(500).json({
+            message: 'Erro ao buscar produto',
+            error: error.message
+        });
+    }
+};
+
 export default {
     createProduto,
     getProdutosByGuardaRoupa,
     getProdutosByLoja,
+    getProdutoPorSKU,
     updateProduto,
     deleteProduto,
     getDicionarios,

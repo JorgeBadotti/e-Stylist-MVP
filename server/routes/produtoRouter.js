@@ -3,6 +3,7 @@ import {
     createProduto,
     getProdutosByGuardaRoupa,
     getProdutosByLoja,
+    getProdutoPorSKU,
     updateProduto,
     deleteProduto,
     getDicionarios,
@@ -33,6 +34,12 @@ router.get('/dicionarios/', getDicionarios);
  * Obter sugestão de próximo SKU (público, sem autenticação)
  */
 router.get('/sku-sugestao/', sugerirSKU);
+
+/**
+ * GET /api/produtos/:sku
+ * Obter detalhes de um produto pelo SKU STYLEME (público, sem autenticação)
+ */
+router.get('/:sku', getProdutoPorSKU);
 
 // Aplicar autenticação em todas as rotas abaixo deste ponto
 router.use(isAuthenticated);

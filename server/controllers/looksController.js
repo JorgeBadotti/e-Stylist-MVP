@@ -175,19 +175,70 @@ export const listarMeusLooks = async (req, res) => {
         // Total de looks para pagination
         const totalLooks = await Look.countDocuments({ userId });
 
-        // Formata resposta
-        const looksFormatados = looks.map(look => ({
-            _id: look._id,
-            nome: look.nome,
-            explicacao: look.explicacao,
-            itens: look.itens,
-            afinidade_ia: look.afinidade_ia,
-            escolhido_pelo_usuario: look.escolhido_pelo_usuario,
-            imagem_visualizada: look.imagem_visualizada,
-            data_visualizacao: look.data_visualizacao,
-            createdAt: look.create_date,
-            temVisualizacao: !!look.imagem_visualizada
-        }));
+        // ENRIQUECIMENTO: Validar e enriquecer itens
+        const looksFormatados = await Promise.all(
+            looks.map(async (look) => {
+                // Enriquecer itens: validar produtos e complementar dados se necessário
+                let itensEnriquecidos = look.itens;
+
+                if (itensEnriquecidos && Array.isArray(itensEnriquecidos)) {
+                    // Buscar os produtos pelo ID para validação e enriquecimento
+                    const produtoIds = itensEnriquecidos
+                        .map(item => item.id)
+                        .filter(id => id); // Remove undefined/null
+
+                    let produtoMap = {};
+                    if (produtoIds.length > 0) {
+                        const produtos = await Produto.find({
+                            _id: { $in: produtoIds }
+                        });
+
+                        // Criar mapa: ID → Produto
+                        produtos.forEach(p => {
+                            produtoMap[p._id.toString()] = p;
+                        });
+                    }
+
+                    // Enriquecer cada item: dados do BD + dados salvos (desnormalizados)
+                    itensEnriquecidos = itensEnriquecidos.map(item => {
+                        const produto = produtoMap[item.id];
+
+                        // Se produto existe no BD, usar dados atualizados; caso contrário, manter desnormalizados
+                        if (produto) {
+                            // Usar dados salvos + validação com BD
+                            return {
+                                ...item, // Manter todos os dados salvos (foto, cor, etc)
+                                _id: produto._id,
+                                categoria: produto.categoria || item.categoria,
+                                tamanho: produto.tamanho || item.tamanho,
+                                skuStyleMe: produto.skuStyleMe || item.sku,
+                                // Se a foto foi deletada, mantém a salva
+                                foto: item.foto || produto.foto
+                            };
+                        }
+
+                        // Produto deletado: retorna dados desnormalizados que foram salvos
+                        return {
+                            ...item,
+                            _deletado: true // Flag indicando que o produto não existe mais
+                        };
+                    });
+                }
+
+                return {
+                    _id: look._id,
+                    nome: look.nome,
+                    explicacao: look.explicacao,
+                    itens: itensEnriquecidos,
+                    afinidade_ia: look.afinidade_ia,
+                    escolhido_pelo_usuario: look.escolhido_pelo_usuario,
+                    imagem_visualizada: look.imagem_visualizada,
+                    data_visualizacao: look.data_visualizacao,
+                    createdAt: look.create_date,
+                    temVisualizacao: !!look.imagem_visualizada
+                };
+            })
+        );
 
         res.json({
             looks: looksFormatados,
@@ -218,12 +269,60 @@ export const obterDetalhesComunsLook = async (req, res) => {
             return res.status(404).json({ error: "Look não encontrado." });
         }
 
+        // ENRIQUECIMENTO: Validar e enriquecer itens com dados do BD
+        let itensEnriquecidos = look.itens;
+
+        if (itensEnriquecidos && Array.isArray(itensEnriquecidos)) {
+            // Buscar os produtos pelo ID para validação e enriquecimento
+            const produtoIds = itensEnriquecidos
+                .map(item => item.id)
+                .filter(id => id); // Remove undefined/null
+
+            let produtoMap = {};
+            if (produtoIds.length > 0) {
+                const produtos = await Produto.find({
+                    _id: { $in: produtoIds }
+                });
+
+                // Criar mapa: ID → Produto
+                produtos.forEach(p => {
+                    produtoMap[p._id.toString()] = p;
+                });
+            }
+
+            // Enriquecer cada item
+            itensEnriquecidos = itensEnriquecidos.map(item => {
+                const produto = produtoMap[item.id];
+
+                if (produto) {
+                    return {
+                        ...item,
+                        _id: produto._id,
+                        categoria: produto.categoria || item.categoria,
+                        tamanho: produto.tamanho || item.tamanho,
+                        skuStyleMe: produto.skuStyleMe || item.sku,
+                        foto: item.foto || produto.foto,
+                        layer_role: produto.layer_role,
+                        color_role: produto.color_role,
+                        fit: produto.fit,
+                        style_base: produto.style_base
+                    };
+                }
+
+                // Produto deletado: retorna dados desnormalizados
+                return {
+                    ...item,
+                    _deletado: true
+                };
+            });
+        }
+
         // Formata resposta com detalhes completos
         const lookDetalhado = {
             _id: look._id,
             nome: look.nome,
             explicacao: look.explicacao,
-            itens: look.itens,
+            itens: itensEnriquecidos,
             afinidade_ia: look.afinidade_ia,
             escolhido_pelo_usuario: look.escolhido_pelo_usuario,
             score_relevancia: look.score_relevancia,

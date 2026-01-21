@@ -28,15 +28,52 @@ export const getCatalogo = async (req, res) => {
 export const getProdutoBySku = async (req, res) => {
   try {
     const { sku } = req.params;
+    console.log(`\n📦 [storeController] Buscando produto por SKU: ${sku}`);
+
     const produto = await Produto.findOne({ skuStyleMe: sku });
 
     if (!produto) {
+      console.warn(`⚠️ [storeController] Produto com SKU ${sku} NÃO ENCONTRADO`);
       return res.status(404).json({ message: 'Produto não encontrado.' });
     }
 
+    console.log(`✅ [storeController] Produto encontrado: ${produto.nome}`);
+    console.log(`📊 [storeController] Campos disponíveis no produto:`);
+    console.log(`   - ID: ${produto._id}`);
+    console.log(`   - SKU: ${produto.skuStyleMe}`);
+    console.log(`   - Nome: ${produto.nome}`);
+    console.log(`   - Categoria: ${produto.categoria}`);
+    console.log(`   - Linha: ${produto.linha}`);
+    console.log(`   - Cor Código: ${produto.cor_codigo}`);
+    console.log(`   - Tamanho: ${produto.tamanho}`);
+    console.log(`   - Coleção: ${produto.colecao}`);
+    console.log(`   - Layer Role: ${produto.layer_role}`);
+    console.log(`   - Color Role: ${produto.color_role}`);
+    console.log(`   - Fit: ${produto.fit}`);
+    console.log(`   - Style Base: ${produto.style_base}`);
+    console.log(`   - Silhueta: ${produto.silhueta}`);
+    console.log(`   - Comprimento: ${produto.comprimento}`);
+    console.log(`   - Posição Cintura: ${produto.posicao_cintura}`);
+    console.log(`   - Ocasião: ${produto.ocasiao}`);
+    console.log(`   - Estação: ${produto.estacao}`);
+    console.log(`   - Temperatura: ${produto.temperatura}`);
+    console.log(`   - Material Principal: ${produto.material_principal}`);
+    console.log(`   - Eco Score: ${produto.eco_score}`);
+    console.log(`   - Care Level: ${produto.care_level}`);
+    console.log(`   - Faixa Preço: ${produto.faixa_preco}`);
+    console.log(`   - Classe Margem: ${produto.classe_margem}`);
+    console.log(`   - Peça Hero: ${produto.peca_hero}`);
+    console.log(`   - Descrição: ${produto.descricao ? 'Sim' : 'Não'}`);
+    console.log(`   - Foto: ${produto.foto ? 'Sim' : 'Não'}`);
+    console.log(`   - Estoque: ${produto.estoque}`);
+    console.log(`   - Preço: ${produto.preco}`);
+
+    // Log do objeto completo para inspeção
+    console.log(`📋 [storeController] Objeto completo do produto:`, JSON.stringify(produto.toObject(), null, 2));
+
     res.status(200).json(produto);
   } catch (error) {
-    console.error('Erro ao buscar produto por SKU:', error);
+    console.error('❌ [storeController] Erro ao buscar produto por SKU:', error);
     res.status(500).json({ message: 'Erro no servidor ao buscar produto.' });
   }
 };

@@ -10,7 +10,8 @@
     "axios": "^1.13.2",
     "e-stylist-mvp": "file:..",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "react-dom": "^19.2.3",
+    "react-router-dom": "^7.12.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
