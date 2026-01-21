@@ -25,6 +25,7 @@ interface ViewLookProps {
     onGenerateNew: () => void;
     onBack?: () => void;
     isLoading?: boolean;
+    onProductClick?: (sku: string) => void; // ✅ Callback para clique em produto
 }
 
 const ViewLook: React.FC<ViewLookProps> = ({
@@ -33,6 +34,7 @@ const ViewLook: React.FC<ViewLookProps> = ({
     lookExplanation,
     lookItems = [],
     onGenerateNew,
+    onProductClick,
     onBack,
     isLoading = false
 }) => {
@@ -155,11 +157,13 @@ const ViewLook: React.FC<ViewLookProps> = ({
                                         {lookItems.map((item, idx) => (
                                             <a
                                                 key={idx}
-                                                href={getProductUrl(item.skuStyleMe)}
-                                                target="_blank"
+                                                href="#"
                                                 rel="noopener noreferrer"
                                                 onClick={(e) => {
-                                                    if (!item.skuStyleMe) e.preventDefault();
+                                                    e.preventDefault();
+                                                    if (item.skuStyleMe && onProductClick) {
+                                                        onProductClick(item.skuStyleMe);
+                                                    }
                                                 }}
                                                 className={`group relative flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${item._deletado
                                                     ? 'bg-red-500/5 border-red-500/20 opacity-60 cursor-not-allowed'

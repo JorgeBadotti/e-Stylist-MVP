@@ -1,5 +1,6 @@
 import express from 'express';
 import {
+    adicionarItemAtomic,
     criarCarrinho,
     obterCarrinhoById,
     obterCarrinhoAtivo,
@@ -21,6 +22,21 @@ const router = express.Router();
 // ═══════════════════════════════════════════════════════════
 // CREATE - Criar novo carrinho
 // ═══════════════════════════════════════════════════════════
+
+/**
+ * POST /api/carrinhos/adicionar-item
+ * Adiciona item ao carrinho (cria carrinho se não existir)
+ * ATOMIC: Cria carrinho + adiciona item em uma operação
+ * 
+ * Body:
+ * {
+ *   "produtoId": "string (MongoDB ObjectId)",
+ *   "skuStyleMe": "string",
+ *   "quantidade": "number",
+ *   "preco_unitario": "number"
+ * }
+ */
+router.post('/adicionar-item', isAuthenticated, adicionarItemAtomic);
 
 /**
  * POST /api/carrinhos

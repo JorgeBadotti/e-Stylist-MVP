@@ -5,6 +5,87 @@ import Produto from '../models/Produto.js';
 
 /**
  * ═══════════════════════════════════════════════════════════
+ * ATOMIC - Adicionar item (cria carrinho se não existir)
+ * ═══════════════════════════════════════════════════════════
+ */
+export const adicionarItemAtomic = async (req, res) => {
+    try {
+        const usuarioId = req.user?.id || req.user?._id;
+        const { produtoId, skuStyleMe, quantidade } = req.body;
+
+        if (!usuarioId) {
+            return res.status(401).json({ message: 'Usuário não autenticado' });
+        }
+
+        // Validar campos obrigatórios
+        if (!produtoId || !skuStyleMe || !quantidade) {
+            return res.status(400).json({
+                message: 'Campos obrigatórios: produtoId, skuStyleMe, quantidade',
+                required: ['produtoId', 'skuStyleMe', 'quantidade']
+            });
+        }
+
+        // Verificar se produto existe
+        const produto = await Produto.findById(produtoId);
+        if (!produto) {
+            return res.status(404).json({ message: 'Produto não encontrado' });
+        }
+
+        // ✅ PASSO 1: Buscar carrinho ativo
+        let carrinho = await Carrinho.findOne({
+            usuario: usuarioId,
+            status: 'ativo'
+        });
+
+        // ✅ PASSO 2: Se não existe, CRIAR novo
+        if (!carrinho) {
+            // Buscar primeira loja disponível
+            const loja = await Loja.findOne();
+            if (!loja) {
+                return res.status(400).json({ message: 'Nenhuma loja disponível' });
+            }
+
+            carrinho = new Carrinho({
+                usuario: usuarioId,
+                loja: loja._id,
+                status: 'ativo',
+                itens: [],
+                desconto: 0
+            });
+
+            console.log(`✅ [adicionarItemAtomic] Carrinho criado para usuário ${usuarioId}`);
+        }
+
+        // ✅ PASSO 3: Adicionar item ao carrinho (apenas produto, SKU e quantidade)
+        carrinho.adicionarItem(produtoId, skuStyleMe, quantidade);
+
+        // ✅ PASSO 4: Salvar
+        await carrinho.save();
+
+        // Popular dados para resposta
+        await carrinho.populate('usuario', 'id email nome');
+        await carrinho.populate('loja', 'id nome cnpj');
+        await carrinho.populate('itens.produto', 'skuStyleMe categoria preco descricao foto tamanho cor cor_codigo nome');
+
+        console.log(`✅ [adicionarItemAtomic] Item adicionado ao carrinho ${carrinho._id}`);
+
+        res.status(200).json({
+            message: 'Item adicionado ao carrinho com sucesso',
+            carrinho: carrinho,
+            itemAdicionado: {
+                skuStyleMe: skuStyleMe,
+                quantidade: quantidade
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ [adicionarItemAtomic] Erro:', error.message);
+        res.status(500).json({ message: 'Erro ao adicionar item', error: error.message });
+    }
+};
+
+/**
+ * ═══════════════════════════════════════════════════════════
  * CREATE - Criar novo carrinho
  * ═══════════════════════════════════════════════════════════
  */
@@ -88,10 +169,10 @@ export const obterOuCriarCarrinhoUsuario = async (req, res) => {
         })
             .populate('usuario', 'id email nome')
             .populate('loja', 'id nome cnpj telefone')
-            .populate('itens.produto', 'skuStyleMe categoria linha preco descricao');
+            .populate('itens.produto', 'skuStyleMe categoria linha preco descricao foto tamanho cor cor_codigo nome');
 
-        // Se não encontrar carrinho, retorna vazio (não cria automaticamente aqui)
-        // O front-end pode chamar o endpoint de criar se desejar
+        // Se não encontrar, retorna null (padrão lazy-load)
+        // Carrinho será criado quando primeiro item for adicionado
         res.status(200).json({
             message: 'Carrinho obtido com sucesso',
             carrinho: carrinho || null,
@@ -206,13 +287,13 @@ export const listarCarrinhosUsuario = async (req, res) => {
 export const adicionarItemCarrinho = async (req, res) => {
     try {
         const { carrinhoId } = req.params;
-        const { produtoId, skuStyleMe, quantidade, preco_unitario } = req.body;
+        const { produtoId, skuStyleMe, quantidade } = req.body;
 
         // Validar campos obrigatórios
-        if (!produtoId || !skuStyleMe || !quantidade || preco_unitario === undefined) {
+        if (!produtoId || !skuStyleMe || !quantidade) {
             return res.status(400).json({
-                message: 'Campos obrigatórios: produtoId, skuStyleMe, quantidade, preco_unitario',
-                required: ['produtoId', 'skuStyleMe', 'quantidade', 'preco_unitario']
+                message: 'Campos obrigatórios: produtoId, skuStyleMe, quantidade',
+                required: ['produtoId', 'skuStyleMe', 'quantidade']
             });
         }
 
@@ -229,7 +310,7 @@ export const adicionarItemCarrinho = async (req, res) => {
         }
 
         // Adicionar item ao carrinho
-        carrinho.adicionarItem(produtoId, skuStyleMe, quantidade, preco_unitario);
+        carrinho.adicionarItem(produtoId, skuStyleMe, quantidade);
         await carrinho.save();
 
         // Popula os dados relacionados
@@ -285,7 +366,7 @@ export const removerItemCarrinho = async (req, res) => {
         // Popula os dados relacionados
         await carrinho.populate('usuario', 'id email nome');
         await carrinho.populate('loja', 'id nome');
-        await carrinho.populate('itens.produto', 'skuStyleMe categoria linha preco');
+        await carrinho.populate('itens.produto', 'skuStyleMe categoria linha preco foto tamanho cor cor_codigo nome descricao');
 
         res.status(200).json({
             message: 'Item removido do carrinho com sucesso',
@@ -335,7 +416,7 @@ export const atualizarQuantidadeItem = async (req, res) => {
         // Popula os dados relacionados
         await carrinho.populate('usuario', 'id email nome');
         await carrinho.populate('loja', 'id nome');
-        await carrinho.populate('itens.produto', 'skuStyleMe categoria linha preco');
+        await carrinho.populate('itens.produto', 'skuStyleMe categoria linha preco foto tamanho cor cor_codigo nome descricao');
 
         res.status(200).json({
             message: 'Quantidade atualizada com sucesso',

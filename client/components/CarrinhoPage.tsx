@@ -1,13 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import api from '../src/services/api';
 
+interface ProdutoDetalhes {
+    _id: string;
+    skuStyleMe: string;
+    nome?: string;
+    descricao?: string;
+    foto?: string;
+    preco?: number;
+    tamanho?: string;
+    cor?: string;
+    cor_codigo?: string;
+    categoria?: string;
+}
+
 interface CarrinhoItem {
-    produto: string;
+    produto: ProdutoDetalhes | string; // Pode ser o objeto completo ou apenas o ID
     skuStyleMe: string;
     quantidade: number;
-    preco_unitario: number;
-    subtotal: number;
     data_adicao: string;
+    tamanho?: string;
+    cor?: string;
 }
 
 interface Carrinho {
@@ -24,10 +37,12 @@ interface Carrinho {
     updatedAt: string;
 }
 
-const CarrinhoPage: React.FC = () => {
+const CarrinhoPage: React.FC<{ onProductClick?: (sku: string) => void }> = ({ onProductClick }) => {
     const [carrinho, setCarrinho] = useState<Carrinho | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [removingItemId, setRemovingItemId] = useState<string | null>(null);
+    const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
 
     useEffect(() => {
         fetchCarrinho();
@@ -52,6 +67,44 @@ const CarrinhoPage: React.FC = () => {
             setError(err.response?.data?.message || 'Erro ao carregar carrinho');
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleRemoverItem = async (carrinhoId: string, skuStyleMe: string) => {
+        try {
+            setRemovingItemId(skuStyleMe);
+            await api.delete(`/api/carrinhos/${carrinhoId}/itens`, {
+                data: { skuStyleMe }
+            });
+            // Recarregar carrinho após remover
+            await fetchCarrinho();
+        } catch (err: any) {
+            console.error('Erro ao remover item:', err);
+            setError(err.response?.data?.message || 'Erro ao remover item');
+        } finally {
+            setRemovingItemId(null);
+        }
+    };
+
+    const handleAtualizarQuantidade = async (carrinhoId: string, skuStyleMe: string, novaQuantidade: number) => {
+        if (novaQuantidade < 1) {
+            handleRemoverItem(carrinhoId, skuStyleMe);
+            return;
+        }
+
+        try {
+            setUpdatingItemId(skuStyleMe);
+            await api.put(`/api/carrinhos/${carrinhoId}/itens/quantidade`, {
+                skuStyleMe,
+                novaQuantidade
+            });
+            // Recarregar carrinho após atualizar
+            await fetchCarrinho();
+        } catch (err: any) {
+            console.error('Erro ao atualizar quantidade:', err);
+            setError(err.response?.data?.message || 'Erro ao atualizar quantidade');
+        } finally {
+            setUpdatingItemId(null);
         }
     };
 
@@ -111,48 +164,106 @@ const CarrinhoPage: React.FC = () => {
 
     // Carrinho com itens
     return (
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
             <div className="bg-white rounded-lg shadow-md p-8">
                 <h1 className="text-3xl font-bold text-gray-800 mb-6">🛒 Meu Carrinho</h1>
 
-                {/* Tabela de itens */}
-                <div className="overflow-x-auto mb-8">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Produto</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Quantidade</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Preço</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Subtotal</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Ação</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {carrinho.itens.map((item, index) => (
-                                <tr key={index}>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <p className="text-sm font-medium text-gray-900">{item.skuStyleMe}</p>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <p className="text-sm text-gray-600">{item.quantidade}</p>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <p className="text-sm text-gray-600">R$ {item.preco_unitario.toFixed(2)}</p>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <p className="text-sm font-medium text-gray-900">R$ {item.subtotal.toFixed(2)}</p>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
+                {/* Lista de itens */}
+                <div className="space-y-4 mb-8">
+                    {carrinho.itens.map((item, index) => {
+                        const produtoInfo = typeof item.produto === 'object' ? item.produto : null;
+                        return (
+                            <div key={index} className="flex gap-4 p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                                {/* Foto do produto */}
+                                <div className="flex-shrink-0 w-24 h-24 bg-gray-100 rounded-lg overflow-hidden">
+                                    {produtoInfo?.foto ? (
+                                        <img src={produtoInfo.foto} alt={produtoInfo.skuStyleMe} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-gray-300 text-gray-600">
+                                            <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Informações do produto */}
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between mb-2">
+                                        {/* Nome com link */}
+                                        <div className="flex-1">
+                                            <button
+                                                onClick={() => {
+                                                    if (onProductClick) {
+                                                        onProductClick(item.skuStyleMe);
+                                                    }
+                                                }}
+                                                className="text-lg font-semibold text-blue-600 hover:text-blue-800 hover:underline text-left"
+                                            >
+                                                {produtoInfo?.nome || item.skuStyleMe}
+                                            </button>
+                                            <p className="text-sm text-gray-500 mt-1">{item.skuStyleMe}</p>
+                                        </div>
+
+                                        {/* Preço */}
+                                        <div className="text-right ml-4">
+                                            <p className="text-sm text-gray-600">Unitário</p>
+                                            <p className="text-lg font-semibold text-gray-900">R$ {(produtoInfo?.preco || 0).toFixed(2)}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Atributos do produto */}
+                                    <div className="flex gap-4 text-sm text-gray-600 mb-3">
+                                        {produtoInfo?.tamanho && (
+                                            <span className="px-2 py-1 bg-gray-100 rounded">Tamanho: {produtoInfo.tamanho}</span>
+                                        )}
+                                        {produtoInfo?.cor && (
+                                            <span className="px-2 py-1 bg-gray-100 rounded flex items-center gap-2">
+                                                Cor: {produtoInfo.cor}
+                                                {produtoInfo.cor_codigo && (
+                                                    <div className="w-4 h-4 rounded border border-gray-300" style={{ backgroundColor: produtoInfo.cor_codigo }}></div>
+                                                )}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Quantidade e ações */}
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm text-gray-700 font-medium">Quantidade:</span>
+                                            <div className="flex items-center border border-gray-300 rounded-lg">
+                                                <button
+                                                    onClick={() => handleAtualizarQuantidade(carrinho._id, item.skuStyleMe, item.quantidade - 1)}
+                                                    disabled={updatingItemId === item.skuStyleMe}
+                                                    className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                                                >
+                                                    −
+                                                </button>
+                                                <span className="px-4 py-1 font-semibold text-gray-900 border-x border-gray-300">{item.quantidade}</span>
+                                                <button
+                                                    onClick={() => handleAtualizarQuantidade(carrinho._id, item.skuStyleMe, item.quantidade + 1)}
+                                                    disabled={updatingItemId === item.skuStyleMe}
+                                                    className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                                                >
+                                                    +
+                                                </button>
+                                            </div>
+                                            <span className="text-sm text-gray-600 ml-2">Subtotal: R$ {(item.quantidade * (produtoInfo?.preco || 0)).toFixed(2)}</span>
+                                        </div>
+
+                                        {/* Botão remover */}
                                         <button
-                                            className="text-red-600 hover:text-red-900 text-sm font-medium"
+                                            onClick={() => handleRemoverItem(carrinho._id, item.skuStyleMe)}
+                                            disabled={removingItemId === item.skuStyleMe}
+                                            className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium disabled:opacity-50 transition-colors"
                                         >
-                                            Remover
+                                            {removingItemId === item.skuStyleMe ? 'Removendo...' : 'Remover'}
                                         </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
 
                 {/* Resumo do carrinho */}

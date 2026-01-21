@@ -27,7 +27,7 @@ const carrinhoSchema = new Schema({
 
     itens: [
         {
-            // Referência ao produto (pelo SKU StyleMe)
+            // Referência ao produto (pelo ObjectId)
             produto: {
                 type: Schema.Types.ObjectId,
                 ref: 'Produto',
@@ -48,20 +48,6 @@ const carrinhoSchema = new Schema({
                 default: 1
             },
 
-            // Preço unitário do produto no momento da adição
-            preco_unitario: {
-                type: Number,
-                required: [true, 'Preço unitário é obrigatório'],
-                min: [0, 'Preço não pode ser negativo']
-            },
-
-            // Subtotal do item (quantidade * preço_unitario)
-            subtotal: {
-                type: Number,
-                required: true,
-                min: [0, 'Subtotal não pode ser negativo']
-            },
-
             // Data de adição ao carrinho
             data_adicao: {
                 type: Date,
@@ -71,28 +57,14 @@ const carrinhoSchema = new Schema({
     ],
 
     // ═══════════════════════════════════════════════════════════
-    // 💰 CÁLCULOS TOTAIS
+    // 💰 DESCONTOS
     // ═══════════════════════════════════════════════════════════
-
-    // Total sem descontos
-    subtotal: {
-        type: Number,
-        default: 0,
-        min: [0, 'Subtotal não pode ser negativo']
-    },
 
     // Desconto aplicado (opcional)
     desconto: {
         type: Number,
         default: 0,
         min: [0, 'Desconto não pode ser negativo']
-    },
-
-    // Total com desconto
-    total: {
-        type: Number,
-        default: 0,
-        min: [0, 'Total não pode ser negativo']
     },
 
     // ═══════════════════════════════════════════════════════════
@@ -120,50 +92,69 @@ const carrinhoSchema = new Schema({
     }
 
 }, {
-    timestamps: true // Cria automaticamente 'createdAt' e 'updatedAt'
+    timestamps: true, // Cria automaticamente 'createdAt' e 'updatedAt'
+    toJSON: { virtuals: true }, // Incluir virtuals no JSON
+    toObject: { virtuals: true } // Incluir virtuals no Object
 });
 
 // ═══════════════════════════════════════════════════════════
-// 🔧 HOOKS PARA CÁLCULOS AUTOMÁTICOS
+// 📐 VIRTUAL FIELDS - CÁLCULOS DINÂMICOS
 // ═══════════════════════════════════════════════════════════
 
 /**
- * Recalcula subtotal e total sempre que itens mudam
+ * Calcula o subtotal de cada item dinamicamente
+ * IMPORTANTE: Precisa ser calculado após populate() do produto
  */
-carrinhoSchema.methods.recalcularTotais = function () {
-    // Calcula subtotal
-    this.subtotal = this.itens.reduce((acc, item) => acc + item.subtotal, 0);
+carrinhoSchema.virtual('itensComSubtotal').get(function () {
+    return this.itens.map(item => ({
+        ...item.toObject ? item.toObject() : item,
+        subtotal: item.quantidade * (item.produto?.preco || 0)
+    }));
+});
 
-    // Calcula total (subtotal - desconto)
-    this.total = Math.max(0, this.subtotal - this.desconto);
+/**
+ * Calcula o subtotal total do carrinho
+ * (soma de todos os itens)
+ */
+carrinhoSchema.virtual('subtotal').get(function () {
+    return this.itens.reduce((acc, item) => {
+        const precoProduto = item.produto?.preco || 0;
+        return acc + (item.quantidade * precoProduto);
+    }, 0);
+});
 
-    return this;
-};
+/**
+ * Calcula o total final
+ * (subtotal - desconto)
+ */
+carrinhoSchema.virtual('total').get(function () {
+    return Math.max(0, this.subtotal - (this.desconto || 0));
+});
+
+// ═══════════════════════════════════════════════════════════
+// 🔧 MÉTODOS DO CARRINHO
+// ═══════════════════════════════════════════════════════════
 
 /**
  * Adiciona um item ao carrinho
+ * Apenas armazena produto, SKU e quantidade
  */
-carrinhoSchema.methods.adicionarItem = function (produtoId, skuStyleMe, quantidade, preco_unitario) {
+carrinhoSchema.methods.adicionarItem = function (produtoId, skuStyleMe, quantidade) {
     // Verifica se o item já existe
     const itemExistente = this.itens.find(item => item.skuStyleMe === skuStyleMe);
 
     if (itemExistente) {
         // Se existe, aumenta a quantidade
         itemExistente.quantidade += quantidade;
-        itemExistente.subtotal = itemExistente.quantidade * itemExistente.preco_unitario;
     } else {
         // Se não existe, adiciona um novo item
         this.itens.push({
             produto: produtoId,
             skuStyleMe,
-            quantidade,
-            preco_unitario,
-            subtotal: quantidade * preco_unitario
+            quantidade
         });
     }
 
-    // Recalcula os totais
-    this.recalcularTotais();
     return this;
 };
 
@@ -172,7 +163,6 @@ carrinhoSchema.methods.adicionarItem = function (produtoId, skuStyleMe, quantida
  */
 carrinhoSchema.methods.removerItem = function (skuStyleMe) {
     this.itens = this.itens.filter(item => item.skuStyleMe !== skuStyleMe);
-    this.recalcularTotais();
     return this;
 };
 
@@ -191,8 +181,6 @@ carrinhoSchema.methods.atualizarQuantidade = function (skuStyleMe, novaQuantidad
     }
 
     item.quantidade = novaQuantidade;
-    item.subtotal = novaQuantidade * item.preco_unitario;
-    this.recalcularTotais();
     return this;
 };
 
@@ -201,10 +189,18 @@ carrinhoSchema.methods.atualizarQuantidade = function (skuStyleMe, novaQuantidad
  */
 carrinhoSchema.methods.limpar = function () {
     this.itens = [];
-    this.recalcularTotais();
+    return this;
+};
+
+/**
+ * Aplica desconto ao carrinho
+ */
+carrinhoSchema.methods.aplicarDesconto = function (valor) {
+    this.desconto = Math.max(0, valor);
     return this;
 };
 
 const Carrinho = mongoose.models.Carrinho || mongoose.model('Carrinho', carrinhoSchema);
 
 export default Carrinho;
+

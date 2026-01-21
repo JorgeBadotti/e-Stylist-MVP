@@ -7,12 +7,17 @@ import DetalheGuardaRoupa from '../DetalheGuardaRoupa';
 interface VendorLojaPageProps {
   lojaId: string;
   onBack: () => void;
+  selectedSku?: string | null;
+  onSelectSku?: (sku: string | null) => void;
 }
 
-export default function VendorLojaPage({ lojaId, onBack }: VendorLojaPageProps) {
-  const [selectedSku, setSelectedSku] = useState<string | null>(null);
+export default function VendorLojaPage({ lojaId, onBack, selectedSku: globalSelectedSku, onSelectSku }: VendorLojaPageProps) {
   const [selectedColecaoId, setSelectedColecaoId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'produtos' | 'colecoes'>('produtos');
+
+  // Usar selectedSku global se fornecido, senão usar local
+  const selectedSku = globalSelectedSku ?? null;
+  const setSelectedSku = onSelectSku || (() => { });
 
   if (selectedSku) {
     return <ProdutoDetalhe sku={selectedSku} onBack={() => setSelectedSku(null)} lojaId={lojaId} />;
@@ -41,8 +46,8 @@ export default function VendorLojaPage({ lojaId, onBack }: VendorLojaPageProps) 
           <button
             onClick={() => setActiveTab('produtos')}
             className={`px-6 py-3 font-bold transition-all ${activeTab === 'produtos'
-                ? 'text-blue-600 border-b-4 border-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
+              ? 'text-blue-600 border-b-4 border-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
               }`}
           >
             📦 Produtos
@@ -50,8 +55,8 @@ export default function VendorLojaPage({ lojaId, onBack }: VendorLojaPageProps) 
           <button
             onClick={() => setActiveTab('colecoes')}
             className={`px-6 py-3 font-bold transition-all ${activeTab === 'colecoes'
-                ? 'text-blue-600 border-b-4 border-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
+              ? 'text-blue-600 border-b-4 border-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
               }`}
           >
             📚 Coleções

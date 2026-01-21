@@ -7,6 +7,7 @@ import {
     updateProduto,
     deleteProduto,
     getDicionarios,
+    getTodosDicionarios,
     sugerirSKU,
     getProdutosDisponiveisParaGuardaRoupa
 } from '../controllers/produtoController.js';
@@ -24,8 +25,14 @@ const router = express.Router();
 // ═══════════════════════════════════════════════════════════
 
 /**
+ * GET /api/produtos/dicionarios/todos
+ * Obter TODOS os dicionários SKU STYLEME em uma única requisição (otimizado)
+ */
+router.get('/dicionarios/todos', getTodosDicionarios);
+
+/**
  * GET /api/produtos/dicionarios/?tipo=CATEGORIA
- * Obter dicionários SKU STYLEME (público, sem autenticação)
+ * Obter dicionários SKU STYLEME por tipo (público, sem autenticação)
  */
 router.get('/dicionarios/', getDicionarios);
 

@@ -142,7 +142,7 @@ const App: React.FC = () => {
     return (
         <Router>
             <Routes>
-                {/* Rota pública para visualizar produto por SKU */}
+                {/* Rota pública para visualizar produto por SKU (com s) */}
                 <Route
                     path="/produtos/:sku"
                     element={
@@ -151,6 +151,32 @@ const App: React.FC = () => {
                             user={userData}
                             onLogoutClick={handleLogout}
                         />
+                    }
+                />
+
+                {/* Rota para visualizar produto por SKU (sem s) - compatibilidade */}
+                <Route
+                    path="/produto/:sku"
+                    element={
+                        isAuthenticated ? (
+                            <AppContent
+                                isAuthenticated={isAuthenticated}
+                                setIsAuthenticated={setIsAuthenticated}
+                                userData={userData}
+                                setUserData={setUserData}
+                                isLoading={isLoading}
+                                setIsLoading={setIsLoading}
+                                handleLogout={handleLogout}
+                                fetchUserSession={fetchUserSession}
+                                initialSku={new URLSearchParams(window.location.search).get('sku') || undefined}
+                            />
+                        ) : (
+                            <PublicProdutoPage
+                                isAuthenticated={isAuthenticated}
+                                user={userData}
+                                onLogoutClick={handleLogout}
+                            />
+                        )
                     }
                 />
 
@@ -184,6 +210,7 @@ interface AppContentProps {
     setIsLoading: (value: boolean) => void;
     handleLogout: () => void;
     fetchUserSession: () => Promise<void>; // ✅ NOVO
+    initialSku?: string; // ✅ NOVO: SKU inicial da URL
 }
 
 const AppContent: React.FC<AppContentProps> = ({
@@ -194,12 +221,14 @@ const AppContent: React.FC<AppContentProps> = ({
     isLoading,
     setIsLoading,
     handleLogout,
-    fetchUserSession // ✅ NOVO
+    fetchUserSession, // ✅ NOVO
+    initialSku // ✅ NOVO
 }) => {
+    const { sku: urlSku } = useParams<{ sku: string }>();
     const [isRedirecting, setIsRedirecting] = useState<boolean>(false);
     const [publicView, setPublicView] = useState<PublicView>('landing');
     const [privateView, setPrivateView] = useState<PrivateView>('home');
-    const [selectedSku, setSelectedSku] = useState<string | null>(null);
+    const [selectedSku, setSelectedSku] = useState<string | null>(initialSku || urlSku || null);
     const [selectedLojaId, setSelectedLojaId] = useState<string | null>(null);
 
     // ✅ UseEffect para monitorar mudanças de autenticação
@@ -207,8 +236,12 @@ const AppContent: React.FC<AppContentProps> = ({
         if (isAuthenticated && !isLoading) {
             // Quando autenticado, muda para view privada
             setPublicView('landing');
+            // Se tem initialSku, usa ele
+            if (initialSku) {
+                setSelectedSku(initialSku);
+            }
         }
-    }, [isAuthenticated, isLoading]);
+    }, [isAuthenticated, isLoading, initialSku]);
 
     // Navegação Interna
 
@@ -226,7 +259,11 @@ const AppContent: React.FC<AppContentProps> = ({
         setSelectedSku(null);
     };
     const handleInvitacoesClick = () => { setPrivateView('invitacoes'); setSelectedSku(null); };
-    const handleCarrinhoClick = () => { setPrivateView('carrinho'); setSelectedSku(null); };
+    const handleCarrinhoClick = () => {
+        setPrivateView('carrinho');
+        // Se estava vendo produto, volta para poder renderizar carrinho
+        if (selectedSku) setSelectedSku(null);
+    };
 
     // 2. Funções para selecionar produto e voltar
     const handleProdutoSelect = (sku: string) => {
@@ -294,35 +331,54 @@ const AppContent: React.FC<AppContentProps> = ({
                         onInvitacoesClick={handleInvitacoesClick}
                     />
                     <main className="p-4 sm:p-6 md:p-8">
-                        {privateView === 'home' && <HomePage onNavigate={setPrivateView} />}
-                        {privateView === 'wardrobes' && <IndiceGuardaRoupas />}
-                        {privateView === 'profile' && <ProfilePage />}
-                        {privateView === 'looks' && <LooksPage />}
-                        {privateView === 'invitacoes' && <MinhasInvitacoes />}
+                        {/* ✅ Se há um SKU selecionado, renderizar ProdutoDetalhe */}
+                        {selectedSku ? (
+                            <ProdutoDetalhe
+                                sku={selectedSku}
+                                onBack={() => setSelectedSku(null)}
+                            />
+                        ) : (
+                            <>
+                                {privateView === 'home' && <HomePage onNavigate={setPrivateView} />}
+                                {privateView === 'wardrobes' && <IndiceGuardaRoupas />}
+                                {privateView === 'profile' && <ProfilePage />}
+                                {privateView === 'looks' && <LooksPage onProductClick={setSelectedSku} />}
+                                {privateView === 'invitacoes' && <MinhasInvitacoes />}
 
-                        {/* ✅ NOVO: Páginas para SALESPERSON (Vendedor) */}
-                        {privateView === 'vendor-lojas' && (
-                            <VendorLojasPage onSelectLoja={(lojaId) => {
-                                setSelectedLojaId(lojaId);
-                                setPrivateView('vendor-loja');
-                            }} />
-                        )}
-                        {privateView === 'vendor-loja' && selectedLojaId && (
-                            <VendorLojaPage lojaId={selectedLojaId} onBack={() => setPrivateView('vendor-lojas')} />
-                        )}
+                                {/* ✅ NOVO: Páginas para SALESPERSON (Vendedor) */}
+                                {privateView === 'vendor-lojas' && (
+                                    <VendorLojasPage onSelectLoja={(lojaId) => {
+                                        setSelectedLojaId(lojaId);
+                                        setPrivateView('vendor-loja');
+                                    }} />
+                                )}
+                                {privateView === 'vendor-loja' && selectedLojaId && (
+                                    <VendorLojaPage
+                                        lojaId={selectedLojaId}
+                                        onBack={() => setPrivateView('vendor-lojas')}
+                                        selectedSku={selectedSku}
+                                        onSelectSku={setSelectedSku}
+                                    />
+                                )}
 
-                        {/* ✅ NOVO: Página para STORE_ADMIN */}
-                        {privateView === 'admin-loja' && userData?.lojaId && (
-                            <AdminLojaPage lojaId={userData.lojaId} />
-                        )}
+                                {/* ✅ NOVO: Página para STORE_ADMIN */}
+                                {privateView === 'admin-loja' && userData?.lojaId && (
+                                    <AdminLojaPage
+                                        lojaId={userData.lojaId}
+                                        selectedSku={selectedSku}
+                                        onSelectSku={setSelectedSku}
+                                    />
+                                )}
 
-                        {privateView === 'myLooks' && (
-                            <MyLooksPage />
-                        )}
+                                {privateView === 'myLooks' && (
+                                    <MyLooksPage onProductClick={setSelectedSku} />
+                                )}
 
-                        {/* ✅ Página do Carrinho */}
-                        {privateView === 'carrinho' && (
-                            <CarrinhoPage />
+                                {/* ✅ Página do Carrinho */}
+                                {privateView === 'carrinho' && (
+                                    <CarrinhoPage onProductClick={setSelectedSku} />
+                                )}
+                            </>
                         )}
                     </main>
                 </div>

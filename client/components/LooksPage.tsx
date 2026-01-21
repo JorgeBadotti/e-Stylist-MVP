@@ -28,9 +28,10 @@ interface GeneratedLook {
 
 interface LooksPageProps {
     onNavigateToProfile: () => void;
+    onProductClick?: (sku: string) => void;
 }
 
-const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile }) => {
+const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductClick }) => {
     const [step, setStep] = useState<'selection' | 'generating' | 'results' | 'visualizing' | 'visualized'>('selection');
     const [wardrobes, setWardrobes] = useState<Wardrobe[]>([]);
     const [selectedWardrobe, setSelectedWardrobe] = useState<string>('');
@@ -313,6 +314,7 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile }) => {
                     lookExplanation={selectedLookExplanation}
                     lookItems={selectedLookItems}
                     onGenerateNew={handleGerarNovamente}
+                    onProductClick={onProductClick}
                 />
             )}
         </div>

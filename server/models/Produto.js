@@ -173,6 +173,12 @@ const produtoSchema = new Schema({
         comment: "Faixa de preço"
     },
 
+    preco: {
+        type: Number,
+        min: 0,
+        comment: "Preço em reais (R$)"
+    },
+
     peca_hero: {
         type: Boolean,
         default: false,

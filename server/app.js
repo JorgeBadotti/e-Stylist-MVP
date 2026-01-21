@@ -14,12 +14,11 @@ dotenv.config({ path: envPath });
 
 import express from 'express';
 import cors from 'cors';
-import session from 'express-session';
-import MongoStore from 'connect-mongo';
 import passport from './config/passport.js';
 
 // Imports Locais
 import connectDB from './config/db.js';
+import configureSession from './config/session.js';
 import { initGemini } from './services/gemini.js';
 import { configCloudinary } from './services/cloudinary.js';
 import { initPassport } from './config/passport.js';
@@ -51,21 +50,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
 
 // --- CONFIGURAÇÃO DE SESSÃO E PASSPORT ---
-app.use(session({
-    secret: process.env.SESSION_SECRET || 'super_secret_key',
-    resave: false,
-    saveUninitialized: false,
-    store: new MongoStore({
-        mongoUrl: process.env.MONGODB_URI,
-        collectionName: 'sessions',
-        touchAfter: 24 * 3600 // Lazy session update (em segundos)
-    }),
-    cookie: {
-        secure: process.env.NODE_ENV === 'production', // Em produção, use true com HTTPS
-        httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000 // 1 dia
-    }
-}));
+app.use(configureSession());
 
 // Inicializa o Passport
 app.use(passport.initialize());
