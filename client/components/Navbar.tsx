@@ -127,8 +127,8 @@ const Navbar: React.FC<NavbarProps> = ({
                     <div className="flex items-center space-x-4">
                         {isAuthenticated ? (
                             <>
-                                {/* ✅ NOVO: Botão Carrinho - Apenas para USER */}
-                                {user?.role === 'USER' && (
+                                {/* ✅ Botão Carrinho - Para todos exceto STORE_ADMIN e SUPER_ADMIN */}
+                                {!user?.role || (user.role !== 'STORE_ADMIN' && user.role !== 'SUPER_ADMIN') ? (
                                     <button
                                         onClick={onCarrinhoClick}
                                         className="relative p-2 rounded-full hover:bg-gray-100 transition-colors focus:outline-none"
@@ -139,7 +139,7 @@ const Navbar: React.FC<NavbarProps> = ({
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 00-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.461 1.119 1.007zM8.25 16.5a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM15 16.5a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
                                         </svg>
                                     </button>
-                                )}
+                                ) : null}
 
                                 {/* MENU DROPDOWN DO USUÁRIO */}
                                 <div className="relative" ref={dropdownRef}>

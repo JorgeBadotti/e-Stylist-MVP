@@ -381,8 +381,8 @@ const ProdutoDetalhe: React.FC<ProdutoDetalheProps> = ({ sku, onBack, lojaId }) 
               >
                 Cancelar
               </button>
-              {/* ✅ Botão Adicionar ao Carrinho - Apenas para USER */}
-              {userRole === 'USER' && (
+              {/* ✅ Botão Adicionar ao Carrinho - Para todos exceto STORE_ADMIN e SUPER_ADMIN */}
+              {(!userRole || (userRole !== 'STORE_ADMIN' && userRole !== 'SUPER_ADMIN')) && (
                 <button
                   onClick={handleAdicionarAoCarrinho}
                   disabled={carrinhoLoading}
