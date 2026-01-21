@@ -46,18 +46,24 @@ interface DadosProduto {
     faixa_preco?: string;
     peca_hero?: boolean;
     classe_margem?: string;
+    preco?: number;
+    estoque?: number;
 }
 
 interface CadastroProdutoSKUManualProps {
     lojaId: string;
     onProdutoCriado?: (produto: any) => void;
     onCancelar?: () => void;
+    produtoEditar?: any; // Dados do produto para edição
+    skuOriginal?: string; // SKU original quando editando
 }
 
 export default function CadastroProdutoSKUManual({
     lojaId,
     onProdutoCriado,
-    onCancelar
+    onCancelar,
+    produtoEditar,
+    skuOriginal
 }: CadastroProdutoSKUManualProps) {
     // ═══════════════════════════════════════════════════════════
     // ESTADOS
@@ -89,12 +95,48 @@ export default function CadastroProdutoSKUManual({
     const [skuPreview, setSkuPreview] = useState<string>('');
 
     // ═══════════════════════════════════════════════════════════
-    // CARREGAR DICIONÁRIOS AO MONTAR
+    // CARREGAR DICIONÁRIOS E DADOS INICIAIS
     // ═══════════════════════════════════════════════════════════
 
     useEffect(() => {
         carregarDicionarios();
     }, []);
+
+    // Preencher formulário com dados do produto se estiver editando
+    useEffect(() => {
+        if (produtoEditar) {
+            setDados({
+                categoria: produtoEditar.categoria || '',
+                linha: produtoEditar.linha || '',
+                cor_codigo: produtoEditar.cor_codigo || '',
+                tamanho: produtoEditar.tamanho || '',
+                colecao: produtoEditar.colecao || '',
+                layer_role: produtoEditar.layer_role || '',
+                color_role: produtoEditar.color_role || '',
+                fit: produtoEditar.fit || '',
+                style_base: produtoEditar.style_base || '',
+                nome: produtoEditar.nome || '',
+                descricao: produtoEditar.descricao || '',
+                silhueta: produtoEditar.silhueta || '',
+                comprimento: produtoEditar.comprimento || '',
+                posicao_cintura: produtoEditar.posicao_cintura || '',
+                ocasiao: produtoEditar.ocasiao || '',
+                estacao: produtoEditar.estacao || '',
+                temperatura: produtoEditar.temperatura || '',
+                material_principal: produtoEditar.material_principal || '',
+                eco_score: produtoEditar.eco_score || '',
+                care_level: produtoEditar.care_level || '',
+                faixa_preco: produtoEditar.faixa_preco || '',
+                peca_hero: produtoEditar.peca_hero || false,
+                classe_margem: produtoEditar.classe_margem || '',
+                preco: produtoEditar.preco || undefined,
+                estoque: produtoEditar.estoque || undefined
+            });
+            if (produtoEditar.foto) {
+                setImagemPreview(produtoEditar.foto);
+            }
+        }
+    }, [produtoEditar]);
 
     const carregarDicionarios = async () => {
         try {
@@ -287,52 +329,66 @@ export default function CadastroProdutoSKUManual({
                 formData.append('foto', arquivo);
             }
 
+            // Determinar método e URL
+            const isEditando = !!produtoEditar && !!skuOriginal;
+            const metodo = isEditando ? 'PUT' : 'POST';
+            const url = isEditando ? `/api/produtos/${skuOriginal}` : '/api/produtos';
+
+            console.log(`📤 [CadastroProdutoSKU] ${metodo} ${url}`);
+
             // Enviar
-            const response = await fetch('/api/produtos', {
-                method: 'POST',
+            const response = await fetch(url, {
+                method: metodo,
                 body: formData
             });
 
-            console.log(`📤 [CadastroProdutoSKU] POST /api/produtos - Status: ${response.status}`);
+            console.log(`📤 [CadastroProdutoSKU] ${metodo} ${url} - Status: ${response.status}`);
 
             const resultado = await response.json();
 
             if (!response.ok) {
                 console.error(`❌ [CadastroProdutoSKU] Erro:`, resultado);
-                setErro(resultado.message || 'Erro ao criar produto');
+                setErro(resultado.message || (isEditando ? 'Erro ao atualizar produto' : 'Erro ao criar produto'));
                 return;
             }
 
             // Sucesso
-            console.log(`✅ [CadastroProdutoSKU] Produto criado com SKU:`, resultado.skuStyleMe);
-            setSucesso(`✅ Produto criado! SKU: ${resultado.skuStyleMe}`);
+            const mensagem = isEditando
+                ? `✅ Produto atualizado com sucesso!`
+                : `✅ Produto criado! SKU: ${resultado.skuStyleMe}`;
+
+            console.log(`✅ [CadastroProdutoSKU] ${mensagem}`);
+            setSucesso(mensagem);
 
             if (onProdutoCriado) {
-                onProdutoCriado(resultado.produto);
+                onProdutoCriado(resultado.produto || resultado);
             }
 
             // Limpar formulário
             setTimeout(() => {
-                setDados({
-                    categoria: '',
-                    linha: '',
-                    cor_codigo: '',
-                    tamanho: '',
-                    colecao: '',
-                    layer_role: '',
-                    color_role: '',
-                    fit: '',
-                    style_base: '',
-                    nome: ''
-                });
-                setImagemPreview(null);
-                setArquivo(null);
-                setSkuPreview('');
+                if (!isEditando) {
+                    setDados({
+                        categoria: '',
+                        linha: '',
+                        cor_codigo: '',
+                        tamanho: '',
+                        colecao: '',
+                        layer_role: '',
+                        color_role: '',
+                        fit: '',
+                        style_base: '',
+                        nome: ''
+                    });
+                    setImagemPreview(null);
+                    setArquivo(null);
+                    setSkuPreview('');
+                }
                 setSucesso(null);
             }, 2000);
         } catch (e) {
-            console.error('Erro ao criar produto:', e);
-            setErro('Erro ao criar produto');
+            console.error('Erro:', e);
+            const mensagem = produtoEditar ? 'Erro ao atualizar produto' : 'Erro ao criar produto';
+            setErro(mensagem);
         } finally {
             setEnviando(false);
         }
@@ -356,7 +412,7 @@ export default function CadastroProdutoSKUManual({
     return (
         <div className="w-full max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
             <h2 className="text-2xl font-bold mb-6 text-gray-800">
-                📦 Cadastro de Produto
+                {produtoEditar ? '✏️ Editar Produto' : '📦 Cadastro de Produto'}
             </h2>
 
             {/* MENSAGENS */}
@@ -381,6 +437,14 @@ export default function CadastroProdutoSKUManual({
                     <h3 className="text-lg font-semibold text-gray-700 mb-4">
                         🔑 SKU STYLEME (Obrigatórios)
                     </h3>
+
+                    {/* Aviso de modo edição */}
+                    {produtoEditar && (
+                        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                            <span className="font-medium">📝 Modo Edição:</span> Você pode editar a maioria dos campos abaixo.
+                            Alguns campos (como Coleção) foram marcados com 🔒 pois são imutáveis.
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         {/* CATEGORIA */}
@@ -473,13 +537,15 @@ export default function CadastroProdutoSKUManual({
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Coleção <span className="text-red-600">*</span>
+                                {produtoEditar && <span className="ml-2 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">🔒 Não editável</span>}
                             </label>
                             <select
                                 value={dados.colecao}
                                 onChange={(e) =>
                                     atualizarCampo('colecao', e.target.value)
                                 }
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                disabled={!!produtoEditar}
+                                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${produtoEditar ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             >
                                 <option value="">Selecione...</option>
                                 <option value="S24">S24 - Spring 2024</option>
@@ -934,7 +1000,10 @@ export default function CadastroProdutoSKUManual({
                         disabled={enviando}
                         className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-3 px-6 rounded-lg transition-colors"
                     >
-                        {enviando ? '⏳ Criando...' : '✅ Criar Produto'}
+                        {enviando
+                            ? (produtoEditar ? '⏳ Atualizando...' : '⏳ Criando...')
+                            : (produtoEditar ? '✅ Atualizar Produto' : '✅ Criar Produto')
+                        }
                     </button>
 
                     {onCancelar && (

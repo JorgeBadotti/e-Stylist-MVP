@@ -15,7 +15,7 @@ export default function VendorLojaPage({ lojaId, onBack }: VendorLojaPageProps) 
   const [activeTab, setActiveTab] = useState<'produtos' | 'colecoes'>('produtos');
 
   if (selectedSku) {
-    return <ProdutoDetalhe sku={selectedSku} onBack={() => setSelectedSku(null)} />;
+    return <ProdutoDetalhe sku={selectedSku} onBack={() => setSelectedSku(null)} lojaId={lojaId} />;
   }
 
   if (selectedColecaoId) {
@@ -40,21 +40,19 @@ export default function VendorLojaPage({ lojaId, onBack }: VendorLojaPageProps) 
         <div className="flex gap-2 border-b border-gray-200">
           <button
             onClick={() => setActiveTab('produtos')}
-            className={`px-6 py-3 font-bold transition-all ${
-              activeTab === 'produtos'
+            className={`px-6 py-3 font-bold transition-all ${activeTab === 'produtos'
                 ? 'text-blue-600 border-b-4 border-blue-600'
                 : 'text-gray-600 hover:text-gray-900'
-            }`}
+              }`}
           >
             📦 Produtos
           </button>
           <button
             onClick={() => setActiveTab('colecoes')}
-            className={`px-6 py-3 font-bold transition-all ${
-              activeTab === 'colecoes'
+            className={`px-6 py-3 font-bold transition-all ${activeTab === 'colecoes'
                 ? 'text-blue-600 border-b-4 border-blue-600'
                 : 'text-gray-600 hover:text-gray-900'
-            }`}
+              }`}
           >
             📚 Coleções
           </button>
@@ -68,8 +66,8 @@ export default function VendorLojaPage({ lojaId, onBack }: VendorLojaPageProps) 
 
         {activeTab === 'colecoes' && (
           <div className="space-y-4">
-            <GerenciadorColecoes 
-              titulo="📚 Minhas Coleções" 
+            <GerenciadorColecoes
+              titulo="📚 Minhas Coleções"
               mostraBotaoCriar={true}
               onSelectColecao={setSelectedColecaoId}
             />

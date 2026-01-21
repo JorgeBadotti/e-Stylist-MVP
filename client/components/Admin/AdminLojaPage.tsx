@@ -44,7 +44,7 @@ export default function AdminLojaPage({ lojaId }: AdminLojaPageProps) {
   };
 
   if (selectedSku) {
-    return <ProdutoDetalhe sku={selectedSku} onBack={() => setSelectedSku(null)} />;
+    return <ProdutoDetalhe sku={selectedSku} onBack={() => setSelectedSku(null)} lojaId={lojaId} />;
   }
 
   if (selectedColecaoId) {
@@ -84,8 +84,8 @@ export default function AdminLojaPage({ lojaId }: AdminLojaPageProps) {
               setActiveTab('produtos');
             }}
             className={`px-6 py-3 font-bold transition-all ${activeTab === 'produtos'
-                ? 'text-blue-600 border-b-4 border-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
+              ? 'text-blue-600 border-b-4 border-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
               }`}
           >
             📦 Produtos
@@ -96,8 +96,8 @@ export default function AdminLojaPage({ lojaId }: AdminLojaPageProps) {
               setActiveTab('colecoes');
             }}
             className={`px-6 py-3 font-bold transition-all ${activeTab === 'colecoes'
-                ? 'text-blue-600 border-b-4 border-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
+              ? 'text-blue-600 border-b-4 border-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
               }`}
           >
             📚 Coleções

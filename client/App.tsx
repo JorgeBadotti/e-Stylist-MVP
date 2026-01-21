@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import HomePage from './components/HomePage';
 import PublicHomePage from './components/PublicHomePage';
@@ -12,6 +13,7 @@ import MinhasInvitacoes from './components/MinhasInvitacoes';
 import AdminLojaPage from './components/Admin/AdminLojaPage';
 import VendorLojasPage from './components/Vendor/VendorLojasPage';
 import VendorLojaPage from './components/Vendor/VendorLojaPage';
+import ProdutoDetalhe from './components/Loja/ProdutoDetalhe';
 import api from './src/services/api';
 import { UserContext, UserContextType } from './src/contexts/UserContext';
 
@@ -20,6 +22,43 @@ import { UserContext, UserContextType } from './src/contexts/UserContext';
 type PublicView = 'landing' | 'login' | 'register';
 
 type PrivateView = 'home' | 'wardrobes' | 'profile' | 'looks' | 'myLooks' | 'vendor-lojas' | 'vendor-loja' | 'admin-loja' | 'invitacoes';
+
+// Componente para página pública de produto
+const PublicProdutoPage: React.FC = () => {
+    const { sku } = useParams<{ sku: string }>();
+
+    if (!sku) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-red-600 text-lg">Produto não encontrado</div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-gray-100">
+            <Navbar
+                isAuthenticated={false}
+                user={null}
+                onLoginClick={() => window.location.href = '/'}
+                onLogoutClick={() => { }}
+                onLogoClick={() => window.location.href = '/'}
+                onProfileClick={() => { }}
+                onWardrobeClick={() => { }}
+                onLooksClick={() => { }}
+                onLojaClick={() => { }}
+                onMyLooksClick={() => { }}
+                onInvitacoesClick={() => { }}
+            />
+            <main className="p-4 sm:p-6 md:p-8">
+                <ProdutoDetalhe
+                    sku={sku}
+                    onBack={() => window.history.back()}
+                />
+            </main>
+        </div>
+    );
+};
 
 
 // 1. Definir a interface para os dados do usuário
@@ -33,6 +72,20 @@ interface UserData {
 }
 
 const App: React.FC = () => {
+    return (
+        <Router>
+            <Routes>
+                {/* Rota pública para visualizar produto por SKU */}
+                <Route path="/produtos/:sku" element={<PublicProdutoPage />} />
+
+                {/* Todas as outras rotas */}
+                <Route path="/*" element={<AppContent />} />
+            </Routes>
+        </Router>
+    );
+};
+
+const AppContent: React.FC = () => {
     // Estados Globais
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
     // 2. Estado para armazenar os dados do usuário
