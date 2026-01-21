@@ -24,7 +24,7 @@ type PublicView = 'landing' | 'login' | 'register';
 type PrivateView = 'home' | 'wardrobes' | 'profile' | 'looks' | 'myLooks' | 'vendor-lojas' | 'vendor-loja' | 'admin-loja' | 'invitacoes';
 
 // Componente para página pública de produto
-const PublicProdutoPage: React.FC = () => {
+const PublicProdutoPage: React.FC<{ isAuthenticated: boolean; user: UserData | null; onLogoutClick: () => void }> = ({ isAuthenticated, user, onLogoutClick }) => {
     const { sku } = useParams<{ sku: string }>();
 
     if (!sku) {
@@ -38,17 +38,17 @@ const PublicProdutoPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-gray-100">
             <Navbar
-                isAuthenticated={false}
-                user={null}
+                isAuthenticated={isAuthenticated} // ✅ NOVO: Mostrar estado real de autenticação
+                user={user} // ✅ NOVO: Mostrar dados do usuário se autenticado
                 onLoginClick={() => window.location.href = '/'}
-                onLogoutClick={() => { }}
+                onLogoutClick={onLogoutClick}
                 onLogoClick={() => window.location.href = '/'}
-                onProfileClick={() => { }}
-                onWardrobeClick={() => { }}
-                onLooksClick={() => { }}
-                onLojaClick={() => { }}
-                onMyLooksClick={() => { }}
-                onInvitacoesClick={() => { }}
+                onProfileClick={() => window.location.href = '/'}
+                onWardrobeClick={() => window.location.href = '/'}
+                onLooksClick={() => window.location.href = '/'}
+                onLojaClick={() => window.location.href = '/'}
+                onMyLooksClick={() => window.location.href = '/'}
+                onInvitacoesClick={() => window.location.href = '/'}
             />
             <main className="p-4 sm:p-6 md:p-8">
                 <ProdutoDetalhe
@@ -72,50 +72,34 @@ interface UserData {
 }
 
 const App: React.FC = () => {
-    return (
-        <Router>
-            <Routes>
-                {/* Rota pública para visualizar produto por SKU */}
-                <Route path="/produtos/:sku" element={<PublicProdutoPage />} />
-
-                {/* Todas as outras rotas */}
-                <Route path="/*" element={<AppContent />} />
-            </Routes>
-        </Router>
-    );
-};
-
-const AppContent: React.FC = () => {
-    // Estados Globais
-    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-    // 2. Estado para armazenar os dados do usuário
-    const [userData, setUserData] = useState<UserData | null>(null);
+    // Estados Globais (fora do Router para compartilhar entre rotas)
+    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+        const cached = localStorage.getItem('isAuthenticated');
+        return cached ? JSON.parse(cached) : false;
+    });
+    const [userData, setUserData] = useState<UserData | null>(() => {
+        const cached = localStorage.getItem('userData');
+        return cached ? JSON.parse(cached) : null;
+    });
     const [isLoading, setIsLoading] = useState<boolean>(true);
-    const [isRedirecting, setIsRedirecting] = useState<boolean>(false); // ✅ NOVO: Evita renderizar view pública durante redirecionamento
-    // Controle de navegação
-    const [publicView, setPublicView] = useState<PublicView>('landing');
-    // Novo estado para controlar a tela interna
-    const [privateView, setPrivateView] = useState<PrivateView>('home');
-    const [selectedSku, setSelectedSku] = useState<string | null>(null); // 1. Novo estado para o SKU
-    const [selectedLojaId, setSelectedLojaId] = useState<string | null>(null); // ✅ NOVO: Loja selecionada pelo vendedor
 
-    // Função centralizada para buscar a sessão e os dados do usuário
+    // Função centralizada para buscar a sessão
     const fetchUserSession = async () => {
         try {
             const response = await api.get('/auth/me');
-
             if (response.data.isAuthenticated) {
                 setIsAuthenticated(true);
-                // Salva os dados do usuário vindos do backend
                 setUserData(response.data.user);
+                localStorage.setItem('isAuthenticated', JSON.stringify(true));
+                localStorage.setItem('userData', JSON.stringify(response.data.user));
             } else {
                 setIsAuthenticated(false);
                 setUserData(null);
+                localStorage.removeItem('isAuthenticated');
+                localStorage.removeItem('userData');
             }
         } catch (error) {
             console.error("Sessão inválida ou erro de rede:", error);
-            setIsAuthenticated(false);
-            setUserData(null);
         } finally {
             setIsLoading(false);
         }
@@ -126,25 +110,103 @@ const AppContent: React.FC = () => {
         fetchUserSession();
     }, []);
 
-    // ✅ NOVO: UseEffect para monitorar mudanças de autenticação
+    // Sincronizar localStorage
     useEffect(() => {
-        if (isAuthenticated && !isLoading) {
-            // Quando autenticado, muda para view privada
-            setPublicView('landing'); // Isso evita que Landing seja renderizado quando autenticado
+        localStorage.setItem('isAuthenticated', JSON.stringify(isAuthenticated));
+    }, [isAuthenticated]);
+
+    useEffect(() => {
+        if (userData) {
+            localStorage.setItem('userData', JSON.stringify(userData));
+        } else {
+            localStorage.removeItem('userData');
         }
-    }, [isAuthenticated, isLoading]);
+    }, [userData]);
 
     const handleLogout = async () => {
         try {
             await api.post('/auth/logout');
             setIsAuthenticated(false);
             setUserData(null);
-            setPublicView('landing');
-            setPrivateView('home'); // Reseta a view privada
+            localStorage.removeItem('isAuthenticated');
+            localStorage.removeItem('userData');
         } catch (error) {
             console.error('Logout error:', error);
+            localStorage.removeItem('isAuthenticated');
+            localStorage.removeItem('userData');
         }
     };
+
+    return (
+        <Router>
+            <Routes>
+                {/* Rota pública para visualizar produto por SKU */}
+                <Route
+                    path="/produtos/:sku"
+                    element={
+                        <PublicProdutoPage
+                            isAuthenticated={isAuthenticated}
+                            user={userData}
+                            onLogoutClick={handleLogout}
+                        />
+                    }
+                />
+
+                {/* Todas as outras rotas */}
+                <Route
+                    path="/*"
+                    element={
+                        <AppContent
+                            isAuthenticated={isAuthenticated}
+                            setIsAuthenticated={setIsAuthenticated}
+                            userData={userData}
+                            setUserData={setUserData}
+                            isLoading={isLoading}
+                            setIsLoading={setIsLoading}
+                            handleLogout={handleLogout}
+                            fetchUserSession={fetchUserSession} // ✅ NOVO
+                        />
+                    }
+                />
+            </Routes>
+        </Router>
+    );
+};
+
+interface AppContentProps {
+    isAuthenticated: boolean;
+    setIsAuthenticated: (value: boolean) => void;
+    userData: UserData | null;
+    setUserData: (value: UserData | null) => void;
+    isLoading: boolean;
+    setIsLoading: (value: boolean) => void;
+    handleLogout: () => void;
+    fetchUserSession: () => Promise<void>; // ✅ NOVO
+}
+
+const AppContent: React.FC<AppContentProps> = ({
+    isAuthenticated,
+    setIsAuthenticated,
+    userData,
+    setUserData,
+    isLoading,
+    setIsLoading,
+    handleLogout,
+    fetchUserSession // ✅ NOVO
+}) => {
+    const [isRedirecting, setIsRedirecting] = useState<boolean>(false);
+    const [publicView, setPublicView] = useState<PublicView>('landing');
+    const [privateView, setPrivateView] = useState<PrivateView>('home');
+    const [selectedSku, setSelectedSku] = useState<string | null>(null);
+    const [selectedLojaId, setSelectedLojaId] = useState<string | null>(null);
+
+    // ✅ UseEffect para monitorar mudanças de autenticação
+    useEffect(() => {
+        if (isAuthenticated && !isLoading) {
+            // Quando autenticado, muda para view privada
+            setPublicView('landing');
+        }
+    }, [isAuthenticated, isLoading]);
 
     // Navegação Interna
 

@@ -1,20 +1,28 @@
 import dotenv from 'dotenv';
-import express from 'express';
-import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+
+// Calcula o caminho correto para o .env na raiz do projeto
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const envPath = path.resolve(__dirname, '..', '.env');
+
+// Carrega variáveis de ambiente PRIMEIRO, antes de qualquer outra importação
+dotenv.config({ path: envPath });
+
+
+import express from 'express';
+import cors from 'cors';
 import session from 'express-session';
-import passport from 'passport';
-
-// Importa a configuração do Passport (isso executa o código de configuração)
-import './config/passport.js';
-
+import MongoStore from 'connect-mongo';
+import passport from './config/passport.js';
 
 // Imports Locais
 import connectDB from './config/db.js';
 import { initGemini } from './services/gemini.js';
 import { configCloudinary } from './services/cloudinary.js';
+import { initPassport } from './config/passport.js';
 import { requestLogger, errorHandler } from './middlewares/logger.js';
 
 //Routers
@@ -27,16 +35,14 @@ import produtoRoutes from './routes/produtoRouter.js';
 import usuarioRoutes from './routes/usuarioRouter.js';
 import looksRoutes from './routes/looksRouter.js';
 
-
-dotenv.config();
-//Mongo Init
+// Mongo Init
 connectDB();
 initGemini();
 configCloudinary();
+initPassport(); // ✅ Agora inicializa APÓS o banco estar pronto
 
 const app = express();
 app.set('trust proxy', 1);
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Middlewares de terceiros
 app.use(express.json({ limit: '50mb' }));
@@ -48,6 +54,11 @@ app.use(session({
     secret: process.env.SESSION_SECRET || 'super_secret_key',
     resave: false,
     saveUninitialized: false,
+    store: new MongoStore({
+        mongoUrl: process.env.MONGODB_URI,
+        collectionName: 'sessions',
+        touchAfter: 24 * 3600 // Lazy session update (em segundos)
+    }),
     cookie: {
         secure: process.env.NODE_ENV === 'production', // Em produção, use true com HTTPS
         httpOnly: true,

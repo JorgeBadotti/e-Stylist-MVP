@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface LookItem {
     id?: string;
@@ -38,6 +38,31 @@ const ViewLook: React.FC<ViewLookProps> = ({
 }) => {
     // Estado para controlar a visibilidade dos detalhes (UX: permitir ver a foto limpa)
     const [showDetails, setShowDetails] = useState(true);
+
+    // 🔍 LOG DEBUG: Verificar os itens e SKUs
+    useEffect(() => {
+        console.log('===== VIEWLOOK DEBUG =====');
+        console.log('Total de itens:', lookItems.length);
+        console.log('Itens completos:', lookItems);
+        lookItems.forEach((item, idx) => {
+            console.log(`Item ${idx}:`, {
+                nome: item.nome,
+                sku: item.sku,
+                skuStyleMe: item.skuStyleMe,
+                id: item.id,
+                categoria: item.categoria,
+                temSKU: !!item.sku,
+                temSkuStyleMe: !!item.skuStyleMe
+            });
+        });
+        console.log('========================');
+    }, [lookItems]);
+
+    // 🔗 Gerar URL dinâmica para o produto baseado na URL atual
+    const getProductUrl = (skuStyleMe?: string) => {
+        if (!skuStyleMe) return '#';
+        return `${window.location.origin}/produtos/${skuStyleMe}`;
+    };
 
     return (
         <div className="relative w-full h-screen overflow-hidden bg-slate-950">
@@ -128,11 +153,19 @@ const ViewLook: React.FC<ViewLookProps> = ({
                                     {/* Lista vertical com detalhes */}
                                     <div className="space-y-2 max-h-48 overflow-y-auto">
                                         {lookItems.map((item, idx) => (
-                                            <div
+                                            <a
                                                 key={idx}
-                                                className={`group relative flex items-center gap-3 p-3 rounded-lg border transition-all ${item._deletado
-                                                        ? 'bg-red-500/5 border-red-500/20 opacity-60'
-                                                        : 'bg-white/5 border-white/10 hover:border-purple-500/50 hover:bg-white/10'
+                                                href={getProductUrl(item.skuStyleMe)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(e) => {
+                                                    if (!item.skuStyleMe) e.preventDefault();
+                                                }}
+                                                className={`group relative flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${item._deletado
+                                                    ? 'bg-red-500/5 border-red-500/20 opacity-60 cursor-not-allowed'
+                                                    : item.skuStyleMe
+                                                        ? 'bg-white/5 border-white/10 hover:border-purple-500/50 hover:bg-white/10 hover:shadow-lg hover:shadow-purple-500/20'
+                                                        : 'bg-white/5 border-white/10'
                                                     }`}
                                             >
                                                 {/* Miniatura */}
@@ -191,14 +224,20 @@ const ViewLook: React.FC<ViewLookProps> = ({
                                                 </div>
 
                                                 {/* Badge de SKU no hover */}
-                                                {item.sku && (
+                                                {item.skuStyleMe ? (
                                                     <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <span className="text-xs text-gray-500 font-mono bg-white/5 px-2 py-1 rounded border border-white/10">
-                                                            {item.sku}
+                                                        <span className="text-xs text-green-400 font-mono bg-white/5 px-2 py-1 rounded border border-green-500/30 bg-green-500/10">
+                                                            ✓ {item.skuStyleMe}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <span className="text-xs text-yellow-400 font-mono bg-white/5 px-2 py-1 rounded border border-yellow-500/30 bg-yellow-500/10">
+                                                            ⚠ Sem SKU
                                                         </span>
                                                     </div>
                                                 )}
-                                            </div>
+                                            </a>
                                         ))}
                                     </div>
                                 </div>
