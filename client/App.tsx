@@ -10,6 +10,7 @@ import ProfilePage from './components/ProfilePage';
 import LooksPage from './components/LooksPage';
 import MyLooksPage from './components/MyLooksPage';
 import MinhasInvitacoes from './components/MinhasInvitacoes';
+import CarrinhoPage from './components/CarrinhoPage';
 import AdminLojaPage from './components/Admin/AdminLojaPage';
 import VendorLojasPage from './components/Vendor/VendorLojasPage';
 import VendorLojaPage from './components/Vendor/VendorLojaPage';
@@ -21,7 +22,7 @@ import { UserContext, UserContextType } from './src/contexts/UserContext';
 // Tipos para as telas de quem NÃO está logado
 type PublicView = 'landing' | 'login' | 'register';
 
-type PrivateView = 'home' | 'wardrobes' | 'profile' | 'looks' | 'myLooks' | 'vendor-lojas' | 'vendor-loja' | 'admin-loja' | 'invitacoes';
+type PrivateView = 'home' | 'wardrobes' | 'profile' | 'looks' | 'myLooks' | 'vendor-lojas' | 'vendor-loja' | 'admin-loja' | 'invitacoes' | 'carrinho';
 
 // Componente para página pública de produto
 const PublicProdutoPage: React.FC<{ isAuthenticated: boolean; user: UserData | null; onLogoutClick: () => void }> = ({ isAuthenticated, user, onLogoutClick }) => {
@@ -49,6 +50,7 @@ const PublicProdutoPage: React.FC<{ isAuthenticated: boolean; user: UserData | n
                 onLojaClick={() => window.location.href = '/'}
                 onMyLooksClick={() => window.location.href = '/'}
                 onInvitacoesClick={() => window.location.href = '/'}
+                onCarrinhoClick={() => window.location.href = '/'}
             />
             <main className="p-4 sm:p-6 md:p-8">
                 <ProdutoDetalhe
@@ -224,6 +226,7 @@ const AppContent: React.FC<AppContentProps> = ({
         setSelectedSku(null);
     };
     const handleInvitacoesClick = () => { setPrivateView('invitacoes'); setSelectedSku(null); };
+    const handleCarrinhoClick = () => { setPrivateView('carrinho'); setSelectedSku(null); };
 
     // 2. Funções para selecionar produto e voltar
     const handleProdutoSelect = (sku: string) => {
@@ -287,6 +290,7 @@ const AppContent: React.FC<AppContentProps> = ({
                         onLojaClick={handleLojaClick}
                         onLogoClick={handleLogoClick}
                         onMyLooksClick={handleMyLooksClick}
+                        onCarrinhoClick={handleCarrinhoClick}
                         onInvitacoesClick={handleInvitacoesClick}
                     />
                     <main className="p-4 sm:p-6 md:p-8">
@@ -314,6 +318,11 @@ const AppContent: React.FC<AppContentProps> = ({
 
                         {privateView === 'myLooks' && (
                             <MyLooksPage />
+                        )}
+
+                        {/* ✅ Página do Carrinho */}
+                        {privateView === 'carrinho' && (
+                            <CarrinhoPage />
                         )}
                     </main>
                 </div>

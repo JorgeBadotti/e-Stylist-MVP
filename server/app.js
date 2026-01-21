@@ -34,6 +34,7 @@ import guardaRoupaRoutes from './routes/guardaRoupaRouter.js'
 import produtoRoutes from './routes/produtoRouter.js';
 import usuarioRoutes from './routes/usuarioRouter.js';
 import looksRoutes from './routes/looksRouter.js';
+import carrinhoRoutes from './routes/carrinhoRouter.js'; // ✅ NOVO: Rota de carrinho
 
 // Mongo Init
 connectDB();
@@ -85,6 +86,7 @@ app.use('/api/produtos', produtoRoutes);
 app.use('/api/usuario', usuarioRoutes);
 app.use('/api/looks', looksRoutes);
 app.use('/api/convites', conviteRoutes);
+app.use('/api/carrinhos', carrinhoRoutes); // ✅ NOVO: Rota de carrinho
 
 // ⭐ ARQUIVOS ESTÁTICOS E SPA ROUTING DEPOIS DAS APIS
 app.use(express.static(path.join(__dirname, '..', 'dist')));
