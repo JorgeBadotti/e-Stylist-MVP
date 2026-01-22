@@ -15,7 +15,8 @@ import AdminLojaPage from './components/Admin/AdminLojaPage';
 import VendorLojasPage from './components/Vendor/VendorLojasPage';
 import VendorLojaPage from './components/Vendor/VendorLojaPage';
 import ProdutoDetalhe from './components/Loja/ProdutoDetalhe';
-import api from './src/services/api';
+import api, { API_BASE_URL } from './src/services/api';
+import { getSessionId, storeSessionId } from './src/services/sessionService';
 import { UserContext, UserContextType } from './src/contexts/UserContext';
 
 
@@ -88,6 +89,20 @@ const App: React.FC = () => {
     // Função centralizada para buscar a sessão
     const fetchUserSession = async () => {
         try {
+            // ✅ NOVO: Garantir que tem sessionId antes de fazer requisições
+            // Se não tem, fazer uma requisição vazia para obter um
+            const sessionId = getSessionId();
+            if (!sessionId) {
+                console.log('📍 [App] Nenhum sessionId, obtendo um novo do servidor...');
+                try {
+                    // Requisição simples para obter sessionId
+                    await api.head(`${API_BASE_URL}/auth/me`);
+                } catch (e) {
+                    // É esperado falhar (visitante anônimo), mas o sessionId foi capturado no interceptor
+                    console.log('📍 [App] SessionId obtido do servidor');
+                }
+            }
+
             const response = await api.get('/auth/me');
             if (response.data.isAuthenticated) {
                 setIsAuthenticated(true);

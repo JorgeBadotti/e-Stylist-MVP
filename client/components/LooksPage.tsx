@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../src/services/api';
 import ViewLook from './ViewLook';
+import GuestBodyCaptureScreen from './GuestBodyCaptureScreen';
+import { DetectedMeasurements } from '../types';
 
 interface Wardrobe {
     _id: string;
@@ -51,6 +53,8 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
     const [lojas, setLojas] = useState<any[]>([]); // ✅ NOVO: Lista de lojas
     const [selectedLoja, setSelectedLoja] = useState<string>(''); // ✅ NOVO: Loja selecionada
     const [sessionId, setSessionId] = useState<string | null>(null); // ✅ NOVO: Session ID
+    const [guestMeasurements, setGuestMeasurements] = useState<DetectedMeasurements | null>(null); // ✅ NOVO: Medidas do visitante
+    const [guestPhoto, setGuestPhoto] = useState<string | null>(null); // ✅ NOVO: Foto do visitante em base64
 
     // ✅ NOVO: Detectar parâmetro itemObrigatorio na URL
     useEffect(() => {
@@ -134,10 +138,18 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
 
                 // 2. Gerar looks com sessionId
                 console.log(`[LookSession] Gerando looks com sessionId: ${newSessionId}`);
-                const response = await api.post('/api/looks/gerar', {
+                const payload: any = {
                     sessionId: newSessionId,
                     prompt: occasion || "Look casual para o dia a dia"
-                });
+                };
+
+                // ✅ NOVO: Se visitante, enviar medidas
+                if (guestMeasurements) {
+                    payload.guestMeasurements = guestMeasurements;
+                    console.log(`[LookSession] Medidas do visitante adicionadas ao payload`);
+                }
+
+                const response = await api.post('/api/looks/gerar', payload);
 
                 setLooks(response.data.looks);
                 setStep('results');
@@ -180,18 +192,30 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
         setStep('visualizing');
 
         try {
-            // 1. Salvar a escolha no banco de dados
-            const saveResponse = await api.post('/api/looks/salvar', {
+            let savedLookId = selectedLook.look_id;
+
+            // 1. Salvar a escolha no banco de dados (mesmo para visitantes)
+            const savePayload: any = {
                 selectedLookId: selectedLook.look_id,
                 allLooks: looks
-            });
+            };
+
+            // ✅ NOVO: Se visitante com sessionId, enviar junto
+            if (sessionId) {
+                savePayload.sessionId = sessionId;
+                console.log(`[LookSession] Salvando com sessionId: ${sessionId}`);
+            }
+
+            const saveResponse = await api.post('/api/looks/salvar', savePayload);
+            savedLookId = saveResponse.data.savedLookId || selectedLook.look_id;
 
             // 2. Gerar a visualização do look
             const visualizeResponse = await api.post('/api/looks/visualizar', {
                 lookData: {
                     ...selectedLook,
-                    _id: saveResponse.data.savedLookId || selectedLook.look_id
-                }
+                    _id: savedLookId
+                },
+                guestPhoto: guestPhoto || undefined
             });
 
             // 3. Salvar a imagem gerada no estado
@@ -199,6 +223,7 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
             setSelectedLookName(selectedLook.name);
             setSelectedLookExplanation(selectedLook.explanation);
             setSelectedLookItems(selectedLook.items); // ← Guardar os items
+
             setSuccessMsg(`✨ Sua visualização foi criada! ${selectedLook.name} ficou sensacional!`);
 
             // 4. Mudar para o step 'visualized' para mostrar a imagem permanentemente
@@ -226,21 +251,34 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
     };
 
     // ✅ VERIFICAR se tem foto de referência ANTES de renderizar
-    if (hasBodyPhoto === false) {
+    if (hasBodyPhoto === false && !guestMeasurements) {
+        // Se não tem foto e não capturou medidas de visitante, mostrar capturas
         return (
-            <div className="max-w-4xl mx-auto p-8 text-center mt-10 bg-white rounded-lg shadow-sm">
-                <div className="text-yellow-500 mb-4 text-6xl">⚠️</div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">Perfil Incompleto</h2>
-                <p className="text-gray-600 mb-6">
-                    Para que a IA possa gerar looks que valorizem seu corpo, precisamos da sua foto de corpo inteiro e suas medidas.
-                </p>
-                <button
-                    onClick={onNavigateToProfile}
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition"
-                >
-                    Completar Meu Perfil Agora
-                </button>
-            </div>
+            <GuestBodyCaptureScreen
+                onMeasurementsCaptured={async (measurements, photo) => {
+                    console.log('[LooksPage] Medidas de visitante capturadas:', measurements);
+
+                    // Salvar foto e medidas no BD
+                    try {
+                        await api.put('/api/usuario/medidas', {
+                            foto_corpo: photo,
+                            medidas: {
+                                altura: measurements.height_cm,
+                                busto: measurements.chest_cm,
+                                cintura: measurements.waist_cm,
+                                quadril: measurements.hips_cm
+                            }
+                        });
+                        console.log('[LooksPage] Foto e medidas salvas no BD');
+                    } catch (err) {
+                        console.error('[LooksPage] Erro ao salvar foto/medidas:', err);
+                    }
+
+                    setGuestMeasurements(measurements);
+                    setGuestPhoto(photo);
+                    setHasBodyPhoto(true); // Permitir continuar
+                }}
+            />
         );
     }
 

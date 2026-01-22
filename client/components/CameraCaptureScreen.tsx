@@ -9,257 +9,364 @@ interface CameraCaptureScreenProps {
   onClose: () => void;
 }
 
-type CameraStep = 'onboarding' | 'capture' | 'countdown' | 'preview' | 'processing' | 'results';
+type CameraStep = 'onboarding' | 'camera' | 'preview' | 'processing' | 'done';
 
 const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMeasurementsCaptured, onClose }) => {
-  const [currentStep, setCurrentStep] = useState<CameraStep>('onboarding');
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [photoTaken, setPhotoTaken] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState<number>(3);
+  const [step, setStep] = useState<CameraStep>('onboarding');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [photoData, setPhotoData] = useState<string | null>(null);
   const [detectedMeasurements, setDetectedMeasurements] = useState<DetectedMeasurements | null>(null);
-  const [processingLoading, setProcessingLoading] = useState<boolean>(false);
+  const [processing, setProcessing] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const countdownIntervalRef = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  // ✅ Iniciar câmera - VERSÃO CORRIGIDA
+  // Usar useRef para armazenar a função para evitar ciclos infinitos
+  const initializeStreamRef = useRef<((videoElement: HTMLVideoElement) => void) | null>(null);
 
   const startCamera = useCallback(async () => {
+    console.log('[Camera] ✅ startCamera chamado - mudando para step "camera"');
+    setCameraError(null);
     setErrorMessage(null);
+
+    // PRIMEIRO: Mudar para 'camera' para renderizar o elemento de vídeo
+    setStep('camera');
+
+    // DEPOIS: Aguardar um pouco para garantir que o elemento foi renderizado
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // AGORA tentar acessar o videoRef
+    if (!videoRef.current) {
+      console.error('[Camera] ❌ videoRef.current ainda está NULL após renderização!');
+      setCameraError('Erro: elemento de vídeo não disponível. Tente novamente.');
+      setStep('onboarding');
+      return;
+    }
+
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
-      setStream(mediaStream);
+      console.log('[Camera] ✅ Solicitando acesso à câmera...');
+      const constraints = {
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        },
+        audio: false
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('[Camera] Stream obtido:', stream);
+
+      streamRef.current = stream;
+
+      // Agora sim, atribuir o stream ao video element
       if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        videoRef.current.play();
+        videoRef.current.srcObject = stream;
+        console.log('[Camera] ✅ Stream atribuído ao video element');
+
+        // Aguardar o vídeo carregar
+        videoRef.current.onloadedmetadata = () => {
+          console.log('[Camera] ✅ Vídeo carregado, começando a reproduzir');
+          console.log('[Camera] Dimensões:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
+          videoRef.current?.play().catch(err => {
+            console.error('[Camera] Erro ao fazer play:', err);
+            setCameraError('Erro ao iniciar reprodução do vídeo');
+          });
+        };
+
+        videoRef.current.onerror = (err) => {
+          console.error('[Camera] Erro no video element:', err);
+          setCameraError('Erro no video element');
+        };
+      } else {
+        console.error('[Camera] ❌ videoRef.current desapareceu após mudança de step!');
+        setCameraError('Erro interno: referência de vídeo não disponível');
       }
-      setCurrentStep('capture');
-    } catch (err) {
-      console.error('Error accessing camera:', err);
-      setErrorMessage('Não foi possível acessar a câmera. Verifique as permissões.');
-      setCurrentStep('onboarding'); // Volta para onboarding ou exibe erro permanente
+    } catch (err: any) {
+      console.error('[Camera] Erro ao acessar câmera:', err);
+      const errorMsg = err.name === 'NotAllowedError'
+        ? 'Permissão de câmera negada. Verifique as configurações do navegador.'
+        : err.name === 'NotFoundError'
+          ? 'Nenhuma câmera encontrada no dispositivo.'
+          : 'Erro ao acessar a câmera: ' + err.message;
+      setCameraError(errorMsg);
+      setErrorMessage(errorMsg);
+      setStep('onboarding');
     }
   }, []);
 
+  // ✅ Parar câmera
   const stopCamera = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        console.log('[Camera] Parando track:', track.kind);
+        track.stop();
+      });
+      streamRef.current = null;
     }
-  }, [stream]);
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }, []);
 
-  const takePhoto = useCallback(() => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const context = canvas.getContext('2d');
-      if (context) {
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/png');
-        setPhotoTaken(dataUrl);
-        stopCamera();
-        setCurrentStep('preview');
-      }
+  // ✅ Capturar foto
+  const capturePhoto = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) {
+      setErrorMessage('Erro interno: referência de vídeo ou canvas não disponível');
+      return;
     }
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    console.log('[Camera] Capturando foto - video dimensions:', video.videoWidth, 'x', video.videoHeight);
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      setErrorMessage('Erro ao obter contexto do canvas');
+      return;
+    }
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const base64 = canvas.toDataURL('image/jpeg', 0.9);
+
+    console.log('[Camera] Foto capturada, tamanho:', base64.length);
+
+    setPhotoData(base64);
+    stopCamera();
+    setStep('preview');
   }, [stopCamera]);
 
+  // ✅ Iniciar countdown
   const startCountdown = useCallback(() => {
-    setCurrentStep('countdown');
     setCountdown(3);
-    countdownIntervalRef.current = window.setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-          takePhoto();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, [takePhoto]);
+    let count = 3;
 
-  const simulateCVApi = useCallback(async (photoBase64: string): Promise<DetectedMeasurements> => {
-    setProcessingLoading(true);
-    // Simula uma chamada de API de visão computacional
-    await new Promise(resolve => setTimeout(resolve, 3000)); // Simula delay de rede
-
-    // Lógica de simulação de confiança e medidas (pode ser ajustada)
-    const randomConfidence = Math.random(); // Gera um valor de confiança aleatório
-    if (randomConfidence < 0.8) {
-      // Baixa confiança, forçar retake
-      setProcessingLoading(false);
-      setErrorMessage('Não conseguimos uma boa leitura. Por favor, tente novamente ajustando a postura.');
-      throw new Error('Low confidence');
-    }
-
-    // Simula medidas baseadas em um perfil de exemplo e ajustadas aleatoriamente
-    const baseMeasures = profile.body_measurements || { chest_cm: 90, waist_cm: 70, hips_cm: 95, height_cm: 160 };
-    const adjust = (val: number) => Math.round(val + (Math.random() - 0.5) * 5); // Pequena variação
-
-    const detected: DetectedMeasurements = {
-      chest_cm: adjust(baseMeasures.chest_cm!),
-      waist_cm: adjust(baseMeasures.waist_cm!),
-      hips_cm: adjust(baseMeasures.hips_cm!),
-      height_cm: adjust(baseMeasures.height_cm!),
-      confidence: randomConfidence,
-    };
-    setProcessingLoading(false);
-    return detected;
-  }, [profile]);
-
-  const handleConfirmPhoto = useCallback(async () => {
-    if (!photoTaken) return;
-    setCurrentStep('processing');
-    setErrorMessage(null);
-    try {
-      const measures = await simulateCVApi(photoTaken);
-      setDetectedMeasurements(measures);
-      setCurrentStep('results');
-      onMeasurementsCaptured(measures, photoTaken); // Chama o callback para atualizar o App.tsx
-    } catch (err: any) {
-      if (err.message === 'Low confidence') {
-        // Já tratado dentro de simulateCVApi, volta para o capture
-        setCurrentStep('capture');
-      } else {
-        console.error('Erro no processamento da foto:', err);
-        setErrorMessage(`Falha ao processar a foto: ${err.message || 'Erro desconhecido'}.`);
-        setCurrentStep('capture'); // Ou um step de erro dedicado
+    countdownRef.current = setInterval(() => {
+      count--;
+      setCountdown(count);
+      if (count <= 0) {
+        if (countdownRef.current) clearInterval(countdownRef.current);
+        capturePhoto();
       }
-    }
-  }, [photoTaken, simulateCVApi, onMeasurementsCaptured]);
+    }, 1000);
+  }, [capturePhoto]);
 
-  const handleRetakePhoto = useCallback(() => {
-    setPhotoTaken(null);
-    setDetectedMeasurements(null);
+  // ✅ Processar foto (simular IA)
+  const processPhoto = useCallback(async () => {
+    if (!photoData) return;
+
+    setProcessing(true);
     setErrorMessage(null);
-    startCamera(); // Reinicia a câmera
+
+    try {
+      console.log('[Camera] Processando foto com IA...');
+
+      // Simula processamento com visão computacional
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Gera medidas simuladas
+      const measurements: DetectedMeasurements = {
+        chest_cm: Math.round(85 + Math.random() * 20),
+        waist_cm: Math.round(65 + Math.random() * 20),
+        hips_cm: Math.round(90 + Math.random() * 20),
+        height_cm: Math.round(160 + Math.random() * 15),
+        confidence: 0.85 + Math.random() * 0.15
+      };
+
+      console.log('[Camera] Medidas detectadas:', measurements);
+
+      setDetectedMeasurements(measurements);
+      onMeasurementsCaptured(measurements, photoData);
+      setStep('done');
+    } catch (err: any) {
+      console.error('[Camera] Erro ao processar:', err);
+      setErrorMessage('Erro ao processar a foto: ' + err.message);
+      setStep('preview');
+    } finally {
+      setProcessing(false);
+    }
+  }, [photoData, onMeasurementsCaptured]);
+
+  // ✅ Retry foto
+  const retakePhoto = useCallback(() => {
+    setPhotoData(null);
+    setDetectedMeasurements(null);
+    setCountdown(null);
+    startCamera();
   }, [startCamera]);
 
+  // ✅ Cleanup
   useEffect(() => {
-    // Limpar o stream da câmera ao desmontar o componente
     return () => {
       stopCamera();
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
     };
   }, [stopCamera]);
 
-  // Renderização condicional dos passos
-  const renderContent = () => {
-    switch (currentStep) {
-      case 'onboarding':
-        return (
-          <div className="flex flex-col items-center p-6 text-center">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Prepare-se para Capturar Suas Medidas!</h2>
-            <p className="text-gray-700 mb-4">Para as medições mais precisas, siga este guia:</p>
-            <ul className="text-left text-gray-700 list-disc list-inside space-y-2 mb-6">
-              <li><span className="font-semibold">Iluminação é tudo:</span> Escolha um local bem iluminado, sem sombras fortes.</li>
-              <li><span className="font-semibold">Fundo Neutro:</span> Use uma parede de cor única, sem muitos objetos.</li>
-              <li><span className="font-semibold">Corpo Inteiro:</span> Garanta que você apareça da cabeça aos pés.</li>
-              <li><span className="font-semibold">Postura Natural:</span> Costas retas, braços levemente afastados, pés juntos.</li>
-              <li><span className="font-semibold">Ângulo do Peito:</span> O celular deve estar na altura do seu peito, paralelo ao chão.</li>
-              <li><span className="font-semibold">Roupas Ajustadas:</span> Use roupas que fiquem próximas ao corpo (legging, camiseta).</li>
-            </ul>
-            <Button onClick={startCamera} className="w-full">
-              Entendi, vamos lá!
-            </Button>
-            <Button onClick={onClose} className="mt-2 w-full bg-gray-300 hover:bg-gray-400 text-gray-800">
-              Cancelar
-            </Button>
-          </div>
-        );
-
-      case 'capture':
-        return (
-          <div className="relative w-full h-full flex items-center justify-center bg-black">
-            <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted></video>
-            <div className="absolute inset-0 border-4 border-blue-500 border-dashed flex items-center justify-center p-4">
-              <span className="text-white text-lg font-semibold text-center drop-shadow">
-                Posicione seu corpo dentro do contorno.
-              </span>
-            </div>
-            <Button onClick={startCountdown} className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-green-500 hover:bg-green-600">
-              Capturar Foto
-            </Button>
-            <canvas ref={canvasRef} style={{ display: 'none' }}></canvas>
-          </div>
-        );
-
-      case 'countdown':
-        return (
-          <div className="relative w-full h-full flex items-center justify-center bg-black">
-            <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted></video>
-            <div className="absolute inset-0 border-4 border-blue-500 border-dashed flex items-center justify-center">
-              <span className="text-white text-8xl font-bold drop-shadow-lg animate-pulse">{countdown}</span>
-            </div>
-          </div>
-        );
-
-      case 'preview':
-        return (
-          <div className="flex flex-col items-center p-6 text-center">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Sua foto ficou ótima?</h2>
-            {photoTaken && (
-              <img src={photoTaken} alt="Preview da foto" className="max-w-full h-64 object-contain mb-4 rounded-lg shadow-md" />
-            )}
-            {errorMessage && <Alert type="error" message={errorMessage} className="mb-4 w-full" />}
-            <Button onClick={handleConfirmPhoto} disabled={processingLoading} className="w-full">
-              {processingLoading ? 'Processando...' : 'Sim, usar esta foto!'}
-            </Button>
-            <Button onClick={handleRetakePhoto} disabled={processingLoading} className="mt-2 w-full bg-gray-300 hover:bg-gray-400 text-gray-800">
-              Tentar de novo
-            </Button>
-          </div>
-        );
-
-      case 'processing':
-        return (
-          <div className="flex flex-col items-center p-6 text-center h-full justify-center">
-            <svg className="animate-spin h-10 w-10 text-blue-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p className="text-lg font-semibold text-gray-700">Analisando suas medidas com inteligência...</p>
-          </div>
-        );
-
-      case 'results':
-        return (
-          <div className="flex flex-col items-center p-6 text-center">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Medidas Detectadas!</h2>
-            {detectedMeasurements && (
-              <div className="bg-blue-50 p-4 rounded-lg text-left w-full max-w-sm mb-4">
-                <p><strong>Busto:</strong> {detectedMeasurements.chest_cm} cm</p>
-                <p><strong>Cintura:</strong> {detectedMeasurements.waist_cm} cm</p>
-                <p><strong>Quadril:</strong> {detectedMeasurements.hips_cm} cm</p>
-                <p><strong>Altura:</strong> {detectedMeasurements.height_cm} cm</p>
-                <p className="text-sm text-gray-600 mt-2">
-                  <span className="font-semibold">Confiança:</span> {(detectedMeasurements.confidence * 100).toFixed(0)}%
-                </p>
-              </div>
-            )}
-            <p className="text-gray-700 mb-4">Suas novas medidas foram salvas no perfil.</p>
-            <Button onClick={onClose} className="w-full">
-              Concluir
-            </Button>
-            <Button onClick={handleRetakePhoto} className="mt-2 w-full bg-gray-300 hover:bg-gray-400 text-gray-800">
-              Tirar outra foto
-            </Button>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
-
   return (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-90 flex items-center justify-center p-4 z-50 overflow-auto">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl h-[90vh] flex flex-col relative overflow-hidden">
-        {errorMessage && <Alert type="error" message={errorMessage} className="absolute top-4 left-1/2 -translate-x-1/2 z-10 w-11/12" />}
-        {renderContent()}
-      </div>
+    <div className="w-full h-full bg-black flex flex-col">
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+      {/* ONBOARDING */}
+      {step === 'onboarding' && (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white">
+          <h2 className="text-3xl font-bold mb-6 text-gray-900">Capture Seu Corpo</h2>
+          <div className="max-w-md space-y-4 mb-8">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-sm text-gray-700"><strong>✓ Boa iluminação</strong> - Local bem iluminado</p>
+            </div>
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-sm text-gray-700"><strong>✓ Corpo inteiro</strong> - Apareça da cabeça aos pés</p>
+            </div>
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-sm text-gray-700"><strong>✓ Roupa colada</strong> - Destaque seu corpo</p>
+            </div>
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-sm text-gray-700"><strong>✓ Postura reta</strong> - Costas retas, braços afastados</p>
+            </div>
+          </div>
+          <button
+            onClick={startCamera}
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition mb-3"
+          >
+            Abrir Câmera
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full bg-gray-300 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-400 transition"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
+      {/* CAMERA */}
+      {step === 'camera' && (
+        <div className="flex-1 flex flex-col relative">
+          {cameraError && (
+            <div className="absolute top-4 left-4 right-4 bg-red-100 border border-red-400 text-red-700 p-4 rounded z-10">
+              {cameraError}
+            </div>
+          )}
+
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+            style={{ transform: 'scaleX(-1)' }}
+          />
+
+          <div className="absolute inset-0 border-4 border-dashed border-blue-400 flex items-center justify-center">
+            <div className="bg-black bg-opacity-50 text-white text-center p-4 rounded-lg">
+              <p className="text-lg font-semibold">Posicione seu corpo dentro do quadro</p>
+            </div>
+          </div>
+
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4">
+            {countdown !== null ? (
+              <div className="text-white text-6xl font-bold drop-shadow-lg">{countdown}</div>
+            ) : (
+              <>
+                <button
+                  onClick={startCountdown}
+                  className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-full font-bold text-lg transition shadow-lg"
+                >
+                  Capturar
+                </button>
+                <button
+                  onClick={onClose}
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-8 py-3 rounded-full font-bold text-lg transition shadow-lg"
+                >
+                  Cancelar
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* PREVIEW */}
+      {step === 'preview' && photoData && (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white">
+          <h2 className="text-2xl font-bold mb-6 text-gray-900">Sua Foto</h2>
+          <img
+            src={photoData}
+            alt="Foto capturada"
+            className="max-w-full max-h-96 object-contain mb-8 rounded-lg border-4 border-blue-200"
+          />
+          {errorMessage && (
+            <div className="w-full max-w-md mb-4 bg-red-100 border border-red-400 text-red-700 p-4 rounded">
+              {errorMessage}
+            </div>
+          )}
+          <button
+            onClick={processPhoto}
+            disabled={processing}
+            className="w-full max-w-sm bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition disabled:opacity-50 mb-3"
+          >
+            {processing ? 'Processando...' : 'Usar Esta Foto'}
+          </button>
+          <button
+            onClick={retakePhoto}
+            disabled={processing}
+            className="w-full max-w-sm bg-gray-300 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-400 transition disabled:opacity-50"
+          >
+            Tirar Outra Foto
+          </button>
+        </div>
+      )}
+
+      {/* PROCESSING */}
+      {step === 'processing' && (
+        <div className="flex-1 flex flex-col items-center justify-center bg-white">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 mb-6"></div>
+          <p className="text-xl font-semibold text-gray-800">Analisando suas medidas...</p>
+        </div>
+      )}
+
+      {/* DONE */}
+      {step === 'done' && detectedMeasurements && (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white">
+          <h2 className="text-3xl font-bold mb-4 text-gray-900">✅ Sucesso!</h2>
+          <p className="text-gray-600 mb-8">Suas medidas foram detectadas</p>
+
+          <div className="w-full max-w-md grid grid-cols-2 gap-4 mb-8">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-xs text-gray-600">Busto</p>
+              <p className="text-2xl font-bold text-blue-600">{detectedMeasurements.chest_cm}cm</p>
+            </div>
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-xs text-gray-600">Cintura</p>
+              <p className="text-2xl font-bold text-blue-600">{detectedMeasurements.waist_cm}cm</p>
+            </div>
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-xs text-gray-600">Quadril</p>
+              <p className="text-2xl font-bold text-blue-600">{detectedMeasurements.hips_cm}cm</p>
+            </div>
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-xs text-gray-600">Altura</p>
+              <p className="text-2xl font-bold text-blue-600">{detectedMeasurements.height_cm}cm</p>
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="w-full max-w-sm bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition"
+          >
+            Continuar
+          </button>
+        </div>
+      )}
     </div>
   );
 };

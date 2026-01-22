@@ -1,4 +1,5 @@
 import Usuario from '../models/UsuarioModel.js';
+import { uploadImage } from '../services/cloudinary.js';
 
 // Atualizar dados do perfil (Nome, Medidas, Fotos e Estilo)
 export const updateBodyData = async (req, res) => {
@@ -13,7 +14,7 @@ export const updateBodyData = async (req, res) => {
             altura_cm,                 // ✅ NOVO: Altura em cm
             tipo_corpo,
             estilo_pessoal,
-            foto_corpo,
+            foto_corpo,                // ✅ Pode ser base64 ou URL já
             medidas,                   // ✅ NOVO: Objeto completo com 18 campos
             proporcoes                 // ✅ NOVO: Objeto com proporções
         } = req.body;
@@ -28,7 +29,31 @@ export const updateBodyData = async (req, res) => {
         if (altura_cm) updateData.altura_cm = altura_cm;
         if (tipo_corpo) updateData.tipo_corpo = tipo_corpo;
         if (estilo_pessoal) updateData.estilo_pessoal = estilo_pessoal;
-        if (foto_corpo) updateData.foto_corpo = foto_corpo;
+
+        // ✅ NOVO: Processar foto_corpo (converter base64 para URL Cloudinary)
+        if (foto_corpo) {
+            if (foto_corpo.startsWith('data:image')) {
+                // É base64 - fazer upload para Cloudinary
+                console.log('📸 [updateBodyData] Detectado base64. Enviando para Cloudinary...');
+                try {
+                    // Remover prefixo data:image/...;base64,
+                    const base64Data = foto_corpo.replace(/^data:image\/[a-z]+;base64,/, '');
+                    const buffer = Buffer.from(base64Data, 'base64');
+
+                    // Upload para Cloudinary
+                    const cloudinaryResult = await uploadImage(buffer, 'usuarios-fotos-corpo');
+                    updateData.foto_corpo = cloudinaryResult.secure_url;
+
+                    console.log('✅ [updateBodyData] Foto enviada para Cloudinary:', cloudinaryResult.secure_url);
+                } catch (uploadError) {
+                    console.error('❌ [updateBodyData] Erro ao fazer upload da foto:', uploadError);
+                    return res.status(500).json({ error: 'Erro ao fazer upload da foto para Cloudinary.' });
+                }
+            } else {
+                // Já é URL (não fazer upload novamente)
+                updateData.foto_corpo = foto_corpo;
+            }
+        }
 
         // Processamento de medidas (18 campos)
         if (medidas) {

@@ -29,7 +29,8 @@ setInterval(cleanupExpiredSessions, 5 * 60 * 1000);
 export const createLookSession = async (req, res) => {
     try {
         const { itemObrigatorio, lojaId } = req.body;
-        const userId = req.user._id;
+        const userId = req.user?._id; // Para usuários autenticados
+        const userType = req.userType || (req.isAuthenticated() ? 'authenticated' : 'guest');
 
         console.log(`[LookSession DEBUG] Procurando: skuStyleMe=${itemObrigatorio}, lojaId=${lojaId}`);
 
@@ -61,7 +62,8 @@ export const createLookSession = async (req, res) => {
         const sessionId = uuidv4();
         const session = {
             sessionId,
-            userId,
+            userId: userId || null, // null para visitantes
+            userType, // 'authenticated' ou 'guest'
             itemObrigatorio,
             lojaId,
             createdAt: Date.now(),
@@ -89,7 +91,8 @@ export const gerarLooks = async (req, res) => {
     console.log("Dentro de Gerar Looks");
     try {
         const { sessionId, wardrobeId, prompt: userOccasion } = req.body;
-        const userId = req.user._id;
+        const userId = req.user?._id; // Para usuários autenticados
+        const userType = req.userType || (req.isAuthenticated() ? 'authenticated' : 'guest');
 
         // ✅ NOVO: Verificar se é nova abordagem (sessionId) ou antiga (wardrobeId)
         let itemObrigatorio = null;
@@ -112,10 +115,30 @@ export const gerarLooks = async (req, res) => {
             return res.status(400).json({ error: "Forneça sessionId ou wardrobeId." });
         }
 
-        // 1. Buscar Perfil do Usuário
-        const usuario = await Usuario.findById(userId);
-        if (!usuario || !usuario.medidas) {
-            return res.status(400).json({ error: "Perfil incompleto. Necessário medidas e foto." });
+        // ✅ NOVO: Para visitantes, precisamos das medidas na requisição
+        let usuario = null;
+        let usuarioMedidas = null;
+
+        if (userType === 'authenticated') {
+            // 1. Buscar Perfil do Usuário (autenticado)
+            usuario = await Usuario.findById(userId);
+            if (!usuario || !usuario.medidas) {
+                return res.status(400).json({ error: "Perfil incompleto. Necessário medidas e foto." });
+            }
+            usuarioMedidas = usuario.medidas;
+        } else {
+            // Para visitante, usar medidas passadas no body
+            const { guestMeasurements } = req.body;
+            if (!guestMeasurements) {
+                return res.status(400).json({ error: "Para visitantes, é necessário enviar as medidas do corpo." });
+            }
+            usuarioMedidas = {
+                altura: guestMeasurements.height_cm || 165,
+                busto: guestMeasurements.chest_cm || 90,
+                cintura: guestMeasurements.waist_cm || 75,
+                quadril: guestMeasurements.hips_cm || 95
+            };
+            console.log(`[LookSession GUEST] Medidas recebidas:`, usuarioMedidas);
         }
 
         // ✅ NOVO: Se tem itemObrigatorio, buscar seus dados
@@ -187,13 +210,13 @@ export const gerarLooks = async (req, res) => {
 
         // 4. Carregar o Prompt do arquivo e fazer as substituições
         const systemInstruction = await loadPrompt('generate_look.md', {
-            user_name: usuario.nome,
-            bust: usuario.medidas.busto.toString(),
-            waist: usuario.medidas.cintura.toString(),
-            hips: usuario.medidas.quadril.toString(),
-            height: usuario.medidas.altura.toString(),
-            body_type: usuario.tipo_corpo,
-            personal_style: usuario.estilo_pessoal,
+            user_name: usuario?.nome || 'Visitante',
+            bust: usuarioMedidas.busto.toString(),
+            waist: usuarioMedidas.cintura.toString(),
+            hips: usuarioMedidas.quadril.toString(),
+            height: usuarioMedidas.altura.toString(),
+            body_type: usuario?.tipo_corpo || 'Não definido',
+            personal_style: usuario?.estilo_pessoal || 'Casual',
             user_prompt: userOccasion,
             itemObrigatorioInfo: itemObrigatorioInfo, // ✅ Passar como variável separada
             items_json: JSON.stringify(promptItems) // ✅ Usar promptItems com obrigatória
@@ -264,8 +287,9 @@ export const gerarLooks = async (req, res) => {
 };
 export const salvarEscolha = async (req, res) => {
     try {
-        const userId = req.user._id;
-        const { selectedLookId, allLooks } = req.body;
+        const userId = req.user?._id || null; // null para visitantes
+        const userType = req.userType || (req.isAuthenticated() ? 'authenticated' : 'guest');
+        const { selectedLookId, allLooks, sessionId } = req.body;
 
         if (!allLooks || !Array.isArray(allLooks)) {
             return res.status(400).json({ error: "Dados inválidos." });
@@ -277,18 +301,27 @@ export const salvarEscolha = async (req, res) => {
         const looksToSave = allLooks.map(look => {
             const isSelected = look.look_id === selectedLookId;
 
-            return {
-                userId: userId,
+            const lookData = {
                 batch_id: batchId,
                 nome: look.name,
                 explicacao: look.explanation,
                 itens: look.items,
                 afinidade_ia: look.body_affinity_index,
-
-                // Lógica de Pontuação/Relevância
+                user_type: userType, // ✅ NOVO: Rastrear se é autenticado ou visitante
                 escolhido_pelo_usuario: isSelected,
-                score_relevancia: isSelected ? 100 : 10 // Dá 100 pts pro escolhido, 10 pros outros (foram gerados, tem algum valor)
+                score_relevancia: isSelected ? 100 : 10
             };
+
+            // ✅ NOVO: Se visitante com sessionId, salvar a sessão
+            if (userType === 'guest' && sessionId) {
+                lookData.sessionId = sessionId;
+                lookData.guest_temporary = true; // Marcar como temporário
+            } else if (userId) {
+                // Se autenticado, salvar com userId
+                lookData.userId = userId;
+            }
+
+            return lookData;
         });
 
         // Salva todos de uma vez no banco
@@ -297,9 +330,12 @@ export const salvarEscolha = async (req, res) => {
         // Encontra o look que foi escolhido pelo usuário
         const selectedLook = savedLooks.find(look => look.nome === allLooks.find(l => l.look_id === selectedLookId)?.name);
 
+        console.log(`[Look Salvo] user_type=${userType}, sessionId=${sessionId}, lookId=${selectedLook._id}`);
+
         res.status(201).json({
             message: "Preferência salva com sucesso!",
-            savedLookId: selectedLook._id
+            savedLookId: selectedLook._id,
+            userType: userType // Confirmar para frontend
         });
 
     } catch (error) {
@@ -495,10 +531,11 @@ export const obterDetalhesComunsLook = async (req, res) => {
 export const visualizarLook = async (req, res) => {
     console.log("Dentro de Visualizar Look");
     try {
-        const userId = req.user._id;
-        const { lookData } = req.body;
+        const userId = req.user?._id || null; // null para visitantes
+        const { lookData, guestPhoto } = req.body;
 
         console.log("LookData recebido:", lookData);
+        console.log("[Visualizar] É visitante?", !!guestPhoto);
 
         // 1. Validar dados de entrada
         if (!lookData || !lookData.items || !Array.isArray(lookData.items)) {
@@ -506,8 +543,13 @@ export const visualizarLook = async (req, res) => {
         }
 
         // 2. Buscar o usuário e validar foto de corpo
-        const usuario = await Usuario.findById(userId);
-        if (!usuario || !usuario.foto_corpo) {
+        let usuario = null;
+        if (userId) {
+            usuario = await Usuario.findById(userId);
+        }
+
+        // ✅ Validar se tem foto (visitante ou usuário autenticado)
+        if (!guestPhoto && (!usuario || !usuario.foto_corpo)) {
             return res.status(400).json({ error: "Necessário foto de corpo inteiro do usuário." });
         }
 
@@ -571,9 +613,14 @@ export const visualizarLook = async (req, res) => {
         }
 
         // 8. Preparar as URLs das fotos para o Gemini
-        const fotoPessoa = usuario.foto_corpo;
+        const isGuest = !!guestPhoto; // ✅ Flag para saber se é visitante
+        const fotoPessoa = guestPhoto || usuario.foto_corpo; // Se guest, usa base64; senão, usa URL do BD
         const fotasPecas = itemsComFoto.map(item => item.foto);
 
+        console.log("📸 [Visualizar] isGuest:", isGuest);
+        console.log("📸 [Visualizar] guestPhoto existe:", !!guestPhoto);
+        console.log("📸 [Visualizar] guestPhoto tamanho:", guestPhoto?.length || 0);
+        console.log("📸 [Visualizar] fotoPessoa tipo:", typeof fotoPessoa);
         console.log("Fotos das peças coletadas:", fotasPecas.length);
 
         // 9. Preparar descrição detalhada dos items para o prompt
@@ -600,7 +647,19 @@ export const visualizarLook = async (req, res) => {
 
         // 12. Buscar as imagens como base64
         console.log("Convertendo imagem da pessoa para base64...");
-        const fotoPessoaBase64 = await fetchImageAsBase64(fotoPessoa);
+        // ✅ Se é visitante, foto já está em base64. Se é usuário, converter de URL
+        let fotoPessoaBase64;
+        if (isGuest) {
+            // ✅ Limpar prefixo data:image do base64 se existir
+            fotoPessoaBase64 = fotoPessoa.replace(/^data:image\/[a-z]+;base64,/, '');
+            console.log("[Visualizar] ✅ Usando base64 de visitante (sem conversão)");
+            console.log("[Visualizar] Tamanho do base64:", fotoPessoaBase64.length);
+            console.log("[Visualizar] Começo do base64:", fotoPessoaBase64.substring(0, 50));
+        } else {
+            console.log("[Visualizar] Convertendo URL de usuário para base64...");
+            fotoPessoaBase64 = await fetchImageAsBase64(fotoPessoa); // Converter URL para base64
+            console.log("[Visualizar] ✅ Convertida URL de usuário para base64");
+        }
 
         console.log("Convertendo imagens das peças para base64...");
         const fotasPecasBase64 = [];
@@ -704,7 +763,16 @@ export const visualizarLook = async (req, res) => {
 
         console.log("Upload Cloudinary sucesso:", cloudinaryResult.secure_url);
 
-        // 13. Atualiza o Look no banco com a imagem gerada
+        // ✅ Se é visitante, não salva no BD. Se é usuário, atualiza o look
+        if (isGuest) {
+            console.log("[Visualizar] É visitante - retornando imagem sem salvar no BD");
+            return res.status(201).json({
+                message: "Visualização gerada com sucesso!",
+                imagem_url: cloudinaryResult.secure_url
+            });
+        }
+
+        // Para usuários autenticados: salvar no BD
         const lookId = lookData._id;
         if (!lookId) {
             return res.status(400).json({ error: "ID do look não fornecido." });
