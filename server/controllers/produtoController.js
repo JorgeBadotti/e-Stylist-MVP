@@ -53,6 +53,7 @@ export const createProduto = async (req, res) => {
             eco_score,
             care_level,
             faixa_preco,
+            preco,
             peca_hero,
             classe_margem,
 
@@ -266,6 +267,7 @@ export const createProduto = async (req, res) => {
             eco_score: eco_score || null,
             care_level: care_level || null,
             faixa_preco: faixa_preco || null,
+            preco: preco || null,
             peca_hero: peca_hero || false,
             classe_margem: classe_margem || null,
 
@@ -436,6 +438,7 @@ export const updateProduto = async (req, res) => {
             'eco_score',
             'care_level',
             'faixa_preco',
+            'preco',
             'peca_hero',
             'classe_margem',
 
@@ -554,6 +557,60 @@ export const deleteProduto = async (req, res) => {
  * GET DICIONÁRIOS
  * GET /api/dicionarios?tipo=CATEGORIA
  */
+/**
+ * GET TODOS OS DICIONARIOS (OTIMIZADO)
+ * GET /api/produtos/dicionarios/todos
+ * Retorna todos os dicionários necessários para o formulário em uma única requisição
+ */
+export const getTodosDicionarios = async (req, res) => {
+    try {
+        const status = 'ATIVO';
+        const tipos = [
+            'CATEGORIA',
+            'LINHA',
+            'COR',
+            'TAMANHO',
+            'LAYER_ROLE',
+            'COLOR_ROLE',
+            'FIT',
+            'STYLE_BASE',
+            'SILHUETA',
+            'COMPRIMENTO',
+            'POSICAO_CINTURA',
+            'OCASIAO',
+            'ESTACAO',
+            'TEMPERATURA',
+            'MATERIAL',
+            'ECO_SCORE',
+            'CARE_LEVEL',
+            'FAIXA_PRECO'
+        ];
+
+        // Buscar todos os dicionários em uma única query
+        const dicionariosRaw = await Dicionario.find({
+            tipo: { $in: tipos },
+            status
+        }).sort({ tipo: 1, codigo: 1 });
+
+        // Agrupar por tipo
+        const dicionarios = {};
+        tipos.forEach(tipo => {
+            dicionarios[tipo] = dicionariosRaw.filter(d => d.tipo === tipo);
+        });
+
+        res.status(200).json({
+            total: dicionariosRaw.length,
+            tipos: tipos.length,
+            dados: dicionarios
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: 'Erro ao buscar dicionários',
+            error: error.message
+        });
+    }
+};
+
 export const getDicionarios = async (req, res) => {
     try {
         const { tipo, status = 'ATIVO' } = req.query;

@@ -3,13 +3,38 @@ import * as LooksController from '../controllers/looksController.js';
 
 const router = Router();
 
-// Middleware de auth
-const ensureAuthenticated = (req, res, next) => {
-    if (req.isAuthenticated()) return next();
-    res.status(401).json({ message: 'Não autorizado' });
+// ✅ NOVO: Middleware que permite usuários autenticados OU visitantes com sessionId
+const ensureAuthenticatedOrGuest = (req, res, next) => {
+    // Se está autenticado (login normal), permitir
+    if (req.isAuthenticated()) {
+        req.userType = 'authenticated';
+        return next();
+    }
+
+    // Se tem sessionId no corpo da requisição (visitante com look session)
+    // Ou no header X-Session-ID, permitir
+    const sessionId = req.body?.sessionId || req.headers['x-session-id'];
+    if (sessionId) {
+        req.userType = 'guest';
+        req.sessionId = sessionId;
+        return next();
+    }
+
+    // Se tem anonymousSessionId (visitante anônimo)
+    const anonSessionId = req.headers['x-anon-session-id'];
+    if (anonSessionId) {
+        req.userType = 'guest';
+        req.sessionId = anonSessionId;
+        return next();
+    }
+
+    res.status(401).json({ message: 'Não autorizado. Faça login ou use uma sessão válida.' });
 };
 
-router.use(ensureAuthenticated);
+router.use(ensureAuthenticatedOrGuest);
+
+// ✅ NOVO: Criar LookSession
+router.post('/create-session', LooksController.createLookSession);
 
 router.post('/gerar', LooksController.gerarLooks);
 

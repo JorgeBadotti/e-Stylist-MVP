@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../src/services/api';
 import ViewLook from './ViewLook';
+import GuestBodyCaptureScreen from './GuestBodyCaptureScreen';
+import { DetectedMeasurements } from '../types';
 
 interface Wardrobe {
     _id: string;
@@ -27,10 +30,13 @@ interface GeneratedLook {
 }
 
 interface LooksPageProps {
-    onNavigateToProfile: () => void;
+    onNavigateToProfile?: () => void;
+    onProductClick?: (sku: string) => void;
+    initialItemObrigatorio?: string | null; // ✅ NOVO: Item obrigatório inicial da URL
 }
 
-const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile }) => {
+const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductClick, initialItemObrigatorio }) => {
+    const [searchParams] = useSearchParams(); // ✅ NOVO: Capturar parâmetros da URL
     const [step, setStep] = useState<'selection' | 'generating' | 'results' | 'visualizing' | 'visualized'>('selection');
     const [wardrobes, setWardrobes] = useState<Wardrobe[]>([]);
     const [selectedWardrobe, setSelectedWardrobe] = useState<string>('');
@@ -44,6 +50,33 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile }) => {
     const [selectedLookName, setSelectedLookName] = useState<string>('');
     const [selectedLookExplanation, setSelectedLookExplanation] = useState<string>('');
     const [selectedLookItems, setSelectedLookItems] = useState<LookItem[]>([]);
+    const [itemObrigatorio, setItemObrigatorio] = useState<string | null>(initialItemObrigatorio || null); // ✅ NOVO: Armazenar peça obrigatória
+    const [lojas, setLojas] = useState<any[]>([]); // ✅ NOVO: Lista de lojas
+    const [selectedLoja, setSelectedLoja] = useState<string>(''); // ✅ NOVO: Loja selecionada
+    const [sessionId, setSessionId] = useState<string | null>(null); // ✅ NOVO: Session ID
+    const [guestMeasurements, setGuestMeasurements] = useState<DetectedMeasurements | null>(null); // ✅ NOVO: Medidas do visitante
+    const [guestPhoto, setGuestPhoto] = useState<string | null>(null); // ✅ NOVO: Foto do visitante em base64
+    const [showGuestCamera, setShowGuestCamera] = useState<boolean>(false); // ✅ NOVO: Controlar câmera do visitante
+
+    // ✅ NOVO: Detectar parâmetro itemObrigatorio na URL
+    useEffect(() => {
+        const item = searchParams.get('itemObrigatorio');
+        if (item) {
+            console.log(`[LookSession] Detectado itemObrigatorio na URL: ${item}`);
+            setItemObrigatorio(item);
+        }
+    }, [searchParams]);
+
+    // ✅ DEBUG: Log quando showGuestCamera muda
+    useEffect(() => {
+        console.log('[LooksPage] showGuestCamera CHANGED:', showGuestCamera);
+    }, [showGuestCamera]);
+
+    // ✅ NOVO: useCallback para manter referência da função estável
+    const handleShowCameraChange = useCallback((show: boolean) => {
+        console.log('[LooksPage] handleShowCameraChange chamado com:', show);
+        setShowGuestCamera(show);
+    }, []);
 
     // Carregar dados iniciais
     useEffect(() => {
@@ -51,52 +84,118 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile }) => {
             try {
                 // 1. Checa perfil (se tem foto/medidas)
                 const userRes = await api.get('/api/usuario/perfil');
-                if (userRes.data.foto_corpo && userRes.data.medidas?.altura > 0) {
+                console.log('👤 [LooksPage] Perfil carregado:', userRes.data);
+
+                const temFoto = !!userRes.data.foto_corpo;
+                const temAltura = userRes.data.medidas?.altura > 0;
+
+                console.log(`📷 [LooksPage] Tem foto_corpo: ${temFoto}, Tem altura: ${temAltura}`);
+
+                if (temFoto && temAltura) {
                     setHasBodyPhoto(true);
+                    console.log('✅ [LooksPage] Perfil COMPLETO');
                 } else {
                     setHasBodyPhoto(false);
+                    console.log('❌ [LooksPage] Perfil INCOMPLETO');
                 }
 
-                // 2. Busca Guarda-Roupas (meus + públicos)
-                const [myWardrobesRes, publicWardrobesRes] = await Promise.all([
-                    api.get('/api/guarda-roupas'),
-                    api.get('/api/guarda-roupas/publicos/lista')
-                ]);
+                // ✅ NOVO: Se tem itemObrigatorio, carregar lojas em vez de guarda-roupas
+                if (itemObrigatorio) {
+                    console.log(`[LookSession] Carregando lojas para itemObrigatorio: ${itemObrigatorio}`);
+                    const lojasRes = await api.get('/api/lojas');
+                    setLojas(lojasRes.data);
+                    console.log(`[LookSession] ${lojasRes.data.length} lojas carregadas`);
+                } else {
+                    // 2. Busca Guarda-Roupas (meus + públicos)
+                    const [myWardrobesRes, publicWardrobesRes] = await Promise.all([
+                        api.get('/api/guarda-roupas'),
+                        api.get('/api/guarda-roupas/publicos/lista')
+                    ]);
 
-                // Combina guarda-roupas próprios e públicos
-                const allWardrobes = [...myWardrobesRes.data, ...publicWardrobesRes.data];
-                setWardrobes(allWardrobes);
+                    // Combina guarda-roupas próprios e públicos
+                    const allWardrobes = [...myWardrobesRes.data, ...publicWardrobesRes.data];
+                    setWardrobes(allWardrobes);
+                }
             } catch (err) {
-                console.error(err);
+                console.error('❌ [LooksPage] Erro ao carregar dados:', err);
+                setHasBodyPhoto(false);
                 setError("Erro ao carregar dados. Verifique sua conexão.");
             }
         };
         initData();
-    }, []);
+    }, [itemObrigatorio]);
 
     const handleGenerate = async () => {
-        if (!selectedWardrobe) {
-            setError("Por favor, selecione um guarda-roupa.");
-            return;
-        }
+        // ✅ NOVO: Se tem itemObrigatorio, usar sessionId. Senão, usar wardrobeId
+        if (itemObrigatorio) {
+            // NOVO FLUXO: LookSession
+            if (!selectedLoja) {
+                setError("Por favor, selecione uma loja.");
+                return;
+            }
 
-        setStep('generating');
-        setError('');
+            try {
+                setStep('generating');
+                setError('');
 
-        try {
-            // Chama o backend para gerar looks
-            // O backend vai: Pegar usuário + Pegar itens do guarda-roupa + Chamar Gemini
-            const response = await api.post('/api/looks/gerar', {
-                wardrobeId: selectedWardrobe,
-                prompt: occasion || "Look casual para o dia a dia"
-            });
+                // 1. Criar sessão
+                console.log(`[LookSession] Criando sessão com itemObrigatorio: ${itemObrigatorio}, lojaId: ${selectedLoja}`);
+                const sessionRes = await api.post('/api/looks/create-session', {
+                    itemObrigatorio,
+                    lojaId: selectedLoja
+                });
 
-            setLooks(response.data.looks);
-            setStep('results');
-        } catch (err) {
-            console.error(err);
-            setError("Falha ao gerar looks. A IA pode estar sobrecarregada ou o guarda-roupa tem poucas peças.");
-            setStep('selection');
+                const newSessionId = sessionRes.data.sessionId;
+                setSessionId(newSessionId);
+                console.log(`[LookSession] Sessão criada: ${newSessionId}`);
+
+                // 2. Gerar looks com sessionId
+                console.log(`[LookSession] Gerando looks com sessionId: ${newSessionId}`);
+                const payload: any = {
+                    sessionId: newSessionId,
+                    prompt: occasion || "Look casual para o dia a dia"
+                };
+
+                // ✅ NOVO: Se visitante, enviar medidas
+                if (guestMeasurements) {
+                    payload.guestMeasurements = guestMeasurements;
+                    console.log(`[LookSession] Medidas do visitante adicionadas ao payload`);
+                }
+
+                const response = await api.post('/api/looks/gerar', payload);
+
+                setLooks(response.data.looks);
+                setStep('results');
+            } catch (err) {
+                console.error(err);
+                setError("Falha ao gerar looks. Verifique se a loja tem produtos.");
+                setStep('selection');
+            }
+        } else {
+            // FLUXO ANTIGO: Guarda-roupa
+            if (!selectedWardrobe) {
+                setError("Por favor, selecione um guarda-roupa.");
+                return;
+            }
+
+            setStep('generating');
+            setError('');
+
+            try {
+                const payload: any = {
+                    wardrobeId: selectedWardrobe,
+                    prompt: occasion || "Look casual para o dia a dia"
+                };
+
+                const response = await api.post('/api/looks/gerar', payload);
+
+                setLooks(response.data.looks);
+                setStep('results');
+            } catch (err) {
+                console.error(err);
+                setError("Falha ao gerar looks. A IA pode estar sobrecarregada ou o guarda-roupa tem poucas peças.");
+                setStep('selection');
+            }
         }
     };
 
@@ -106,18 +205,30 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile }) => {
         setStep('visualizing');
 
         try {
-            // 1. Salvar a escolha no banco de dados
-            const saveResponse = await api.post('/api/looks/salvar', {
+            let savedLookId = selectedLook.look_id;
+
+            // 1. Salvar a escolha no banco de dados (mesmo para visitantes)
+            const savePayload: any = {
                 selectedLookId: selectedLook.look_id,
                 allLooks: looks
-            });
+            };
+
+            // ✅ NOVO: Se visitante com sessionId, enviar junto
+            if (sessionId) {
+                savePayload.sessionId = sessionId;
+                console.log(`[LookSession] Salvando com sessionId: ${sessionId}`);
+            }
+
+            const saveResponse = await api.post('/api/looks/salvar', savePayload);
+            savedLookId = saveResponse.data.savedLookId || selectedLook.look_id;
 
             // 2. Gerar a visualização do look
             const visualizeResponse = await api.post('/api/looks/visualizar', {
                 lookData: {
                     ...selectedLook,
-                    _id: saveResponse.data.savedLookId || selectedLook.look_id
-                }
+                    _id: savedLookId
+                },
+                guestPhoto: guestPhoto || undefined
             });
 
             // 3. Salvar a imagem gerada no estado
@@ -125,6 +236,7 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile }) => {
             setSelectedLookName(selectedLook.name);
             setSelectedLookExplanation(selectedLook.explanation);
             setSelectedLookItems(selectedLook.items); // ← Guardar os items
+
             setSuccessMsg(`✨ Sua visualização foi criada! ${selectedLook.name} ficou sensacional!`);
 
             // 4. Mudar para o step 'visualized' para mostrar a imagem permanentemente
@@ -149,19 +261,48 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile }) => {
         setError('');
         setSelectedWardrobe('');
         setOccasion('');
+    };
+
+    // ✅ VERIFICAR se tem foto de referência ANTES de renderizar
+    if (hasBodyPhoto === false && !guestMeasurements) {
+        // Se não tem foto e não capturou medidas de visitante, mostrar capturas
         return (
-            <div className="max-w-4xl mx-auto p-8 text-center mt-10 bg-white rounded-lg shadow-sm">
-                <div className="text-yellow-500 mb-4 text-6xl">⚠️</div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">Perfil Incompleto</h2>
-                <p className="text-gray-600 mb-6">
-                    Para que a IA possa gerar looks que valorizem seu corpo, precisamos da sua foto de corpo inteiro e suas medidas.
-                </p>
-                <button
-                    onClick={onNavigateToProfile}
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition"
-                >
-                    Completar Meu Perfil Agora
-                </button>
+            <GuestBodyCaptureScreen
+                onMeasurementsCaptured={async (measurements, photo) => {
+                    console.log('[LooksPage] Medidas de visitante capturadas:', measurements);
+
+                    // Salvar foto e medidas no BD
+                    try {
+                        await api.put('/api/usuario/medidas', {
+                            foto_corpo: photo,
+                            medidas: {
+                                altura: measurements.height_cm,
+                                busto: measurements.chest_cm,
+                                cintura: measurements.waist_cm,
+                                quadril: measurements.hips_cm
+                            }
+                        });
+                        console.log('[LooksPage] Foto e medidas salvas no BD');
+                    } catch (err) {
+                        console.error('[LooksPage] Erro ao salvar foto/medidas:', err);
+                    }
+
+                    setGuestMeasurements(measurements);
+                    setGuestPhoto(photo);
+                    setHasBodyPhoto(true); // Permitir continuar
+                }}
+                showCamera={showGuestCamera}
+                onShowCameraChange={handleShowCameraChange}
+            />
+        );
+    }
+
+    // Enquanto carrega, mostrar loading
+    if (hasBodyPhoto === null) {
+        return (
+            <div className="max-w-4xl mx-auto p-8 text-center mt-10">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Carregando perfil...</p>
             </div>
         );
     }
@@ -175,21 +316,43 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile }) => {
                 <div className="bg-white p-6 rounded-lg shadow-sm space-y-6">
                     {error && <div className="p-3 bg-red-100 text-red-700 rounded">{error}</div>}
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">1. Escolha o Guarda-Roupa</label>
-                        <select
-                            value={selectedWardrobe}
-                            onChange={(e) => setSelectedWardrobe(e.target.value)}
-                            className="w-full border border-gray-300 rounded-md p-3 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                        >
-                            <option value="">Selecione...</option>
-                            {wardrobes.map(w => (
-                                <option key={w._id} value={w._id}>
-                                    {w.nome} {w.isPublic ? '🌐' : ''}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    {/* ✅ NOVO: Mostrar seleção de loja se tem itemObrigatorio */}
+                    {itemObrigatorio ? (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                1. Escolha a Loja 🏪
+                                <span className="text-purple-600 ml-2 text-xs font-bold">(Gerando look com: {itemObrigatorio})</span>
+                            </label>
+                            <select
+                                value={selectedLoja}
+                                onChange={(e) => setSelectedLoja(e.target.value)}
+                                className="w-full border border-gray-300 rounded-md p-3 focus:ring-purple-500 focus:border-purple-500 bg-white"
+                            >
+                                <option value="">Selecione uma loja...</option>
+                                {lojas.map((loja: any) => (
+                                    <option key={loja._id} value={loja._id}>
+                                        {loja.nome} ({loja.cidade || 'Sem cidade'})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    ) : (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">1. Escolha o Guarda-Roupa</label>
+                            <select
+                                value={selectedWardrobe}
+                                onChange={(e) => setSelectedWardrobe(e.target.value)}
+                                className="w-full border border-gray-300 rounded-md p-3 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            >
+                                <option value="">Selecione...</option>
+                                {wardrobes.map(w => (
+                                    <option key={w._id} value={w._id}>
+                                        {w.nome} {w.isPublic ? '🌐' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">2. Para qual ocasião? (Opcional)</label>
@@ -313,6 +476,7 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile }) => {
                     lookExplanation={selectedLookExplanation}
                     lookItems={selectedLookItems}
                     onGenerateNew={handleGerarNovamente}
+                    onProductClick={onProductClick}
                 />
             )}
         </div>

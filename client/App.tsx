@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import HomePage from './components/HomePage';
 import PublicHomePage from './components/PublicHomePage';
@@ -10,21 +10,23 @@ import ProfilePage from './components/ProfilePage';
 import LooksPage from './components/LooksPage';
 import MyLooksPage from './components/MyLooksPage';
 import MinhasInvitacoes from './components/MinhasInvitacoes';
+import CarrinhoPage from './components/CarrinhoPage';
 import AdminLojaPage from './components/Admin/AdminLojaPage';
 import VendorLojasPage from './components/Vendor/VendorLojasPage';
 import VendorLojaPage from './components/Vendor/VendorLojaPage';
 import ProdutoDetalhe from './components/Loja/ProdutoDetalhe';
-import api from './src/services/api';
+import api, { API_BASE_URL } from './src/services/api';
+import { getSessionId, storeSessionId } from './src/services/sessionService';
 import { UserContext, UserContextType } from './src/contexts/UserContext';
 
 
 // Tipos para as telas de quem NÃO está logado
 type PublicView = 'landing' | 'login' | 'register';
 
-type PrivateView = 'home' | 'wardrobes' | 'profile' | 'looks' | 'myLooks' | 'vendor-lojas' | 'vendor-loja' | 'admin-loja' | 'invitacoes';
+type PrivateView = 'home' | 'wardrobes' | 'profile' | 'looks' | 'myLooks' | 'vendor-lojas' | 'vendor-loja' | 'admin-loja' | 'invitacoes' | 'carrinho';
 
 // Componente para página pública de produto
-const PublicProdutoPage: React.FC = () => {
+const PublicProdutoPage: React.FC<{ isAuthenticated: boolean; user: UserData | null; onLogoutClick: () => void }> = ({ isAuthenticated, user, onLogoutClick }) => {
     const { sku } = useParams<{ sku: string }>();
 
     if (!sku) {
@@ -38,17 +40,18 @@ const PublicProdutoPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-gray-100">
             <Navbar
-                isAuthenticated={false}
-                user={null}
+                isAuthenticated={isAuthenticated} // ✅ NOVO: Mostrar estado real de autenticação
+                user={user} // ✅ NOVO: Mostrar dados do usuário se autenticado
                 onLoginClick={() => window.location.href = '/'}
-                onLogoutClick={() => { }}
+                onLogoutClick={onLogoutClick}
                 onLogoClick={() => window.location.href = '/'}
-                onProfileClick={() => { }}
-                onWardrobeClick={() => { }}
-                onLooksClick={() => { }}
-                onLojaClick={() => { }}
-                onMyLooksClick={() => { }}
-                onInvitacoesClick={() => { }}
+                onProfileClick={() => window.location.href = '/'}
+                onWardrobeClick={() => window.location.href = '/'}
+                onLooksClick={() => window.location.href = '/'}
+                onLojaClick={() => window.location.href = '/'}
+                onMyLooksClick={() => window.location.href = '/'}
+                onInvitacoesClick={() => window.location.href = '/'}
+                onCarrinhoClick={() => window.location.href = '/'}
             />
             <main className="p-4 sm:p-6 md:p-8">
                 <ProdutoDetalhe
@@ -72,50 +75,48 @@ interface UserData {
 }
 
 const App: React.FC = () => {
-    return (
-        <Router>
-            <Routes>
-                {/* Rota pública para visualizar produto por SKU */}
-                <Route path="/produtos/:sku" element={<PublicProdutoPage />} />
-
-                {/* Todas as outras rotas */}
-                <Route path="/*" element={<AppContent />} />
-            </Routes>
-        </Router>
-    );
-};
-
-const AppContent: React.FC = () => {
-    // Estados Globais
-    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-    // 2. Estado para armazenar os dados do usuário
-    const [userData, setUserData] = useState<UserData | null>(null);
+    // Estados Globais (fora do Router para compartilhar entre rotas)
+    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+        const cached = localStorage.getItem('isAuthenticated');
+        return cached ? JSON.parse(cached) : false;
+    });
+    const [userData, setUserData] = useState<UserData | null>(() => {
+        const cached = localStorage.getItem('userData');
+        return cached ? JSON.parse(cached) : null;
+    });
     const [isLoading, setIsLoading] = useState<boolean>(true);
-    const [isRedirecting, setIsRedirecting] = useState<boolean>(false); // ✅ NOVO: Evita renderizar view pública durante redirecionamento
-    // Controle de navegação
-    const [publicView, setPublicView] = useState<PublicView>('landing');
-    // Novo estado para controlar a tela interna
-    const [privateView, setPrivateView] = useState<PrivateView>('home');
-    const [selectedSku, setSelectedSku] = useState<string | null>(null); // 1. Novo estado para o SKU
-    const [selectedLojaId, setSelectedLojaId] = useState<string | null>(null); // ✅ NOVO: Loja selecionada pelo vendedor
 
-    // Função centralizada para buscar a sessão e os dados do usuário
+    // Função centralizada para buscar a sessão
     const fetchUserSession = async () => {
         try {
-            const response = await api.get('/auth/me');
+            // ✅ NOVO: Garantir que tem sessionId antes de fazer requisições
+            // Se não tem, fazer uma requisição vazia para obter um
+            const sessionId = getSessionId();
+            if (!sessionId) {
+                console.log('📍 [App] Nenhum sessionId, obtendo um novo do servidor...');
+                try {
+                    // Requisição simples para obter sessionId
+                    await api.head(`${API_BASE_URL}/auth/me`);
+                } catch (e) {
+                    // É esperado falhar (visitante anônimo), mas o sessionId foi capturado no interceptor
+                    console.log('📍 [App] SessionId obtido do servidor');
+                }
+            }
 
+            const response = await api.get('/auth/me');
             if (response.data.isAuthenticated) {
                 setIsAuthenticated(true);
-                // Salva os dados do usuário vindos do backend
                 setUserData(response.data.user);
+                localStorage.setItem('isAuthenticated', JSON.stringify(true));
+                localStorage.setItem('userData', JSON.stringify(response.data.user));
             } else {
                 setIsAuthenticated(false);
                 setUserData(null);
+                localStorage.removeItem('isAuthenticated');
+                localStorage.removeItem('userData');
             }
         } catch (error) {
             console.error("Sessão inválida ou erro de rede:", error);
-            setIsAuthenticated(false);
-            setUserData(null);
         } finally {
             setIsLoading(false);
         }
@@ -126,25 +127,167 @@ const AppContent: React.FC = () => {
         fetchUserSession();
     }, []);
 
-    // ✅ NOVO: UseEffect para monitorar mudanças de autenticação
+    // Sincronizar localStorage
     useEffect(() => {
-        if (isAuthenticated && !isLoading) {
-            // Quando autenticado, muda para view privada
-            setPublicView('landing'); // Isso evita que Landing seja renderizado quando autenticado
+        localStorage.setItem('isAuthenticated', JSON.stringify(isAuthenticated));
+    }, [isAuthenticated]);
+
+    useEffect(() => {
+        if (userData) {
+            localStorage.setItem('userData', JSON.stringify(userData));
+        } else {
+            localStorage.removeItem('userData');
         }
-    }, [isAuthenticated, isLoading]);
+    }, [userData]);
 
     const handleLogout = async () => {
         try {
             await api.post('/auth/logout');
             setIsAuthenticated(false);
             setUserData(null);
-            setPublicView('landing');
-            setPrivateView('home'); // Reseta a view privada
+            localStorage.removeItem('isAuthenticated');
+            localStorage.removeItem('userData');
         } catch (error) {
             console.error('Logout error:', error);
+            localStorage.removeItem('isAuthenticated');
+            localStorage.removeItem('userData');
         }
     };
+
+    return (
+        <Router>
+            <Routes>
+                {/* Rota pública para visualizar produto por SKU (com s) */}
+                <Route
+                    path="/produtos/:sku"
+                    element={
+                        isAuthenticated ? (
+                            <AppContent
+                                isAuthenticated={isAuthenticated}
+                                setIsAuthenticated={setIsAuthenticated}
+                                userData={userData}
+                                setUserData={setUserData}
+                                isLoading={isLoading}
+                                setIsLoading={setIsLoading}
+                                handleLogout={handleLogout}
+                                fetchUserSession={fetchUserSession}
+                                initialSku={new URLSearchParams(window.location.search).get('sku') || undefined}
+                            />
+                        ) : (
+                            <PublicProdutoPage
+                                isAuthenticated={isAuthenticated}
+                                user={userData}
+                                onLogoutClick={handleLogout}
+                            />
+                        )
+                    }
+                />
+
+                {/* Rota para visualizar produto por SKU (sem s) - compatibilidade */}
+                <Route
+                    path="/produto/:sku"
+                    element={
+                        isAuthenticated ? (
+                            <AppContent
+                                isAuthenticated={isAuthenticated}
+                                setIsAuthenticated={setIsAuthenticated}
+                                userData={userData}
+                                setUserData={setUserData}
+                                isLoading={isLoading}
+                                setIsLoading={setIsLoading}
+                                handleLogout={handleLogout}
+                                fetchUserSession={fetchUserSession}
+                                initialSku={new URLSearchParams(window.location.search).get('sku') || undefined}
+                            />
+                        ) : (
+                            <PublicProdutoPage
+                                isAuthenticated={isAuthenticated}
+                                user={userData}
+                                onLogoutClick={handleLogout}
+                            />
+                        )
+                    }
+                />
+
+                {/* Todas as outras rotas */}
+                <Route
+                    path="/*"
+                    element={
+                        <AppContent
+                            isAuthenticated={isAuthenticated}
+                            setIsAuthenticated={setIsAuthenticated}
+                            userData={userData}
+                            setUserData={setUserData}
+                            isLoading={isLoading}
+                            setIsLoading={setIsLoading}
+                            handleLogout={handleLogout}
+                            fetchUserSession={fetchUserSession} // ✅ NOVO
+                        />
+                    }
+                />
+            </Routes>
+        </Router>
+    );
+};
+
+interface AppContentProps {
+    isAuthenticated: boolean;
+    setIsAuthenticated: (value: boolean) => void;
+    userData: UserData | null;
+    setUserData: (value: UserData | null) => void;
+    isLoading: boolean;
+    setIsLoading: (value: boolean) => void;
+    handleLogout: () => void;
+    fetchUserSession: () => Promise<void>; // ✅ NOVO
+    initialSku?: string; // ✅ NOVO: SKU inicial da URL
+}
+
+const AppContent: React.FC<AppContentProps> = ({
+    isAuthenticated,
+    setIsAuthenticated,
+    userData,
+    setUserData,
+    isLoading,
+    setIsLoading,
+    handleLogout,
+    fetchUserSession, // ✅ NOVO
+    initialSku // ✅ NOVO
+}) => {
+    const { sku: urlSku } = useParams<{ sku: string }>();
+    const navigate = useNavigate(); // ✅ NOVO: Para navegar para a URL
+    const location = useLocation(); // ✅ NOVO: Para detectar rota /gerar-looks
+    const [isRedirecting, setIsRedirecting] = useState<boolean>(false);
+    const [publicView, setPublicView] = useState<PublicView>('landing');
+    const [privateView, setPrivateView] = useState<PrivateView>('home');
+    const [selectedSku, setSelectedSku] = useState<string | null>(initialSku || urlSku || null);
+    const [selectedLojaId, setSelectedLojaId] = useState<string | null>(null);
+    const [itemObrigatorio, setItemObrigatorio] = useState<string | null>(null); // ✅ NOVO: Armazenar item obrigatório
+
+    // ✅ UseEffect para monitorar mudanças de autenticação
+    useEffect(() => {
+        if (isAuthenticated && !isLoading) {
+            // Quando autenticado, muda para view privada
+            setPublicView('landing');
+            // Se tem initialSku, usa ele
+            if (initialSku) {
+                setSelectedSku(initialSku);
+            }
+        }
+    }, [isAuthenticated, isLoading, initialSku]);
+
+    // ✅ NOVO: Detectar rota /gerar-looks direto
+    useEffect(() => {
+        if (location.pathname === '/gerar-looks') {
+            const params = new URLSearchParams(location.search);
+            const itemObrigatorioParam = params.get('itemObrigatorio');
+            if (itemObrigatorioParam) {
+                console.log(`[App] Detectada rota /gerar-looks com itemObrigatorio: ${itemObrigatorioParam}`);
+                setItemObrigatorio(itemObrigatorioParam);
+                setPrivateView('looks');
+                setSelectedSku(null); // Não estamos vendo produto, apenas gerando looks
+            }
+        }
+    }, [location]);
 
     // Navegação Interna
 
@@ -162,14 +305,21 @@ const AppContent: React.FC = () => {
         setSelectedSku(null);
     };
     const handleInvitacoesClick = () => { setPrivateView('invitacoes'); setSelectedSku(null); };
+    const handleCarrinhoClick = () => {
+        setPrivateView('carrinho');
+        // Se estava vendo produto, volta para poder renderizar carrinho
+        if (selectedSku) setSelectedSku(null);
+    };
 
     // 2. Funções para selecionar produto e voltar
     const handleProdutoSelect = (sku: string) => {
         setSelectedSku(sku);
+        navigate(`/produtos/${sku}`); // ✅ NOVO: Navega para a URL do produto
     };
 
     const handleBackToCatalog = () => {
         setSelectedSku(null);
+        navigate('/'); // ✅ NOVO: Volta para home
     };
 
 
@@ -225,33 +375,65 @@ const AppContent: React.FC = () => {
                         onLojaClick={handleLojaClick}
                         onLogoClick={handleLogoClick}
                         onMyLooksClick={handleMyLooksClick}
+                        onCarrinhoClick={handleCarrinhoClick}
                         onInvitacoesClick={handleInvitacoesClick}
                     />
                     <main className="p-4 sm:p-6 md:p-8">
-                        {privateView === 'home' && <HomePage onNavigate={setPrivateView} />}
-                        {privateView === 'wardrobes' && <IndiceGuardaRoupas />}
-                        {privateView === 'profile' && <ProfilePage />}
-                        {privateView === 'looks' && <LooksPage />}
-                        {privateView === 'invitacoes' && <MinhasInvitacoes />}
+                        {/* ✅ Se há um SKU selecionado, renderizar ProdutoDetalhe */}
+                        {selectedSku ? (
+                            <ProdutoDetalhe
+                                sku={selectedSku}
+                                onBack={() => setSelectedSku(null)}
+                                onGerarLookComPeca={(sku: string) => {
+                                    console.log(`[LookSession] Callback acionado com SKU: ${sku}`);
+                                    setItemObrigatorio(sku); // ✅ Armazena o item obrigatório no estado
+                                    setSelectedSku(null);
+                                    setPrivateView('looks');
+                                    navigate(`/gerar-looks?itemObrigatorio=${sku}`); // ✅ Usa navigate() em vez de pushState
+                                }}
+                            />
+                        ) : (
+                            <>
+                                {privateView === 'home' && <HomePage onNavigate={setPrivateView} />}
+                                {privateView === 'wardrobes' && <IndiceGuardaRoupas />}
+                                {privateView === 'profile' && <ProfilePage />}
+                                {privateView === 'looks' && <LooksPage onProductClick={handleProdutoSelect} initialItemObrigatorio={itemObrigatorio} />}
+                                {privateView === 'invitacoes' && <MinhasInvitacoes />}
 
-                        {/* ✅ NOVO: Páginas para SALESPERSON (Vendedor) */}
-                        {privateView === 'vendor-lojas' && (
-                            <VendorLojasPage onSelectLoja={(lojaId) => {
-                                setSelectedLojaId(lojaId);
-                                setPrivateView('vendor-loja');
-                            }} />
-                        )}
-                        {privateView === 'vendor-loja' && selectedLojaId && (
-                            <VendorLojaPage lojaId={selectedLojaId} onBack={() => setPrivateView('vendor-lojas')} />
-                        )}
+                                {/* ✅ NOVO: Páginas para SALESPERSON (Vendedor) */}
+                                {privateView === 'vendor-lojas' && (
+                                    <VendorLojasPage onSelectLoja={(lojaId) => {
+                                        setSelectedLojaId(lojaId);
+                                        setPrivateView('vendor-loja');
+                                    }} />
+                                )}
+                                {privateView === 'vendor-loja' && selectedLojaId && (
+                                    <VendorLojaPage
+                                        lojaId={selectedLojaId}
+                                        onBack={() => setPrivateView('vendor-lojas')}
+                                        selectedSku={selectedSku}
+                                        onSelectSku={handleProdutoSelect}
+                                    />
+                                )}
 
-                        {/* ✅ NOVO: Página para STORE_ADMIN */}
-                        {privateView === 'admin-loja' && userData?.lojaId && (
-                            <AdminLojaPage lojaId={userData.lojaId} />
-                        )}
+                                {/* ✅ NOVO: Página para STORE_ADMIN */}
+                                {privateView === 'admin-loja' && userData?.lojaId && (
+                                    <AdminLojaPage
+                                        lojaId={userData.lojaId}
+                                        selectedSku={selectedSku}
+                                        onSelectSku={handleProdutoSelect}
+                                    />
+                                )}
 
-                        {privateView === 'myLooks' && (
-                            <MyLooksPage />
+                                {privateView === 'myLooks' && (
+                                    <MyLooksPage onProductClick={handleProdutoSelect} />
+                                )}
+
+                                {/* ✅ Página do Carrinho */}
+                                {privateView === 'carrinho' && (
+                                    <CarrinhoPage onProductClick={handleProdutoSelect} />
+                                )}
+                            </>
                         )}
                     </main>
                 </div>

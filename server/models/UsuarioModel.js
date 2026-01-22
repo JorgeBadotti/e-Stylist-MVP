@@ -11,7 +11,7 @@ const userSchema = new Schema({
     },
     role: {
         type: String,
-        enum: ['USER', 'SALESPERSON', 'STORE_ADMIN', 'SUPER_ADMIN'],
+        enum: ['USER', 'SALESPERSON', 'STORE_ADMIN', 'SUPER_ADMIN', 'ANONYMOUS_USER'],
         default: 'USER'
     },
     lojaId: { // ID da loja para os papéis de SALESPERSON e STORE_ADMIN
@@ -33,7 +33,7 @@ const userSchema = new Schema({
     nome: String,
     cpf: { // ✅ NOVO: Campo CPF opcional
         type: String,
-        sparse: true, // permite múltiplos null/undefined
+        sparse: true, // permite múltiplos null/undefined - remove unique que está criando erro
         default: null
     },
     foto: String, // Foto do avatar (perfil)
@@ -255,6 +255,31 @@ const userSchema = new Schema({
     create_date: {
         type: Date,
         default: Date.now
+    },
+
+    // ═══════════════════════════════════════════════════════════
+    // 👤 SESSÃO ANÔNIMA (para usuários não autenticados)
+    // ═══════════════════════════════════════════════════════════
+
+    // ID da sessão do navegador (gerado no frontend)
+    sessionId: {
+        type: String,
+        sparse: true, // Permite múltiplos null
+        index: true // Índice para buscar rápido
+    },
+
+    // Data de expiração da sessão anônima
+    expiresAt: {
+        type: Date,
+        default: null,
+        index: { expireAfterSeconds: 0 } // TTL index - auto-delete quando expirar
+    },
+
+    // Flag para indicar se é usuário anônimo
+    isAnonymous: {
+        type: Boolean,
+        default: false,
+        index: true
     }
 });
 

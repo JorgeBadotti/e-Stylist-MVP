@@ -40,7 +40,7 @@ interface PaginationData {
     limit: number;
 }
 
-const MyLooksPage: React.FC = () => {
+const MyLooksPage: React.FC<{ onProductClick?: (sku: string) => void }> = ({ onProductClick }) => {
     const [looks, setLooks] = useState<Look[]>([]);
     const [pagination, setPagination] = useState<PaginationData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -116,6 +116,7 @@ const MyLooksPage: React.FC = () => {
                 onGenerateNew={handleGenerateNew}
                 onBack={handleCloseDetail}
                 isLoading={false}
+                onProductClick={onProductClick}
             />
         );
     }

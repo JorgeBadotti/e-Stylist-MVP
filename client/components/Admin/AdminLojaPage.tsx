@@ -10,18 +10,23 @@ import DetalheGuardaRoupa from '../DetalheGuardaRoupa';
 
 interface AdminLojaPageProps {
   lojaId: string;
+  selectedSku?: string | null;
+  onSelectSku?: (sku: string | null) => void;
 }
 
 type TipoCadastroProduto = 'manual' | 'lotes' | null;
 
-export default function AdminLojaPage({ lojaId }: AdminLojaPageProps) {
-  const [selectedSku, setSelectedSku] = useState<string | null>(null);
+export default function AdminLojaPage({ lojaId, selectedSku: globalSelectedSku, onSelectSku }: AdminLojaPageProps) {
   const [selectedColecaoId, setSelectedColecaoId] = useState<string | null>(null);
   const [showConviteModal, setShowConviteModal] = useState(false);
   const [tipoCadastroProduto, setTipoCadastroProduto] = useState<TipoCadastroProduto>(null);
   const [refreshVendedores, setRefreshVendedores] = useState(false);
   const [refreshCatalogo, setRefreshCatalogo] = useState(false);
   const [activeTab, setActiveTab] = useState<'produtos' | 'colecoes'>('produtos');
+
+  // Usar selectedSku global se fornecido, senão usar local
+  const selectedSku = globalSelectedSku ?? null;
+  const setSelectedSku = onSelectSku || (() => { });
 
   const handleConviteSuccess = () => {
     setRefreshVendedores((prev) => !prev);

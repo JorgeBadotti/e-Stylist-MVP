@@ -141,48 +141,20 @@ export default function CadastroProdutoSKUManual({
     const carregarDicionarios = async () => {
         try {
             setCarregando(true);
-            const tipos = [
-                'CATEGORIA',
-                'LINHA',
-                'COR',
-                'TAMANHO',
-                'LAYER_ROLE',
-                'COLOR_ROLE',
-                'FIT',
-                'STYLE_BASE',
-                'SILHUETA',
-                'COMPRIMENTO',
-                'POSICAO_CINTURA',
-                'OCASIAO',
-                'ESTACAO',
-                'TEMPERATURA',
-                'MATERIAL',
-                'ECO_SCORE',
-                'CARE_LEVEL',
-                'FAIXA_PRECO'
-            ];
 
-            const dicsCarregados: { [key: string]: Dicionario[] } = {};
+            console.log(`📚 [CadastroProdutoSKU] Carregando todos os dicionários`);
+            const response = await fetch('/api/produtos/dicionarios/todos');
+            console.log(`✅ [CadastroProdutoSKU] Dicionários - Status: ${response.status}`);
 
-            for (const tipo of tipos) {
-                try {
-                    const url = `/api/produtos/dicionarios/?tipo=${tipo}`;
-                    console.log(`📚 [CadastroProdutoSKU] Carregando dicionário: ${url}`);
-                    const response = await fetch(url);
-                    console.log(`✅ [CadastroProdutoSKU] ${tipo} - Status: ${response.status}`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        dicsCarregados[tipo] = data.dados || [];
-                        console.log(`✅ [CadastroProdutoSKU] ${tipo} carregado: ${dicsCarregados[tipo].length} valores`);
-                    } else {
-                        console.error(`❌ [CadastroProdutoSKU] ${tipo} - Erro ${response.status}:`, response.statusText);
-                    }
-                } catch (e) {
-                    console.error(`❌ [CadastroProdutoSKU] Erro ao carregar ${tipo}:`, e);
-                }
+            if (response.ok) {
+                const data = await response.json();
+                setDicionarios(data.dados);
+                console.log(`✅ [CadastroProdutoSKU] Todos os dicionários carregados: ${data.tipos} tipos, ${data.total} valores`);
+            } else {
+                setErro('Erro ao carregar dicionários');
+                console.error(`❌ [CadastroProdutoSKU] Erro ${response.status}:`, response.statusText);
             }
 
-            setDicionarios(dicsCarregados);
             setCarregando(false);
         } catch (e) {
             setErro('Erro ao carregar dicionários');
@@ -321,6 +293,7 @@ export default function CadastroProdutoSKUManual({
             if (dados.eco_score) formData.append('eco_score', dados.eco_score);
             if (dados.care_level) formData.append('care_level', dados.care_level);
             if (dados.faixa_preco) formData.append('faixa_preco', dados.faixa_preco);
+            if (dados.preco) formData.append('preco', dados.preco.toString());
             if (dados.peca_hero) formData.append('peca_hero', 'true');
             if (dados.classe_margem) formData.append('classe_margem', dados.classe_margem);
 
@@ -537,15 +510,13 @@ export default function CadastroProdutoSKUManual({
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Coleção <span className="text-red-600">*</span>
-                                {produtoEditar && <span className="ml-2 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">🔒 Não editável</span>}
                             </label>
                             <select
                                 value={dados.colecao}
                                 onChange={(e) =>
                                     atualizarCampo('colecao', e.target.value)
                                 }
-                                disabled={!!produtoEditar}
-                                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${produtoEditar ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
                             >
                                 <option value="">Selecione...</option>
                                 <option value="S24">S24 - Spring 2024</option>
@@ -949,6 +920,24 @@ export default function CadastroProdutoSKUManual({
                                 <option value="PREMIUM">Premium</option>
                                 <option value="LUXURY">Luxury</option>
                             </select>
+                        </div>
+
+                        {/* PREÇO */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Preço (R$)
+                            </label>
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={dados.preco || ''}
+                                onChange={(e) =>
+                                    atualizarCampo('preco', e.target.value ? parseFloat(e.target.value) : undefined)
+                                }
+                                placeholder="Ex: 99.90"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
                         </div>
 
                         {/* PEÇA HERO */}
