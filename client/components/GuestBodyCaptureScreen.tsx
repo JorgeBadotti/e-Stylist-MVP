@@ -1,13 +1,26 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import CameraCaptureScreen from './CameraCaptureScreen';
 import { DetectedMeasurements, Profile } from '../src/types/types'
 
 interface GuestBodyCaptureScreenProps {
     onMeasurementsCaptured: (measurements: DetectedMeasurements, photoBase64: string) => void;
+    showCamera?: boolean; // ✅ NOVO: Controlar câmera do pai
+    onShowCameraChange?: (show: boolean) => void; // ✅ NOVO: Callback para mudar estado no pai
 }
 
-const GuestBodyCaptureScreen: React.FC<GuestBodyCaptureScreenProps> = ({ onMeasurementsCaptured }) => {
-    const [showCamera, setShowCamera] = useState(false);
+const GuestBodyCaptureScreen: React.FC<GuestBodyCaptureScreenProps> = ({
+    onMeasurementsCaptured,
+    showCamera = false, // ✅ NOVO: Receber do pai
+    onShowCameraChange // ✅ NOVO: Callback para avisar pai
+}) => {
+    console.log('[GuestBodyCapture] Renderizado com showCamera=', showCamera); // ✅ DEBUG
+    console.log('[GuestBodyCapture] onShowCameraChange é função?', typeof onShowCameraChange === 'function'); // ✅ DEBUG
+
+    // ✅ NOVO: Debug useEffect para monitorar mudanças de prop
+    useEffect(() => {
+        console.log('[GuestBodyCapture] useEffect: showCamera mudou para', showCamera);
+    }, [showCamera]);
+
     const [guestMeasurements, setGuestMeasurements] = useState<DetectedMeasurements | null>(null);
     const [guestPhoto, setGuestPhoto] = useState<string | null>(null);
 
@@ -30,116 +43,108 @@ const GuestBodyCaptureScreen: React.FC<GuestBodyCaptureScreenProps> = ({ onMeasu
             console.log('[GuestBodyCapture] Medidas capturadas:', measurements);
             setGuestMeasurements(measurements);
             setGuestPhoto(photoBase64);
-            setShowCamera(false);
             // Passar para o pai (LooksPage)
             onMeasurementsCaptured(measurements, photoBase64);
         },
         [onMeasurementsCaptured]
     );
 
-    // Se está capturando, mostrar o CameraCaptureScreen
-    if (showCamera) {
+    const handleCancel = () => {
+        console.log('[GuestBodyCapture] handleCancel executado'); // ✅ DEBUG
+        console.log('[GuestBodyCapture] showCamera ANTES de chamar callback:', showCamera); // ✅ DEBUG
+        if (onShowCameraChange) {
+            console.log('[GuestBodyCapture] Chamando onShowCameraChange(false)'); // ✅ DEBUG
+            onShowCameraChange(false); // ✅ NOVO: Avisar pai
+            console.log('[GuestBodyCapture] onShowCameraChange foi chamado'); // ✅ DEBUG
+        } else {
+            console.error('[GuestBodyCapture] onShowCameraChange é undefined no handleCancel!'); // ✅ DEBUG
+        }
+    };
+
+    // ✅ NOVO: Mostrar instruções + botão, depois câmera
+    if (!showCamera) {
+        console.log('[GuestBodyCapture] Renderizando tela de instruções'); // ✅ DEBUG
         return (
-            <div className="fixed inset-0 w-full h-full z-50 bg-black">
+            <div className="w-full h-screen flex flex-col bg-gray-100">
+                {/* Instruções */}
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-4 flex-shrink-0">
+                    <h2 className="text-xl font-bold mb-3">📸 Tire uma Foto no Espelho</h2>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs mb-4">
+                        <div className="flex items-start gap-2">
+                            <span className="text-white font-bold flex-shrink-0">✓</span>
+                            <span>Boa iluminação</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <span className="text-white font-bold flex-shrink-0">✓</span>
+                            <span>Corpo inteiro</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <span className="text-white font-bold flex-shrink-0">✓</span>
+                            <span>Celular no peito</span>
+                        </div>
+                        <div className="flex items-start gap-2 col-span-2 md:col-span-3">
+                            <span className="text-white font-bold flex-shrink-0">💡</span>
+                            <span>Melhor resultado: peça para o vendedor tirar a foto</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Conteúdo central */}
+                <div className="flex-1 flex flex-col items-center justify-center px-4">
+                    <div className="text-center max-w-md">
+                        <p className="text-gray-700 mb-6 text-lg">Clique abaixo para abrir a câmera e capturar sua foto</p>
+                        <button
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log('[GuestBodyCapture] ===== BOTÃO CLICADO =====');
+                                console.log('[GuestBodyCapture] showCamera no moment do click:', showCamera);
+                                console.log('[GuestBodyCapture] onShowCameraChange type:', typeof onShowCameraChange);
+                                if (onShowCameraChange) {
+                                    console.log('[GuestBodyCapture] Executando onShowCameraChange(true)...');
+                                    onShowCameraChange(true);
+                                    console.log('[GuestBodyCapture] onShowCameraChange(true) foi executado');
+                                } else {
+                                    console.error('[GuestBodyCapture] ERRO: onShowCameraChange é undefined!');
+                                }
+                            }}
+                            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-lg font-bold hover:from-blue-700 hover:to-indigo-700 transition shadow-md text-lg mb-3 w-full"
+                        >
+                            📷 Abrir Câmera
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ✅ Câmera aberta
+    console.log('[GuestBodyCapture] Renderizando câmera'); // ✅ DEBUG
+    return (
+        <div className="w-full h-screen flex flex-col bg-gray-100">
+            {/* Instruções no topo - espaço reduzido */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-3 flex-shrink-0 flex items-center justify-between">
+                <div>
+                    <h2 className="text-lg font-bold">📸 Pronto para tirar a foto?</h2>
+                </div>
+                <button
+                    onClick={handleCancel}
+                    className="bg-white text-red-600 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition flex-shrink-0 ml-4"
+                    title="Cancelar captura de foto"
+                >
+                    ✕
+                </button>
+            </div>
+
+            {/* Câmera */}
+            <div className="flex-1 overflow-hidden">
                 <CameraCaptureScreen
                     profile={guestProfile}
                     onMeasurementsCaptured={handleCameraMeasurements}
-                    onClose={() => setShowCamera(false)}
+                    onClose={handleCancel}
+                    skipOnboarding={true}
                 />
             </div>
-        );
-    }
-
-    // Se não tem medidas ainda, mostrar onboarding
-    if (!guestMeasurements || !guestPhoto) {
-        return (
-            <div className="max-w-4xl mx-auto p-8 text-center mt-10 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-md">
-                <div className="mb-6">
-                    <div className="text-7xl mb-4">📸</div>
-                    <h2 className="text-3xl font-bold text-gray-900 mb-2">Capture Seu Corpo</h2>
-                    <p className="text-lg text-gray-600 mb-2">
-                        Para que a IA possa gerar looks que valorizem seu corpo,
-                    </p>
-                    <p className="text-lg text-gray-600 mb-8">
-                        precisamos de uma foto de corpo inteiro e suas medidas.
-                    </p>
-                </div>
-
-                <div className="bg-white rounded-lg p-6 mb-8 shadow-sm">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-4">O que faremos:</h3>
-                    <ul className="text-left max-w-md mx-auto space-y-3">
-                        <li className="flex items-center text-gray-700">
-                            <span className="text-green-500 mr-3 text-xl">✓</span>
-                            Tiraremos uma foto de corpo inteiro
-                        </li>
-                        <li className="flex items-center text-gray-700">
-                            <span className="text-green-500 mr-3 text-xl">✓</span>
-                            A IA detectará suas medidas automaticamente
-                        </li>
-                        <li className="flex items-center text-gray-700">
-                            <span className="text-green-500 mr-3 text-xl">✓</span>
-                            Você poderá ajustar os valores se necessário
-                        </li>
-                        <li className="flex items-center text-gray-700">
-                            <span className="text-green-500 mr-3 text-xl">✓</span>
-                            Seus dados não serão salvos, apenas usados nesta sessão
-                        </li>
-                    </ul>
-                </div>
-
-                <button
-                    onClick={() => setShowCamera(true)}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition shadow-md text-lg"
-                >
-                    Abrir Câmera Agora
-                </button>
-
-                <p className="text-sm text-gray-500 mt-6">
-                    💡 Dica: Fique em pé, de frente para a câmera, com roupa colada ao corpo para melhores resultados.
-                </p>
-            </div>
-        );
-    }
-
-    // Se já tem medidas, mostrar confirmação
-    return (
-        <div className="max-w-4xl mx-auto p-8 text-center mt-10 bg-green-50 rounded-lg shadow-md">
-            <div className="text-6xl mb-4">✅</div>
-            <h2 className="text-3xl font-bold text-green-900 mb-2">Pronto para Gerar Looks!</h2>
-            <p className="text-gray-700 mb-6">Suas medidas foram capturadas com sucesso.</p>
-
-            <div className="bg-white rounded-lg p-6 mb-8 max-w-md mx-auto">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Suas Medidas Detectadas:</h3>
-                <div className="grid grid-cols-2 gap-4 text-left">
-                    <div className="bg-blue-50 p-3 rounded">
-                        <p className="text-sm text-gray-600">Busto</p>
-                        <p className="text-xl font-bold text-gray-900">{guestMeasurements.chest_cm} cm</p>
-                    </div>
-                    <div className="bg-blue-50 p-3 rounded">
-                        <p className="text-sm text-gray-600">Cintura</p>
-                        <p className="text-xl font-bold text-gray-900">{guestMeasurements.waist_cm} cm</p>
-                    </div>
-                    <div className="bg-blue-50 p-3 rounded">
-                        <p className="text-sm text-gray-600">Quadril</p>
-                        <p className="text-xl font-bold text-gray-900">{guestMeasurements.hips_cm} cm</p>
-                    </div>
-                    <div className="bg-blue-50 p-3 rounded">
-                        <p className="text-sm text-gray-600">Altura</p>
-                        <p className="text-xl font-bold text-gray-900">{guestMeasurements.height_cm} cm</p>
-                    </div>
-                </div>
-            </div>
-
-            <button
-                onClick={() => setShowCamera(true)}
-                className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition mr-4"
-            >
-                Tirar Foto Novamente
-            </button>
-
-            <p className="text-sm text-gray-500 mt-6">
-                Os dados capturados são apenas para esta sessão e não serão salvos.
-            </p>
         </div>
     );
 };

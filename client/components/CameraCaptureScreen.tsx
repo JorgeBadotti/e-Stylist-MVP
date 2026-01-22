@@ -7,12 +7,13 @@ interface CameraCaptureScreenProps {
   profile: Profile;
   onMeasurementsCaptured: (measurements: DetectedMeasurements, photoBase64: string) => void;
   onClose: () => void;
+  skipOnboarding?: boolean; // ✅ NOVO: Pular tela de onboarding
 }
 
 type CameraStep = 'onboarding' | 'camera' | 'preview' | 'processing' | 'done';
 
-const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMeasurementsCaptured, onClose }) => {
-  const [step, setStep] = useState<CameraStep>('onboarding');
+const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMeasurementsCaptured, onClose, skipOnboarding }) => {
+  const [step, setStep] = useState<CameraStep>(skipOnboarding ? 'camera' : 'onboarding'); // ✅ NOVO: Pular onboarding se skipOnboarding=true
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [photoData, setPhotoData] = useState<string | null>(null);
   const [detectedMeasurements, setDetectedMeasurements] = useState<DetectedMeasurements | null>(null);
@@ -210,6 +211,14 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
   }, [stopCamera]);
+
+  // ✅ NOVO: Quando step muda para 'camera', iniciar a câmera automaticamente
+  useEffect(() => {
+    if (step === 'camera') {
+      console.log('[Camera] useEffect detectou step="camera", iniciando câmera...');
+      startCamera();
+    }
+  }, [step, startCamera]);
 
   return (
     <div className="w-full h-full bg-black flex flex-col">

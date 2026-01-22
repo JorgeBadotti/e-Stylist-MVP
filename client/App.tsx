@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useParams, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import HomePage from './components/HomePage';
 import PublicHomePage from './components/PublicHomePage';
@@ -255,6 +255,7 @@ const AppContent: React.FC<AppContentProps> = ({
 }) => {
     const { sku: urlSku } = useParams<{ sku: string }>();
     const navigate = useNavigate(); // ✅ NOVO: Para navegar para a URL
+    const location = useLocation(); // ✅ NOVO: Para detectar rota /gerar-looks
     const [isRedirecting, setIsRedirecting] = useState<boolean>(false);
     const [publicView, setPublicView] = useState<PublicView>('landing');
     const [privateView, setPrivateView] = useState<PrivateView>('home');
@@ -273,6 +274,20 @@ const AppContent: React.FC<AppContentProps> = ({
             }
         }
     }, [isAuthenticated, isLoading, initialSku]);
+
+    // ✅ NOVO: Detectar rota /gerar-looks direto
+    useEffect(() => {
+        if (location.pathname === '/gerar-looks') {
+            const params = new URLSearchParams(location.search);
+            const itemObrigatorioParam = params.get('itemObrigatorio');
+            if (itemObrigatorioParam) {
+                console.log(`[App] Detectada rota /gerar-looks com itemObrigatorio: ${itemObrigatorioParam}`);
+                setItemObrigatorio(itemObrigatorioParam);
+                setPrivateView('looks');
+                setSelectedSku(null); // Não estamos vendo produto, apenas gerando looks
+            }
+        }
+    }, [location]);
 
     // Navegação Interna
 
@@ -382,7 +397,7 @@ const AppContent: React.FC<AppContentProps> = ({
                                 {privateView === 'home' && <HomePage onNavigate={setPrivateView} />}
                                 {privateView === 'wardrobes' && <IndiceGuardaRoupas />}
                                 {privateView === 'profile' && <ProfilePage />}
-                                {privateView === 'looks' && <LooksPage onProductClick={handleProdutoSelect} />}
+                                {privateView === 'looks' && <LooksPage onProductClick={handleProdutoSelect} initialItemObrigatorio={itemObrigatorio} />}
                                 {privateView === 'invitacoes' && <MinhasInvitacoes />}
 
                                 {/* ✅ NOVO: Páginas para SALESPERSON (Vendedor) */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../src/services/api';
 import ViewLook from './ViewLook';
@@ -30,11 +30,12 @@ interface GeneratedLook {
 }
 
 interface LooksPageProps {
-    onNavigateToProfile: () => void;
+    onNavigateToProfile?: () => void;
     onProductClick?: (sku: string) => void;
+    initialItemObrigatorio?: string | null; // ✅ NOVO: Item obrigatório inicial da URL
 }
 
-const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductClick }) => {
+const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductClick, initialItemObrigatorio }) => {
     const [searchParams] = useSearchParams(); // ✅ NOVO: Capturar parâmetros da URL
     const [step, setStep] = useState<'selection' | 'generating' | 'results' | 'visualizing' | 'visualized'>('selection');
     const [wardrobes, setWardrobes] = useState<Wardrobe[]>([]);
@@ -49,12 +50,13 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
     const [selectedLookName, setSelectedLookName] = useState<string>('');
     const [selectedLookExplanation, setSelectedLookExplanation] = useState<string>('');
     const [selectedLookItems, setSelectedLookItems] = useState<LookItem[]>([]);
-    const [itemObrigatorio, setItemObrigatorio] = useState<string | null>(null); // ✅ NOVO: Armazenar peça obrigatória
+    const [itemObrigatorio, setItemObrigatorio] = useState<string | null>(initialItemObrigatorio || null); // ✅ NOVO: Armazenar peça obrigatória
     const [lojas, setLojas] = useState<any[]>([]); // ✅ NOVO: Lista de lojas
     const [selectedLoja, setSelectedLoja] = useState<string>(''); // ✅ NOVO: Loja selecionada
     const [sessionId, setSessionId] = useState<string | null>(null); // ✅ NOVO: Session ID
     const [guestMeasurements, setGuestMeasurements] = useState<DetectedMeasurements | null>(null); // ✅ NOVO: Medidas do visitante
     const [guestPhoto, setGuestPhoto] = useState<string | null>(null); // ✅ NOVO: Foto do visitante em base64
+    const [showGuestCamera, setShowGuestCamera] = useState<boolean>(false); // ✅ NOVO: Controlar câmera do visitante
 
     // ✅ NOVO: Detectar parâmetro itemObrigatorio na URL
     useEffect(() => {
@@ -64,6 +66,17 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
             setItemObrigatorio(item);
         }
     }, [searchParams]);
+
+    // ✅ DEBUG: Log quando showGuestCamera muda
+    useEffect(() => {
+        console.log('[LooksPage] showGuestCamera CHANGED:', showGuestCamera);
+    }, [showGuestCamera]);
+
+    // ✅ NOVO: useCallback para manter referência da função estável
+    const handleShowCameraChange = useCallback((show: boolean) => {
+        console.log('[LooksPage] handleShowCameraChange chamado com:', show);
+        setShowGuestCamera(show);
+    }, []);
 
     // Carregar dados iniciais
     useEffect(() => {
@@ -278,6 +291,8 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                     setGuestPhoto(photo);
                     setHasBodyPhoto(true); // Permitir continuar
                 }}
+                showCamera={showGuestCamera}
+                onShowCameraChange={handleShowCameraChange}
             />
         );
     }
