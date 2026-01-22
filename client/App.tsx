@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import HomePage from './components/HomePage';
 import PublicHomePage from './components/PublicHomePage';
@@ -146,11 +146,25 @@ const App: React.FC = () => {
                 <Route
                     path="/produtos/:sku"
                     element={
-                        <PublicProdutoPage
-                            isAuthenticated={isAuthenticated}
-                            user={userData}
-                            onLogoutClick={handleLogout}
-                        />
+                        isAuthenticated ? (
+                            <AppContent
+                                isAuthenticated={isAuthenticated}
+                                setIsAuthenticated={setIsAuthenticated}
+                                userData={userData}
+                                setUserData={setUserData}
+                                isLoading={isLoading}
+                                setIsLoading={setIsLoading}
+                                handleLogout={handleLogout}
+                                fetchUserSession={fetchUserSession}
+                                initialSku={new URLSearchParams(window.location.search).get('sku') || undefined}
+                            />
+                        ) : (
+                            <PublicProdutoPage
+                                isAuthenticated={isAuthenticated}
+                                user={userData}
+                                onLogoutClick={handleLogout}
+                            />
+                        )
                     }
                 />
 
@@ -225,6 +239,7 @@ const AppContent: React.FC<AppContentProps> = ({
     initialSku // ✅ NOVO
 }) => {
     const { sku: urlSku } = useParams<{ sku: string }>();
+    const navigate = useNavigate(); // ✅ NOVO: Para navegar para a URL
     const [isRedirecting, setIsRedirecting] = useState<boolean>(false);
     const [publicView, setPublicView] = useState<PublicView>('landing');
     const [privateView, setPrivateView] = useState<PrivateView>('home');
@@ -268,10 +283,12 @@ const AppContent: React.FC<AppContentProps> = ({
     // 2. Funções para selecionar produto e voltar
     const handleProdutoSelect = (sku: string) => {
         setSelectedSku(sku);
+        navigate(`/produtos/${sku}`); // ✅ NOVO: Navega para a URL do produto
     };
 
     const handleBackToCatalog = () => {
         setSelectedSku(null);
+        navigate('/'); // ✅ NOVO: Volta para home
     };
 
 
@@ -342,7 +359,7 @@ const AppContent: React.FC<AppContentProps> = ({
                                 {privateView === 'home' && <HomePage onNavigate={setPrivateView} />}
                                 {privateView === 'wardrobes' && <IndiceGuardaRoupas />}
                                 {privateView === 'profile' && <ProfilePage />}
-                                {privateView === 'looks' && <LooksPage onProductClick={setSelectedSku} />}
+                                {privateView === 'looks' && <LooksPage onProductClick={handleProdutoSelect} />}
                                 {privateView === 'invitacoes' && <MinhasInvitacoes />}
 
                                 {/* ✅ NOVO: Páginas para SALESPERSON (Vendedor) */}
@@ -357,7 +374,7 @@ const AppContent: React.FC<AppContentProps> = ({
                                         lojaId={selectedLojaId}
                                         onBack={() => setPrivateView('vendor-lojas')}
                                         selectedSku={selectedSku}
-                                        onSelectSku={setSelectedSku}
+                                        onSelectSku={handleProdutoSelect}
                                     />
                                 )}
 
@@ -366,17 +383,17 @@ const AppContent: React.FC<AppContentProps> = ({
                                     <AdminLojaPage
                                         lojaId={userData.lojaId}
                                         selectedSku={selectedSku}
-                                        onSelectSku={setSelectedSku}
+                                        onSelectSku={handleProdutoSelect}
                                     />
                                 )}
 
                                 {privateView === 'myLooks' && (
-                                    <MyLooksPage onProductClick={setSelectedSku} />
+                                    <MyLooksPage onProductClick={handleProdutoSelect} />
                                 )}
 
                                 {/* ✅ Página do Carrinho */}
                                 {privateView === 'carrinho' && (
-                                    <CarrinhoPage onProductClick={setSelectedSku} />
+                                    <CarrinhoPage onProductClick={handleProdutoSelect} />
                                 )}
                             </>
                         )}
