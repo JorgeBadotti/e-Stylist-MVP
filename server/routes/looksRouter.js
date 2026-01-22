@@ -11,6 +11,9 @@ const ensureAuthenticated = (req, res, next) => {
 
 router.use(ensureAuthenticated);
 
+// ✅ NOVO: Criar LookSession
+router.post('/create-session', LooksController.createLookSession);
+
 router.post('/gerar', LooksController.gerarLooks);
 
 router.post('/salvar', LooksController.salvarEscolha);

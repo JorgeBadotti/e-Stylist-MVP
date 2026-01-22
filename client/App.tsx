@@ -245,6 +245,7 @@ const AppContent: React.FC<AppContentProps> = ({
     const [privateView, setPrivateView] = useState<PrivateView>('home');
     const [selectedSku, setSelectedSku] = useState<string | null>(initialSku || urlSku || null);
     const [selectedLojaId, setSelectedLojaId] = useState<string | null>(null);
+    const [itemObrigatorio, setItemObrigatorio] = useState<string | null>(null); // ✅ NOVO: Armazenar item obrigatório
 
     // ✅ UseEffect para monitorar mudanças de autenticação
     useEffect(() => {
@@ -353,6 +354,13 @@ const AppContent: React.FC<AppContentProps> = ({
                             <ProdutoDetalhe
                                 sku={selectedSku}
                                 onBack={() => setSelectedSku(null)}
+                                onGerarLookComPeca={(sku: string) => {
+                                    console.log(`[LookSession] Callback acionado com SKU: ${sku}`);
+                                    setItemObrigatorio(sku); // ✅ Armazena o item obrigatório no estado
+                                    setSelectedSku(null);
+                                    setPrivateView('looks');
+                                    navigate(`/gerar-looks?itemObrigatorio=${sku}`); // ✅ Usa navigate() em vez de pushState
+                                }}
                             />
                         ) : (
                             <>

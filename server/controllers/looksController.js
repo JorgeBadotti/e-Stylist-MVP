@@ -8,11 +8,109 @@ import { loadPrompt } from '../services/prompt_loader.js';
 import { uploadImage } from '../services/cloudinary.js';
 import { v4 as uuidv4 } from 'uuid';
 
-export const gerarLooks = async (req, res) => {
-    console.log("Dentro de Gerar Looks")
+// ✅ NOVO: Map em memória para armazenar LookSessions
+const lookSessions = new Map();
+
+// ✅ NOVO: Função para limpar sessões expiradas (a cada 5 minutos)
+const cleanupExpiredSessions = () => {
+    const now = Date.now();
+    for (const [sessionId, session] of lookSessions.entries()) {
+        if (session.expiresAt < now) {
+            lookSessions.delete(sessionId);
+            console.log(`[LookSession] Sessão expirada removida: ${sessionId}`);
+        }
+    }
+};
+
+// Executar limpeza a cada 5 minutos
+setInterval(cleanupExpiredSessions, 5 * 60 * 1000);
+
+// ✅ NOVO: Criar LookSession
+export const createLookSession = async (req, res) => {
     try {
-        const { wardrobeId, prompt: userOccasion } = req.body;
+        const { itemObrigatorio, lojaId } = req.body;
         const userId = req.user._id;
+
+        console.log(`[LookSession DEBUG] Procurando: skuStyleMe=${itemObrigatorio}, lojaId=${lojaId}`);
+
+        // 1. Validar se itemObrigatorio existe na loja
+        // OPÇÃO 1: Procurar com lojaId
+        let produto = await Produto.findOne({
+            skuStyleMe: itemObrigatorio,
+            lojaId: lojaId
+        });
+
+        // OPÇÃO 2: Se não encontrou com lojaId, procurar apenas pelo SKU
+        if (!produto) {
+            console.log(`[LookSession DEBUG] Não encontrado com lojaId. Procurando apenas pelo SKU...`);
+            produto = await Produto.findOne({
+                skuStyleMe: itemObrigatorio
+            });
+
+            if (produto) {
+                console.log(`[LookSession DEBUG] Produto encontrado: ${JSON.stringify(produto)}`);
+            }
+        }
+
+        if (!produto) {
+            console.log(`[LookSession] Peça ${itemObrigatorio} não encontrada na loja ${lojaId}`);
+            return res.status(404).json({ error: "Peça não encontrada nesta loja." });
+        }
+
+        // 2. Criar sessão em memória
+        const sessionId = uuidv4();
+        const session = {
+            sessionId,
+            userId,
+            itemObrigatorio,
+            lojaId,
+            createdAt: Date.now(),
+            expiresAt: Date.now() + 30 * 60 * 1000 // 30 minutos
+        };
+
+        lookSessions.set(sessionId, session);
+
+        console.log(`[LookSession] ${sessionId} criada com itemObrigatorio: ${itemObrigatorio}, lojaId: ${lojaId}`);
+
+        res.json({
+            sessionId,
+            itemObrigatorio,
+            lojaId,
+            message: "Sessão criada com sucesso"
+        });
+
+    } catch (error) {
+        console.error("[LookSession] Erro ao criar sessão:", error);
+        res.status(500).json({ error: "Erro ao criar sessão de look." });
+    }
+};
+
+export const gerarLooks = async (req, res) => {
+    console.log("Dentro de Gerar Looks");
+    try {
+        const { sessionId, wardrobeId, prompt: userOccasion } = req.body;
+        const userId = req.user._id;
+
+        // ✅ NOVO: Verificar se é nova abordagem (sessionId) ou antiga (wardrobeId)
+        let itemObrigatorio = null;
+        let lojaId = null;
+
+        if (sessionId) {
+            // NOVO FLUXO: LookSession
+            const session = lookSessions.get(sessionId);
+            if (!session) {
+                return res.status(404).json({ error: "Sessão de look não encontrada ou expirada." });
+            }
+
+            itemObrigatorio = session.itemObrigatorio;
+            lojaId = session.lojaId;
+            console.log(`[LookSession ${sessionId}] Gerando looks com itemObrigatorio: ${itemObrigatorio}, lojaId: ${lojaId}`);
+        } else if (wardrobeId) {
+            // FLUXO ANTIGO: Guarda-roupa (manter compatibilidade)
+            console.log(`[LooksPage] Fluxo antigo (guarda-roupa): ${wardrobeId}`);
+        } else {
+            return res.status(400).json({ error: "Forneça sessionId ou wardrobeId." });
+        }
 
         // 1. Buscar Perfil do Usuário
         const usuario = await Usuario.findById(userId);
@@ -20,9 +118,35 @@ export const gerarLooks = async (req, res) => {
             return res.status(400).json({ error: "Perfil incompleto. Necessário medidas e foto." });
         }
 
-        // 2. Buscar Produtos do Guarda-Roupa Selecionado
-        console.log("Buscando produtos para o guarda-roupa:", wardrobeId);
-        const produtos = await Produto.find({ guardaRoupaId: wardrobeId });
+        // ✅ NOVO: Se tem itemObrigatorio, buscar seus dados
+        let itemObrigatorioData = null;
+        if (itemObrigatorio) {
+            itemObrigatorioData = await Produto.findOne({ skuStyleMe: itemObrigatorio });
+            if (!itemObrigatorioData) {
+                return res.status(400).json({ error: `Peça obrigatória ${itemObrigatorio} não encontrada.` });
+            }
+            console.log(`[LookSession] Peça obrigatória carregada: ${itemObrigatorioData.nome}`);
+        }
+
+        // 2. Buscar Produtos (por Loja ou Guarda-Roupa)
+        let produtos;
+        if (lojaId) {
+            // NOVO: Buscar TUDO da loja
+            console.log(`[LookSession] Buscando produtos da loja: ${lojaId}`);
+            produtos = await Produto.find({ lojaId: lojaId });
+        } else {
+            // ANTIGO: Buscar do guarda-roupa
+            console.log("Buscando produtos para o guarda-roupa:", wardrobeId);
+            produtos = await Produto.find({ guardaRoupaId: wardrobeId });
+        }
+
+        // ✅ NOVO: Se tem itemObrigatorio, excluir da lista (será adicionado obrigatoriamente)
+        if (itemObrigatorio) {
+            const countAntes = produtos.length;
+            produtos = produtos.filter(p => p.skuStyleMe !== itemObrigatorio);
+            console.log(`[LookSession] Produtos: ${countAntes} total, ${produtos.length} sem obrigatória`);
+        }
+
         console.log("Produtos encontrados:", produtos.length);
         if (produtos.length < 2) {
             return res.status(400).json({ error: "Guarda-roupa precisa ter pelo menos 2 peças para gerar looks." });
@@ -44,6 +168,23 @@ export const gerarLooks = async (req, res) => {
             categoria: r.categoria || ''
         }));
 
+        // ✅ NOVO: Se tem itemObrigatorio, adicionar aos items com tag especial
+        let promptItems = itemsForAI;
+        let itemObrigatorioInfo = '';
+        if (itemObrigatorio && itemObrigatorioData) {
+            const obrigatorioItem = {
+                sku: itemObrigatorioData.skuStyleMe,
+                nome: itemObrigatorioData.nome || itemObrigatorioData.descricao,
+                cor: coresMap[itemObrigatorioData.cor_codigo] || itemObrigatorioData.cor_codigo || 'sem cor',
+                tamanho: itemObrigatorioData.tamanho || '',
+                categoria: itemObrigatorioData.categoria || '',
+                isObrigatorio: true // ✅ Tag para a IA saber que é obrigatória
+            };
+            promptItems = [obrigatorioItem, ...itemsForAI]; // Colocar obrigatória primeiro
+            itemObrigatorioInfo = `**[IMPORTANTE]** Esta peça DEVE estar em TODOS os looks gerados: ${itemObrigatorioData.nome} (${itemObrigatorioData.skuStyleMe})`;
+            console.log(`[LookSession] Adicionado item obrigatório ao prompt`);
+        }
+
         // 4. Carregar o Prompt do arquivo e fazer as substituições
         const systemInstruction = await loadPrompt('generate_look.md', {
             user_name: usuario.nome,
@@ -54,7 +195,8 @@ export const gerarLooks = async (req, res) => {
             body_type: usuario.tipo_corpo,
             personal_style: usuario.estilo_pessoal,
             user_prompt: userOccasion,
-            items_json: JSON.stringify(itemsForAI)
+            itemObrigatorioInfo: itemObrigatorioInfo, // ✅ Passar como variável separada
+            items_json: JSON.stringify(promptItems) // ✅ Usar promptItems com obrigatória
         });
 
         // 5. Chamar Gemini
@@ -74,6 +216,11 @@ export const gerarLooks = async (req, res) => {
             produtos.forEach(p => {
                 produtoMapBySku[p.skuStyleMe] = p;
             });
+
+            // ✅ NOVO: Se tem itemObrigatorio, adicionar ao mapa mesmo que tenha sido filtrado
+            if (itemObrigatorioData) {
+                produtoMapBySku[itemObrigatorioData.skuStyleMe] = itemObrigatorioData;
+            }
 
             for (const look of jsonResponse.looks) {
                 if (look.items && Array.isArray(look.items)) {
@@ -101,6 +248,11 @@ export const gerarLooks = async (req, res) => {
                     look.items = itemsEnriquecidos;
                 }
             }
+        }
+
+        // ✅ NOVO: Log final da LookSession
+        if (itemObrigatorio) {
+            console.log(`[LookSession] ${jsonResponse.looks?.length || 0} looks gerados com peça obrigatória: ${itemObrigatorio}`);
         }
 
         res.json(jsonResponse);

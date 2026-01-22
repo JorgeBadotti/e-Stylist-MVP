@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../src/services/api';
 import ViewLook from './ViewLook';
 
@@ -32,6 +33,7 @@ interface LooksPageProps {
 }
 
 const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductClick }) => {
+    const [searchParams] = useSearchParams(); // ✅ NOVO: Capturar parâmetros da URL
     const [step, setStep] = useState<'selection' | 'generating' | 'results' | 'visualizing' | 'visualized'>('selection');
     const [wardrobes, setWardrobes] = useState<Wardrobe[]>([]);
     const [selectedWardrobe, setSelectedWardrobe] = useState<string>('');
@@ -45,6 +47,19 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
     const [selectedLookName, setSelectedLookName] = useState<string>('');
     const [selectedLookExplanation, setSelectedLookExplanation] = useState<string>('');
     const [selectedLookItems, setSelectedLookItems] = useState<LookItem[]>([]);
+    const [itemObrigatorio, setItemObrigatorio] = useState<string | null>(null); // ✅ NOVO: Armazenar peça obrigatória
+    const [lojas, setLojas] = useState<any[]>([]); // ✅ NOVO: Lista de lojas
+    const [selectedLoja, setSelectedLoja] = useState<string>(''); // ✅ NOVO: Loja selecionada
+    const [sessionId, setSessionId] = useState<string | null>(null); // ✅ NOVO: Session ID
+
+    // ✅ NOVO: Detectar parâmetro itemObrigatorio na URL
+    useEffect(() => {
+        const item = searchParams.get('itemObrigatorio');
+        if (item) {
+            console.log(`[LookSession] Detectado itemObrigatorio na URL: ${item}`);
+            setItemObrigatorio(item);
+        }
+    }, [searchParams]);
 
     // Carregar dados iniciais
     useEffect(() => {
@@ -67,47 +82,95 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                     console.log('❌ [LooksPage] Perfil INCOMPLETO');
                 }
 
-                // 2. Busca Guarda-Roupas (meus + públicos)
-                const [myWardrobesRes, publicWardrobesRes] = await Promise.all([
-                    api.get('/api/guarda-roupas'),
-                    api.get('/api/guarda-roupas/publicos/lista')
-                ]);
+                // ✅ NOVO: Se tem itemObrigatorio, carregar lojas em vez de guarda-roupas
+                if (itemObrigatorio) {
+                    console.log(`[LookSession] Carregando lojas para itemObrigatorio: ${itemObrigatorio}`);
+                    const lojasRes = await api.get('/api/lojas');
+                    setLojas(lojasRes.data);
+                    console.log(`[LookSession] ${lojasRes.data.length} lojas carregadas`);
+                } else {
+                    // 2. Busca Guarda-Roupas (meus + públicos)
+                    const [myWardrobesRes, publicWardrobesRes] = await Promise.all([
+                        api.get('/api/guarda-roupas'),
+                        api.get('/api/guarda-roupas/publicos/lista')
+                    ]);
 
-                // Combina guarda-roupas próprios e públicos
-                const allWardrobes = [...myWardrobesRes.data, ...publicWardrobesRes.data];
-                setWardrobes(allWardrobes);
+                    // Combina guarda-roupas próprios e públicos
+                    const allWardrobes = [...myWardrobesRes.data, ...publicWardrobesRes.data];
+                    setWardrobes(allWardrobes);
+                }
             } catch (err) {
                 console.error('❌ [LooksPage] Erro ao carregar dados:', err);
-                setHasBodyPhoto(false);  // ← Se der erro, considera incompleto
+                setHasBodyPhoto(false);
                 setError("Erro ao carregar dados. Verifique sua conexão.");
             }
         };
         initData();
-    }, []);
+    }, [itemObrigatorio]);
 
     const handleGenerate = async () => {
-        if (!selectedWardrobe) {
-            setError("Por favor, selecione um guarda-roupa.");
-            return;
-        }
+        // ✅ NOVO: Se tem itemObrigatorio, usar sessionId. Senão, usar wardrobeId
+        if (itemObrigatorio) {
+            // NOVO FLUXO: LookSession
+            if (!selectedLoja) {
+                setError("Por favor, selecione uma loja.");
+                return;
+            }
 
-        setStep('generating');
-        setError('');
+            try {
+                setStep('generating');
+                setError('');
 
-        try {
-            // Chama o backend para gerar looks
-            // O backend vai: Pegar usuário + Pegar itens do guarda-roupa + Chamar Gemini
-            const response = await api.post('/api/looks/gerar', {
-                wardrobeId: selectedWardrobe,
-                prompt: occasion || "Look casual para o dia a dia"
-            });
+                // 1. Criar sessão
+                console.log(`[LookSession] Criando sessão com itemObrigatorio: ${itemObrigatorio}, lojaId: ${selectedLoja}`);
+                const sessionRes = await api.post('/api/looks/create-session', {
+                    itemObrigatorio,
+                    lojaId: selectedLoja
+                });
 
-            setLooks(response.data.looks);
-            setStep('results');
-        } catch (err) {
-            console.error(err);
-            setError("Falha ao gerar looks. A IA pode estar sobrecarregada ou o guarda-roupa tem poucas peças.");
-            setStep('selection');
+                const newSessionId = sessionRes.data.sessionId;
+                setSessionId(newSessionId);
+                console.log(`[LookSession] Sessão criada: ${newSessionId}`);
+
+                // 2. Gerar looks com sessionId
+                console.log(`[LookSession] Gerando looks com sessionId: ${newSessionId}`);
+                const response = await api.post('/api/looks/gerar', {
+                    sessionId: newSessionId,
+                    prompt: occasion || "Look casual para o dia a dia"
+                });
+
+                setLooks(response.data.looks);
+                setStep('results');
+            } catch (err) {
+                console.error(err);
+                setError("Falha ao gerar looks. Verifique se a loja tem produtos.");
+                setStep('selection');
+            }
+        } else {
+            // FLUXO ANTIGO: Guarda-roupa
+            if (!selectedWardrobe) {
+                setError("Por favor, selecione um guarda-roupa.");
+                return;
+            }
+
+            setStep('generating');
+            setError('');
+
+            try {
+                const payload: any = {
+                    wardrobeId: selectedWardrobe,
+                    prompt: occasion || "Look casual para o dia a dia"
+                };
+
+                const response = await api.post('/api/looks/gerar', payload);
+
+                setLooks(response.data.looks);
+                setStep('results');
+            } catch (err) {
+                console.error(err);
+                setError("Falha ao gerar looks. A IA pode estar sobrecarregada ou o guarda-roupa tem poucas peças.");
+                setStep('selection');
+            }
         }
     };
 
@@ -200,21 +263,43 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                 <div className="bg-white p-6 rounded-lg shadow-sm space-y-6">
                     {error && <div className="p-3 bg-red-100 text-red-700 rounded">{error}</div>}
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">1. Escolha o Guarda-Roupa</label>
-                        <select
-                            value={selectedWardrobe}
-                            onChange={(e) => setSelectedWardrobe(e.target.value)}
-                            className="w-full border border-gray-300 rounded-md p-3 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                        >
-                            <option value="">Selecione...</option>
-                            {wardrobes.map(w => (
-                                <option key={w._id} value={w._id}>
-                                    {w.nome} {w.isPublic ? '🌐' : ''}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    {/* ✅ NOVO: Mostrar seleção de loja se tem itemObrigatorio */}
+                    {itemObrigatorio ? (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                1. Escolha a Loja 🏪
+                                <span className="text-purple-600 ml-2 text-xs font-bold">(Gerando look com: {itemObrigatorio})</span>
+                            </label>
+                            <select
+                                value={selectedLoja}
+                                onChange={(e) => setSelectedLoja(e.target.value)}
+                                className="w-full border border-gray-300 rounded-md p-3 focus:ring-purple-500 focus:border-purple-500 bg-white"
+                            >
+                                <option value="">Selecione uma loja...</option>
+                                {lojas.map((loja: any) => (
+                                    <option key={loja._id} value={loja._id}>
+                                        {loja.nome} ({loja.cidade || 'Sem cidade'})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    ) : (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">1. Escolha o Guarda-Roupa</label>
+                            <select
+                                value={selectedWardrobe}
+                                onChange={(e) => setSelectedWardrobe(e.target.value)}
+                                className="w-full border border-gray-300 rounded-md p-3 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            >
+                                <option value="">Selecione...</option>
+                                {wardrobes.map(w => (
+                                    <option key={w._id} value={w._id}>
+                                        {w.nome} {w.isPublic ? '🌐' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">2. Para qual ocasião? (Opcional)</label>
