@@ -8,6 +8,8 @@ import { loadPrompt } from '../services/prompt_loader.js';
 import { uploadImage } from '../services/cloudinary.js';
 import { v4 as uuidv4 } from 'uuid';
 
+import CognitiveProfileService from '../services/CognitiveProfileService.js';
+
 export const gerarLooks = async (req, res) => {
     console.log("Dentro de Gerar Looks")
     try {
@@ -19,6 +21,11 @@ export const gerarLooks = async (req, res) => {
         if (!usuario || !usuario.medidas) {
             return res.status(400).json({ error: "Perfil incompleto. Necessário medidas e foto." });
         }
+
+        // 1.1 Buscar Contexto Cognitivo (CDP)
+        // O "Cognitive Stylist" analisa o histórico e sugere direcionamentos
+        const smartContext = await CognitiveProfileService.getSmartContext(userId);
+        console.log("Contexto Cognitivo Injetado:", smartContext);
 
         // 2. Buscar Produtos do Guarda-Roupa Selecionado
         console.log("Buscando produtos para o guarda-roupa:", wardrobeId);
@@ -44,6 +51,9 @@ export const gerarLooks = async (req, res) => {
             categoria: r.categoria || ''
         }));
 
+        // Combinar o prompt do usuário com o contexto cognitivo
+        const finalUserPrompt = `${userOccasion || ''}\n\n[DICAS DO STYLIST COGNITIVO]: ${smartContext}`;
+
         // 4. Carregar o Prompt do arquivo e fazer as substituições
         const systemInstruction = await loadPrompt('generate_look.md', {
             user_name: usuario.nome,
@@ -53,7 +63,7 @@ export const gerarLooks = async (req, res) => {
             height: usuario.medidas.altura.toString(),
             body_type: usuario.tipo_corpo,
             personal_style: usuario.estilo_pessoal,
-            user_prompt: userOccasion,
+            user_prompt: finalUserPrompt,
             items_json: JSON.stringify(itemsForAI)
         });
 

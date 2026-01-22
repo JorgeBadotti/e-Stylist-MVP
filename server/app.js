@@ -21,6 +21,7 @@ import { requestLogger, errorHandler } from './middlewares/logger.js';
 import authRoutes from './routes/authRouter.js';
 import lojaRoutes from './routes/lojaRouter.js';
 import conviteRoutes from './routes/conviteRouter.js'; // ✅ NOVO: Rota de convites
+import analyticsRoutes from './routes/analyticsRouter.js'; // ✅ NOVO: Rota de analytics (CDP)
 
 import guardaRoupaRoutes from './routes/guardaRoupaRouter.js'
 import produtoRoutes from './routes/produtoRouter.js';
@@ -74,6 +75,7 @@ app.use('/api/produtos', produtoRoutes);
 app.use('/api/usuario', usuarioRoutes);
 app.use('/api/looks', looksRoutes);
 app.use('/api/convites', conviteRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // ⭐ ARQUIVOS ESTÁTICOS E SPA ROUTING DEPOIS DAS APIS
 app.use(express.static(path.join(__dirname, '..', 'dist')));
