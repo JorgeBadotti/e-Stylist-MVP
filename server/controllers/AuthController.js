@@ -1,4 +1,5 @@
 import Usuario from '../models/UsuarioModel.js';
+import { obterOuCriarAnonimoUsuario, gerarSessionId } from '../services/anonymousSessionService.js';
 
 // ✅ ATUALIZADO: Cadastro com auto-login (igual à loja)
 export const register = async (req, res) => {
@@ -73,6 +74,43 @@ export const logout = (req, res, next) => {
     });
 };
 
+// Login como Visitante (Guest)
+export const loginAsGuest = async (req, res) => {
+    try {
+        // Gerar novo sessionId para o visitante
+        const sessionId = gerarSessionId();
+        console.log(`✨ [loginAsGuest] Novo sessionId gerado: ${sessionId}`);
+
+        // Obter ou criar usuário anônimo
+        const usuarioAnonimo = await obterOuCriarAnonimoUsuario(sessionId);
+        console.log(`👤 [loginAsGuest] Usuário visitante criado/obtido: ${usuarioAnonimo._id}`);
+
+        // Fazer login do usuário anônimo usando req.login
+        req.login(usuarioAnonimo, (err) => {
+            if (err) {
+                console.error('❌ [loginAsGuest] Erro ao fazer login do visitante:', err);
+                return res.status(500).json({ error: 'Erro ao fazer login como visitante' });
+            }
+
+            console.log('🔐 [loginAsGuest] Visitante logado com sucesso');
+            res.status(200).json({
+                message: 'Login como visitante realizado com sucesso',
+                sessionId: sessionId,
+                user: {
+                    id: usuarioAnonimo._id,
+                    email: usuarioAnonimo.email,
+                    nome: usuarioAnonimo.nome,
+                    role: usuarioAnonimo.role,
+                    isGuest: true
+                }
+            });
+        });
+    } catch (error) {
+        console.error('❌ [loginAsGuest] Erro:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+};
+
 // Verificar sessão atual (Para o React persistir o login)
 export const me = async (req, res) => {
     // Retorna sempre 200 para evitar cair no catch do frontend
@@ -81,7 +119,7 @@ export const me = async (req, res) => {
             // Se for STORE_ADMIN, busca o lojaId associado
             // Se for SALESPERSON, busca a primeira loja em lojas_associadas
             let lojaId = null;
-            
+
             if (req.user.role === 'STORE_ADMIN') {
                 const Loja = (await import('../models/Loja.js')).default;
                 const loja = await Loja.findOne({ usuario: req.user._id });

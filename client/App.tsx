@@ -57,6 +57,12 @@ const PublicProdutoPage: React.FC<{ isAuthenticated: boolean; user: UserData | n
                 <ProdutoDetalhe
                     sku={sku}
                     onBack={() => window.history.back()}
+                    onGerarLookComPeca={(sku: string) => {
+                        console.log('[LookSession] Usuário não autenticado, redirecionando para login');
+                        localStorage.setItem('showLoginPage', 'true');
+                        localStorage.setItem('pendingItemObrigatorio', sku); // ✅ Salvar SKU para depois do login
+                        window.location.href = '/';
+                    }}
                 />
             </main>
         </div>
@@ -126,6 +132,21 @@ const App: React.FC = () => {
     useEffect(() => {
         fetchUserSession();
     }, []);
+
+    // ✅ NOVO: Verificar após login se há item obrigatório pendente
+    useEffect(() => {
+        if (isAuthenticated && !isLoading) {
+            const pendingItem = localStorage.getItem('pendingItemObrigatorio');
+            if (pendingItem) {
+                console.log(`[App] Item obrigatório pendente detectado: ${pendingItem}, redirecionando...`);
+                localStorage.removeItem('pendingItemObrigatorio');
+                // Aguardar um pouco para garantir que o App renderizou
+                setTimeout(() => {
+                    window.location.href = `/gerar-looks?itemObrigatorio=${pendingItem}&lojaid=696e987bd679d526a83c1395`;
+                }, 100);
+            }
+        }
+    }, [isAuthenticated, isLoading]);
 
     // Sincronizar localStorage
     useEffect(() => {
@@ -257,7 +278,14 @@ const AppContent: React.FC<AppContentProps> = ({
     const navigate = useNavigate(); // ✅ NOVO: Para navegar para a URL
     const location = useLocation(); // ✅ NOVO: Para detectar rota /gerar-looks
     const [isRedirecting, setIsRedirecting] = useState<boolean>(false);
-    const [publicView, setPublicView] = useState<PublicView>('landing');
+    const [publicView, setPublicView] = useState<PublicView>(() => {
+        // ✅ Verificar se deve mostrar login ao carregar
+        if (localStorage.getItem('showLoginPage') === 'true') {
+            localStorage.removeItem('showLoginPage');
+            return 'login';
+        }
+        return 'landing';
+    });
     const [privateView, setPrivateView] = useState<PrivateView>('home');
     const [selectedSku, setSelectedSku] = useState<string | null>(initialSku || urlSku || null);
     const [selectedLojaId, setSelectedLojaId] = useState<string | null>(null);

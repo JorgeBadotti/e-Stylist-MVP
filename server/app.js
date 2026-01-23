@@ -63,10 +63,6 @@ app.use(passport.session());
 // Middlewares Custom
 app.use(requestLogger);
 
-// ⭐ MIDDLEWARE DE SESSÃO ANÔNIMA (ANTES das rotas)
-// Cria ou recupera usuário anônimo para quem não está autenticado
-app.use(anonymousSessionMiddleware);
-
 // ⭐ ROTAS DA API DEVEM VIR ANTES DOS ARQUIVOS ESTÁTICOS
 // Routers
 app.use('/auth', authRoutes);
