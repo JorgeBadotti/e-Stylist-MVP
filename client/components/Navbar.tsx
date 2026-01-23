@@ -86,8 +86,8 @@ const Navbar: React.FC<NavbarProps> = ({
                     {/* --- ESQUERDA: LOGO --- */}
                     <div className="flex-shrink-0 cursor-pointer" onClick={onLogoClick}>
                         <h1 className="text-2xl font-extrabold select-none">
-                            <span className="text-blue-800">e-Stylist</span>
-                            <span className="text-blue-500"> MVP</span>
+                            <span className="text-blue-800">Style</span>
+                            <span className="text-blue-500">-Me</span>
                         </h1>
                     </div>
 
