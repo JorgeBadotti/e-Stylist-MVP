@@ -395,7 +395,7 @@ const AppContent: React.FC<AppContentProps> = ({
                                     setItemObrigatorio(sku); // ✅ Armazena o item obrigatório no estado
                                     setSelectedSku(null);
                                     setPrivateView('looks');
-                                    navigate(`/gerar-looks?itemObrigatorio=${sku}`); // ✅ Usa navigate() em vez de pushState
+                                    navigate(`/gerar-looks?itemObrigatorio=${sku}&lojaid=696e987bd679d526a83c1395`); // ✅ Inclui lojaId hardcodado
                                 }}
                             />
                         ) : (

@@ -68,6 +68,14 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
         }
     }, [searchParams]);
 
+    // ✅ NOVO: Sincronizar lojaId quando initialLojaId muda
+    useEffect(() => {
+        if (initialLojaId) {
+            console.log(`[LooksPage] Sincronizando selectedLoja com initialLojaId: ${initialLojaId}`);
+            setSelectedLoja(initialLojaId);
+        }
+    }, [initialLojaId]);
+
     // ✅ DEBUG: Log quando showGuestCamera muda
     useEffect(() => {
         console.log('[LooksPage] showGuestCamera CHANGED:', showGuestCamera);
