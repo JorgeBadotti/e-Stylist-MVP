@@ -133,6 +133,19 @@ const App: React.FC = () => {
         fetchUserSession();
     }, []);
 
+    // ✅ NOVO: Redirecionar para URL salva após login bem-sucedido
+    useEffect(() => {
+        if (isAuthenticated && !isLoading) {
+            const redirectUrl = localStorage.getItem('redirectAfterLogin');
+            if (redirectUrl) {
+                console.log(`🔐 [App] Login bem-sucedido. Redirecionando para ${redirectUrl}`);
+                localStorage.removeItem('redirectAfterLogin');
+                // Usar window.location para navegar corretamente com os parâmetros
+                window.location.href = redirectUrl;
+            }
+        }
+    }, [isAuthenticated, isLoading]);
+
     // ✅ NOVO: Verificar após login se há item obrigatório pendente
     useEffect(() => {
         if (isAuthenticated && !isLoading) {
@@ -304,14 +317,25 @@ const AppContent: React.FC<AppContentProps> = ({
         }
     }, [isAuthenticated, isLoading, initialSku]);
 
-    // ✅ NOVO: Detectar rota /gerar-looks direto
+    // ✅ NOVO: Detectar rota /gerar-looks direto e verificar autenticação
     useEffect(() => {
         if (location.pathname === '/gerar-looks') {
             const params = new URLSearchParams(location.search);
             const itemObrigatorioParam = params.get('itemObrigatorio');
             const lojaIdParam = params.get('lojaId') || params.get('lojaid'); // ✅ Aceita tanto lojaId quanto lojaid
 
-            if (itemObrigatorioParam) {
+            // Se não está logado, redirecionar para login
+            if (!isAuthenticated && !isLoading) {
+                console.log('🔐 [App] Acesso a /gerar-looks sem autenticação. Redirecionando para login...');
+                // Salvar URL de retorno para após o login
+                localStorage.setItem('redirectAfterLogin', location.pathname + location.search);
+                setPublicView('login');
+                // Navegue para a raiz para que o fluxo de login seja renderizado
+                navigate('/');
+                return;
+            }
+
+            if (itemObrigatorioParam && isAuthenticated) {
                 console.log(`[App] Detectada rota /gerar-looks com itemObrigatorio: ${itemObrigatorioParam}, lojaId: ${lojaIdParam}`);
                 setItemObrigatorio(itemObrigatorioParam);
                 if (lojaIdParam) {
@@ -319,9 +343,11 @@ const AppContent: React.FC<AppContentProps> = ({
                 }
                 setPrivateView('looks');
                 setSelectedSku(null); // Não estamos vendo produto, apenas gerando looks
+                // Limpar o localStorage de redirecionamento
+                localStorage.removeItem('redirectAfterLogin');
             }
         }
-    }, [location]);
+    }, [location, isAuthenticated, isLoading, navigate]);
 
     // Navegação Interna
 
