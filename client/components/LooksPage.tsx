@@ -240,7 +240,24 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                 guestPhoto: guestPhoto || undefined
             });
 
-            // 3. Salvar a imagem gerada no estado
+            // 3. ✅ NOVO: Resalvar o look com a imagem de visualização gerada
+            const updatePayload: any = {
+                selectedLookId: selectedLook.look_id,
+                allLooks: looks.map(look =>
+                    look.look_id === selectedLook.look_id
+                        ? { ...look, imagem_url: visualizeResponse.data.imagem_url }
+                        : look
+                ),
+                imagemVisualizacao: visualizeResponse.data.imagem_url // ✅ NOVO: Enviar a imagem
+            };
+
+            if (sessionId) {
+                updatePayload.sessionId = sessionId;
+            }
+
+            await api.post('/api/looks/salvar', updatePayload);
+
+            // 4. Salvar a imagem gerada no estado
             setGeneratedImage(visualizeResponse.data.imagem_url);
             setSelectedLookName(selectedLook.name);
             setSelectedLookExplanation(selectedLook.explanation);
@@ -248,7 +265,7 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
 
             setSuccessMsg(`✨ Sua visualização foi criada! ${selectedLook.name} ficou sensacional!`);
 
-            // 4. Mudar para o step 'visualized' para mostrar a imagem permanentemente
+            // 5. Mudar para o step 'visualized' para mostrar a imagem permanentemente
             setStep('visualized');
             setSavingSelection(false);
 

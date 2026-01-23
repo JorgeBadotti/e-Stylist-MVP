@@ -294,7 +294,7 @@ export const salvarEscolha = async (req, res) => {
     try {
         const userId = req.user?._id || null; // null para visitantes
         const userType = req.userType || (req.isAuthenticated() ? 'authenticated' : 'guest');
-        const { selectedLookId, allLooks, sessionId } = req.body;
+        const { selectedLookId, allLooks, sessionId, imagemVisualizacao } = req.body;
 
         if (!allLooks || !Array.isArray(allLooks)) {
             return res.status(400).json({ error: "Dados inválidos." });
@@ -314,7 +314,12 @@ export const salvarEscolha = async (req, res) => {
                 afinidade_ia: look.body_affinity_index,
                 user_type: userType, // ✅ NOVO: Rastrear se é autenticado ou visitante
                 escolhido_pelo_usuario: isSelected,
-                score_relevancia: isSelected ? 100 : 10
+                score_relevancia: isSelected ? 100 : 10,
+                // ✅ NOVO: Se foi selecionado, salvar a imagem de visualização
+                ...(isSelected && imagemVisualizacao && {
+                    imagem_visualizada: imagemVisualizacao,
+                    data_visualizacao: new Date()
+                })
             };
 
             // ✅ NOVO: Se visitante com sessionId, salvar a sessão
@@ -335,7 +340,7 @@ export const salvarEscolha = async (req, res) => {
         // Encontra o look que foi escolhido pelo usuário
         const selectedLook = savedLooks.find(look => look.nome === allLooks.find(l => l.look_id === selectedLookId)?.name);
 
-        console.log(`[Look Salvo] user_type=${userType}, sessionId=${sessionId}, lookId=${selectedLook._id}`);
+        console.log(`[Look Salvo] user_type=${userType}, sessionId=${sessionId}, lookId=${selectedLook._id}, tem imagem=${!!imagemVisualizacao}`);
 
         res.status(201).json({
             message: "Preferência salva com sucesso!",
@@ -352,21 +357,35 @@ export const salvarEscolha = async (req, res) => {
 export const listarMeusLooks = async (req, res) => {
     console.log("Dentro de Listar Meus Looks");
     try {
-        const userId = req.user._id;
+        const userId = req.user?._id || null; // null para visitantes
+        const userType = req.userType || (req.isAuthenticated() ? 'authenticated' : 'guest');
+        const sessionId = req.sessionId || req.headers['x-session-id']; // Para visitantes
         const { page = 1, limit = 12 } = req.query;
 
         const pageNum = Math.max(1, parseInt(page));
         const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
         const skip = (pageNum - 1) * limitNum;
 
+        // ✅ NOVO: Construir filtro baseado no tipo de usuário
+        let filter = {};
+        if (userType === 'authenticated' && userId) {
+            filter = { userId };
+            console.log(`[listarMeusLooks] Usuário autenticado: ${userId}`);
+        } else if (userType === 'guest' && sessionId) {
+            filter = { sessionId };
+            console.log(`[listarMeusLooks] Visitante com sessionId: ${sessionId}`);
+        } else {
+            return res.status(401).json({ error: "Não autorizado. Faça login ou use uma sessão válida." });
+        }
+
         // Busca looks do usuário atual com paginação
-        const looks = await Look.find({ userId })
+        const looks = await Look.find(filter)
             .sort({ data_visualizacao: -1, create_date: -1 })
             .skip(skip)
             .limit(limitNum);
 
         // Total de looks para pagination
-        const totalLooks = await Look.countDocuments({ userId });
+        const totalLooks = await Look.countDocuments(filter);
 
         // ENRIQUECIMENTO: Validar e enriquecer itens
         const looksFormatados = await Promise.all(

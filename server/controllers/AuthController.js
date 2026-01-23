@@ -1,5 +1,36 @@
 import Usuario from '../models/UsuarioModel.js';
+import Look from '../models/LookModel.js';
 import { obterOuCriarAnonimoUsuario, gerarSessionId } from '../services/anonymousSessionService.js';
+
+// ✅ NOVO: Função para migrar looks de visitante (sessionId) para usuário logado (userId)
+const migrateGuestLooks = async (sessionId, userId) => {
+    if (!sessionId || !userId) {
+        console.log('[Auth] SessionId ou userId não fornecido, pulando migração');
+        return;
+    }
+
+    try {
+        const result = await Look.updateMany(
+            {
+                sessionId: sessionId,
+                userId: { $in: [null, undefined] } // Apenas looks que ainda não têm userId
+            },
+            {
+                $set: {
+                    userId: userId,
+                    user_type: 'authenticated' // Atualizar tipo de usuário
+                }
+            }
+        );
+
+        if (result.modifiedCount > 0) {
+            console.log(`✅ [Auth] ${result.modifiedCount} looks migrados: sessionId ${sessionId} → userId ${userId}`);
+        }
+    } catch (error) {
+        console.error('❌ [Auth] Erro ao migrar looks:', error.message);
+        // Não bloquear o login se migração falhar
+    }
+};
 
 // ✅ ATUALIZADO: Cadastro com auto-login (igual à loja)
 export const register = async (req, res) => {
@@ -18,11 +49,18 @@ export const register = async (req, res) => {
         console.log('✅ [register] Usuário criado:', usuario._id);
 
         // ✅ NOVO: Auto-login após cadastro (igual ao registerStore)
-        req.login(usuario, (err) => {
+        req.login(usuario, async (err) => {
             if (err) {
                 console.error('❌ [register] Erro ao fazer login:', err);
                 return res.status(500).json({ error: 'Erro ao fazer login automático' });
             }
+
+            // ✅ NOVO: Migrar looks de visitante para usuário
+            const sessionId = req.sessionId || req.headers['x-session-id'];
+            if (sessionId) {
+                await migrateGuestLooks(sessionId, usuario._id);
+            }
+
             console.log('🔐 [register] Usuário logado automaticamente');
             res.status(201).json({
                 message: 'Usuário criado e logado com sucesso',
@@ -41,17 +79,37 @@ export const register = async (req, res) => {
 };
 
 // Sucesso no Login Local
-export const loginSuccess = (req, res) => {
-    // Se chegou aqui, req.user já está preenchido pelo Passport
-    res.status(200).json({
-        message: 'Login realizado com sucesso',
-        user: {
-            id: req.user._id,
-            email: req.user.email,
-            nome: req.user.nome,
-            role: req.user.role // <<< ADICIONADO
+export const loginSuccess = async (req, res) => {
+    try {
+        // ✅ NOVO: Migrar looks de visitante para usuário
+        const sessionId = req.sessionId || req.headers['x-session-id'];
+        if (sessionId) {
+            await migrateGuestLooks(sessionId, req.user._id);
         }
-    });
+
+        // Se chegou aqui, req.user já está preenchido pelo Passport
+        res.status(200).json({
+            message: 'Login realizado com sucesso',
+            user: {
+                id: req.user._id,
+                email: req.user.email,
+                nome: req.user.nome,
+                role: req.user.role // <<< ADICIONADO
+            }
+        });
+    } catch (error) {
+        console.error('❌ [loginSuccess] Erro na migração de looks:', error.message);
+        // Mesmo com erro, permitir login prosseguir
+        res.status(200).json({
+            message: 'Login realizado com sucesso',
+            user: {
+                id: req.user._id,
+                email: req.user.email,
+                nome: req.user.nome,
+                role: req.user.role
+            }
+        });
+    }
 };
 
 // Callback do Google
