@@ -367,8 +367,8 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
 
                     <button
                         onClick={handleGenerate}
-                        disabled={wardrobes.length === 0}
-                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 px-4 rounded-md hover:from-blue-700 hover:to-indigo-700 transition transform hover:scale-[1.01]"
+                        disabled={itemObrigatorio ? lojas.length === 0 : wardrobes.length === 0}
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 px-4 rounded-md hover:from-blue-700 hover:to-indigo-700 transition transform hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         ✨ Gerar Looks com IA
                     </button>

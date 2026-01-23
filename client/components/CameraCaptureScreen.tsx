@@ -10,10 +10,10 @@ interface CameraCaptureScreenProps {
   skipOnboarding?: boolean; // ✅ NOVO: Pular tela de onboarding
 }
 
-type CameraStep = 'onboarding' | 'camera' | 'preview' | 'processing' | 'done';
+type CameraStep = 'camera' | 'preview' | 'processing' | 'done';
 
 const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMeasurementsCaptured, onClose, skipOnboarding }) => {
-  const [step, setStep] = useState<CameraStep>(skipOnboarding ? 'camera' : 'onboarding'); // ✅ NOVO: Pular onboarding se skipOnboarding=true
+  const [step, setStep] = useState<CameraStep>('camera'); // ✅ Sempre começar direto na câmera
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [photoData, setPhotoData] = useState<string | null>(null);
   const [detectedMeasurements, setDetectedMeasurements] = useState<DetectedMeasurements | null>(null);
@@ -27,76 +27,70 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
   const [countdown, setCountdown] = useState<number | null>(null);
 
   // ✅ Iniciar câmera - VERSÃO CORRIGIDA
-  // Usar useRef para armazenar a função para evitar ciclos infinitos
-  const initializeStreamRef = useRef<((videoElement: HTMLVideoElement) => void) | null>(null);
-
   const startCamera = useCallback(async () => {
-    console.log('[Camera] ✅ startCamera chamado - mudando para step "camera"');
+    console.log('[Camera] ✅ startCamera chamado - iniciando câmera');
     setCameraError(null);
     setErrorMessage(null);
 
-    // PRIMEIRO: Mudar para 'camera' para renderizar o elemento de vídeo
-    setStep('camera');
-
-    // DEPOIS: Aguardar um pouco para garantir que o elemento foi renderizado
-    await new Promise(resolve => setTimeout(resolve, 200));
-
-    // AGORA tentar acessar o videoRef
-    if (!videoRef.current) {
-      console.error('[Camera] ❌ videoRef.current ainda está NULL após renderização!');
-      setCameraError('Erro: elemento de vídeo não disponível. Tente novamente.');
-      setStep('onboarding');
-      return;
-    }
-
     try {
       console.log('[Camera] ✅ Solicitando acesso à câmera...');
+      // ✅ Constraints mais simples e compatíveis
       const constraints = {
         video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
           facingMode: 'user'
         },
         audio: false
       };
+
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('[Camera] Stream obtido:', stream);
+      console.log('[Camera] ✅ Stream obtido:', stream);
 
       streamRef.current = stream;
 
-      // Agora sim, atribuir o stream ao video element
+      // Atribuir o stream ao video element
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         console.log('[Camera] ✅ Stream atribuído ao video element');
 
         // Aguardar o vídeo carregar
-        videoRef.current.onloadedmetadata = () => {
-          console.log('[Camera] ✅ Vídeo carregado, começando a reproduzir');
-          console.log('[Camera] Dimensões:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
-          videoRef.current?.play().catch(err => {
-            console.error('[Camera] Erro ao fazer play:', err);
-            setCameraError('Erro ao iniciar reprodução do vídeo');
-          });
-        };
+        return new Promise<void>((resolve) => {
+          if (!videoRef.current) {
+            setCameraError('Erro: elemento de vídeo não disponível');
+            resolve();
+            return;
+          }
 
-        videoRef.current.onerror = (err) => {
-          console.error('[Camera] Erro no video element:', err);
-          setCameraError('Erro no video element');
-        };
+          const onLoadedMetadata = () => {
+            console.log('[Camera] ✅ Vídeo carregado, começando a reproduzir');
+            console.log('[Camera] Dimensões:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
+
+            videoRef.current?.play().catch(err => {
+              console.error('[Camera] Erro ao fazer play:', err);
+              setCameraError('Erro ao iniciar reprodução do vídeo');
+            });
+
+            videoRef.current?.removeEventListener('loadedmetadata', onLoadedMetadata);
+            resolve();
+          };
+
+          videoRef.current.addEventListener('loadedmetadata', onLoadedMetadata);
+        });
       } else {
-        console.error('[Camera] ❌ videoRef.current desapareceu após mudança de step!');
+        console.error('[Camera] ❌ videoRef.current é null!');
         setCameraError('Erro interno: referência de vídeo não disponível');
       }
     } catch (err: any) {
-      console.error('[Camera] Erro ao acessar câmera:', err);
+      console.error('[Camera] ❌ Erro ao acessar câmera:', err);
       const errorMsg = err.name === 'NotAllowedError'
-        ? 'Permissão de câmera negada. Verifique as configurações do navegador.'
+        ? 'Permissão de câmera negada. Por favor, verifique as configurações de privacidade do navegador e tente novamente.'
         : err.name === 'NotFoundError'
           ? 'Nenhuma câmera encontrada no dispositivo.'
-          : 'Erro ao acessar a câmera: ' + err.message;
+          : err.name === 'NotReadableError'
+            ? 'Câmera indisponível (pode estar em uso por outro aplicativo). Tente fechar outros apps e recarregar a página.'
+            : 'Erro ao acessar a câmera: ' + err.message;
+      console.error('[Camera] Mensagem de erro:', errorMsg);
       setCameraError(errorMsg);
       setErrorMessage(errorMsg);
-      setStep('onboarding');
     }
   }, []);
 
@@ -212,56 +206,21 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
     };
   }, [stopCamera]);
 
-  // ✅ NOVO: Quando step muda para 'camera', iniciar a câmera automaticamente
+  // ✅ NOVO: Iniciar câmera automaticamente ao montar
   useEffect(() => {
-    if (step === 'camera') {
-      console.log('[Camera] useEffect detectou step="camera", iniciando câmera...');
-      startCamera();
-    }
-  }, [step, startCamera]);
+    console.log('[Camera] Iniciando câmera no mount do componente');
+    startCamera();
+  }, [startCamera]);
 
   return (
     <div className="w-full h-full bg-black flex flex-col">
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-      {/* ONBOARDING */}
-      {step === 'onboarding' && (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white">
-          <h2 className="text-3xl font-bold mb-6 text-gray-900">Capture Seu Corpo</h2>
-          <div className="max-w-md space-y-4 mb-8">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-700"><strong>✓ Boa iluminação</strong> - Local bem iluminado</p>
-            </div>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-700"><strong>✓ Corpo inteiro</strong> - Apareça da cabeça aos pés</p>
-            </div>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-700"><strong>✓ Roupa colada</strong> - Destaque seu corpo</p>
-            </div>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-700"><strong>✓ Postura reta</strong> - Costas retas, braços afastados</p>
-            </div>
-          </div>
-          <button
-            onClick={startCamera}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition mb-3"
-          >
-            Abrir Câmera
-          </button>
-          <button
-            onClick={onClose}
-            className="w-full bg-gray-300 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-400 transition"
-          >
-            Cancelar
-          </button>
-        </div>
-      )}
-
       {/* CAMERA */}
       {step === 'camera' && (
-        <div className="flex-1 flex flex-col relative">
+        <div className="flex-1 flex flex-col relative bg-black">
           {cameraError && (
-            <div className="absolute top-4 left-4 right-4 bg-red-100 border border-red-400 text-red-700 p-4 rounded z-10">
+            <div className="absolute top-4 left-4 right-4 bg-red-100 border border-red-400 text-red-700 p-4 rounded z-20">
               {cameraError}
             </div>
           )}
@@ -271,34 +230,35 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
             autoPlay
             playsInline
             muted
-            className="w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover"
             style={{ transform: 'scaleX(-1)' }}
           />
 
-          <div className="absolute inset-0 border-4 border-dashed border-blue-400 flex items-center justify-center">
+          <div className="absolute inset-0 border-4 border-dashed border-blue-400 flex items-center justify-center pointer-events-none">
             <div className="bg-black bg-opacity-50 text-white text-center p-4 rounded-lg">
               <p className="text-lg font-semibold">Posicione seu corpo dentro do quadro</p>
             </div>
           </div>
 
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4">
+          {/* Botões fixados no rodapé com padding para não sobrepor vídeo */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent pt-8 pb-6 px-4 flex flex-col items-center gap-4 z-10">
             {countdown !== null ? (
               <div className="text-white text-6xl font-bold drop-shadow-lg">{countdown}</div>
             ) : (
-              <>
+              <div className="flex gap-4 w-full max-w-sm justify-center">
                 <button
                   onClick={startCountdown}
-                  className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-full font-bold text-lg transition shadow-lg"
+                  className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-full font-bold text-lg transition shadow-lg active:scale-95"
                 >
                   Capturar
                 </button>
                 <button
                   onClick={onClose}
-                  className="bg-gray-600 hover:bg-gray-700 text-white px-8 py-3 rounded-full font-bold text-lg transition shadow-lg"
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-8 py-3 rounded-full font-bold text-lg transition shadow-lg active:scale-95"
                 >
                   Cancelar
                 </button>
-              </>
+              </div>
             )}
           </div>
         </div>
