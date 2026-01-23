@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ViewLook from './ViewLook';
-import { API_BASE_URL } from '../src/services/api';
+import api from '../src/services/api';
 
 interface LookItem {
     id: string;
@@ -57,17 +57,11 @@ const MyLooksPage: React.FC<{ onProductClick?: (sku: string) => void }> = ({ onP
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch(`${API_BASE_URL}/api/looks?page=${page}&limit=12`, {
-                credentials: 'include'
-            });
+            // ✅ NOVO: Usar api (Axios) em vez de fetch para enviar X-Session-Id
+            const response = await api.get(`/api/looks?page=${page}&limit=12`);
 
-            if (!response.ok) {
-                throw new Error('Erro ao buscar looks');
-            }
-
-            const data = await response.json();
-            setLooks(data.looks);
-            setPagination(data.pagination);
+            setLooks(response.data.looks);
+            setPagination(response.data.pagination);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro ao buscar looks');
             setLooks([]);
@@ -79,16 +73,10 @@ const MyLooksPage: React.FC<{ onProductClick?: (sku: string) => void }> = ({ onP
     const handleViewLook = async (look: Look) => {
         // Buscar detalhes completos do look com itens enriquecidos
         try {
-            const response = await fetch(`${API_BASE_URL}/api/looks/${look._id}`, {
-                credentials: 'include'
-            });
+            // ✅ NOVO: Usar api em vez de fetch
+            const response = await api.get(`/api/looks/${look._id}`);
 
-            if (!response.ok) {
-                throw new Error('Erro ao buscar detalhes do look');
-            }
-
-            const detalhesLook = await response.json();
-            setSelectedLook(detalhesLook);
+            setSelectedLook(response.data);
         } catch (err) {
             console.error('Erro ao buscar detalhes:', err);
             // Se falhar, usa os dados que já temos

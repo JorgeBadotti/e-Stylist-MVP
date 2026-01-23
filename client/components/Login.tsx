@@ -11,6 +11,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchToRegiste
     // Estados para capturar os inputs
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -26,6 +27,20 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchToRegiste
         } catch (error) {
             console.error("Erro no login", error);
             alert("Falha no login. Verifique as credenciais.");
+        }
+    };
+
+    const handleGuestLogin = async () => {
+        setIsLoading(true);
+        try {
+            const response = await api.post('/auth/guest');
+            console.log("Login como visitante OK", response.data);
+            onLoginSuccess(); // Avisa o App.tsx
+        } catch (error) {
+            console.error("Erro ao fazer login como visitante", error);
+            alert("Falha ao fazer login como visitante.");
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -126,6 +141,18 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchToRegiste
                             />
                         </svg>
                         Entrar com Google
+                    </button>
+                </div>
+
+                {/* Botão Visitante */}
+                <div className="mt-4">
+                    <button
+                        type="button"
+                        onClick={handleGuestLogin}
+                        disabled={isLoading}
+                        className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isLoading ? 'Carregando...' : 'Logar como visitante'}
                     </button>
                 </div>
 

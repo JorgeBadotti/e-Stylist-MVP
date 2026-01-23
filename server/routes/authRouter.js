@@ -26,6 +26,9 @@ router.get('/google/callback',
 // ROTA LOGOUT
 router.post('/logout', AuthController.logout);
 
+// ROTA LOGIN COMO VISITANTE
+router.post('/guest', AuthController.loginAsGuest);
+
 // ROTA ME (Para o frontend saber quem está logado ao recarregar a página)
 router.get('/me', AuthController.me);
 

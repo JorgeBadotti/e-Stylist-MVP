@@ -29,7 +29,7 @@ api.interceptors.request.use(
     }
 );
 
-// ✅ NOVO: Interceptor de resposta para capturar novo sessionId
+// ✅ NOVO: Interceptor de resposta para capturar novo sessionId e tratar 401
 api.interceptors.response.use(
     (response) => {
         // Capturar header X-Session-Id da resposta
@@ -41,6 +41,15 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
+        // Se erro 401 (Unauthorized), redirecionar para login
+        if (error.response?.status === 401) {
+            console.warn('🔐 [AxiosInterceptor] Erro 401 - Usuário não autenticado, redirecionando para login');
+            // Limpar dados de autenticação
+            localStorage.removeItem('isAuthenticated');
+            localStorage.removeItem('userData');
+            // Redirecionar para página de login
+            window.location.href = '/';
+        }
         console.error('❌ [AxiosInterceptor] Erro na resposta:', error);
         return Promise.reject(error);
     }

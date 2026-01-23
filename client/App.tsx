@@ -57,6 +57,12 @@ const PublicProdutoPage: React.FC<{ isAuthenticated: boolean; user: UserData | n
                 <ProdutoDetalhe
                     sku={sku}
                     onBack={() => window.history.back()}
+                    onGerarLookComPeca={(sku: string) => {
+                        console.log('[LookSession] Usuário não autenticado, redirecionando para login');
+                        localStorage.setItem('showLoginPage', 'true');
+                        localStorage.setItem('pendingItemObrigatorio', sku); // ✅ Salvar SKU para depois do login
+                        window.location.href = '/';
+                    }}
                 />
             </main>
         </div>
@@ -126,6 +132,34 @@ const App: React.FC = () => {
     useEffect(() => {
         fetchUserSession();
     }, []);
+
+    // ✅ NOVO: Redirecionar para URL salva após login bem-sucedido
+    useEffect(() => {
+        if (isAuthenticated && !isLoading) {
+            const redirectUrl = localStorage.getItem('redirectAfterLogin');
+            if (redirectUrl) {
+                console.log(`🔐 [App] Login bem-sucedido. Redirecionando para ${redirectUrl}`);
+                localStorage.removeItem('redirectAfterLogin');
+                // Usar window.location para navegar corretamente com os parâmetros
+                window.location.href = redirectUrl;
+            }
+        }
+    }, [isAuthenticated, isLoading]);
+
+    // ✅ NOVO: Verificar após login se há item obrigatório pendente
+    useEffect(() => {
+        if (isAuthenticated && !isLoading) {
+            const pendingItem = localStorage.getItem('pendingItemObrigatorio');
+            if (pendingItem) {
+                console.log(`[App] Item obrigatório pendente detectado: ${pendingItem}, redirecionando...`);
+                localStorage.removeItem('pendingItemObrigatorio');
+                // Aguardar um pouco para garantir que o App renderizou
+                setTimeout(() => {
+                    window.location.href = `/gerar-looks?itemObrigatorio=${pendingItem}&lojaid=696e987bd679d526a83c1395`;
+                }, 100);
+            }
+        }
+    }, [isAuthenticated, isLoading]);
 
     // Sincronizar localStorage
     useEffect(() => {
@@ -257,11 +291,19 @@ const AppContent: React.FC<AppContentProps> = ({
     const navigate = useNavigate(); // ✅ NOVO: Para navegar para a URL
     const location = useLocation(); // ✅ NOVO: Para detectar rota /gerar-looks
     const [isRedirecting, setIsRedirecting] = useState<boolean>(false);
-    const [publicView, setPublicView] = useState<PublicView>('landing');
+    const [publicView, setPublicView] = useState<PublicView>(() => {
+        // ✅ Verificar se deve mostrar login ao carregar
+        if (localStorage.getItem('showLoginPage') === 'true') {
+            localStorage.removeItem('showLoginPage');
+            return 'login';
+        }
+        return 'landing';
+    });
     const [privateView, setPrivateView] = useState<PrivateView>('home');
     const [selectedSku, setSelectedSku] = useState<string | null>(initialSku || urlSku || null);
     const [selectedLojaId, setSelectedLojaId] = useState<string | null>(null);
     const [itemObrigatorio, setItemObrigatorio] = useState<string | null>(null); // ✅ NOVO: Armazenar item obrigatório
+    const [gerarLooksLojaId, setGerarLooksLojaId] = useState<string | null>(null); // ✅ NOVO: LojaId para /gerar-looks
 
     // ✅ UseEffect para monitorar mudanças de autenticação
     useEffect(() => {
@@ -275,19 +317,37 @@ const AppContent: React.FC<AppContentProps> = ({
         }
     }, [isAuthenticated, isLoading, initialSku]);
 
-    // ✅ NOVO: Detectar rota /gerar-looks direto
+    // ✅ NOVO: Detectar rota /gerar-looks direto e verificar autenticação
     useEffect(() => {
         if (location.pathname === '/gerar-looks') {
             const params = new URLSearchParams(location.search);
             const itemObrigatorioParam = params.get('itemObrigatorio');
-            if (itemObrigatorioParam) {
-                console.log(`[App] Detectada rota /gerar-looks com itemObrigatorio: ${itemObrigatorioParam}`);
+            const lojaIdParam = params.get('lojaId') || params.get('lojaid'); // ✅ Aceita tanto lojaId quanto lojaid
+
+            // Se não está logado, redirecionar para login
+            if (!isAuthenticated && !isLoading) {
+                console.log('🔐 [App] Acesso a /gerar-looks sem autenticação. Redirecionando para login...');
+                // Salvar URL de retorno para após o login
+                localStorage.setItem('redirectAfterLogin', location.pathname + location.search);
+                setPublicView('login');
+                // Navegue para a raiz para que o fluxo de login seja renderizado
+                navigate('/');
+                return;
+            }
+
+            if (itemObrigatorioParam && isAuthenticated) {
+                console.log(`[App] Detectada rota /gerar-looks com itemObrigatorio: ${itemObrigatorioParam}, lojaId: ${lojaIdParam}`);
                 setItemObrigatorio(itemObrigatorioParam);
+                if (lojaIdParam) {
+                    setGerarLooksLojaId(lojaIdParam);
+                }
                 setPrivateView('looks');
                 setSelectedSku(null); // Não estamos vendo produto, apenas gerando looks
+                // Limpar o localStorage de redirecionamento
+                localStorage.removeItem('redirectAfterLogin');
             }
         }
-    }, [location]);
+    }, [location, isAuthenticated, isLoading, navigate]);
 
     // Navegação Interna
 
@@ -389,7 +449,7 @@ const AppContent: React.FC<AppContentProps> = ({
                                     setItemObrigatorio(sku); // ✅ Armazena o item obrigatório no estado
                                     setSelectedSku(null);
                                     setPrivateView('looks');
-                                    navigate(`/gerar-looks?itemObrigatorio=${sku}`); // ✅ Usa navigate() em vez de pushState
+                                    navigate(`/gerar-looks?itemObrigatorio=${sku}&lojaid=696e987bd679d526a83c1395`); // ✅ Inclui lojaId hardcodado
                                 }}
                             />
                         ) : (
@@ -397,7 +457,7 @@ const AppContent: React.FC<AppContentProps> = ({
                                 {privateView === 'home' && <HomePage onNavigate={setPrivateView} />}
                                 {privateView === 'wardrobes' && <IndiceGuardaRoupas />}
                                 {privateView === 'profile' && <ProfilePage />}
-                                {privateView === 'looks' && <LooksPage onProductClick={handleProdutoSelect} initialItemObrigatorio={itemObrigatorio} />}
+                                {privateView === 'looks' && <LooksPage onProductClick={handleProdutoSelect} initialItemObrigatorio={itemObrigatorio} initialLojaId={gerarLooksLojaId} />}
                                 {privateView === 'invitacoes' && <MinhasInvitacoes />}
 
                                 {/* ✅ NOVO: Páginas para SALESPERSON (Vendedor) */}

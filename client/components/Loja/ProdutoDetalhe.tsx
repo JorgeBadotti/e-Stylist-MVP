@@ -583,7 +583,7 @@ const ProdutoDetalhe: React.FC<ProdutoDetalheProps> = ({ sku, onBack, lojaId, on
       {produto && (
         <QRCodeModal
           isOpen={showQRModal}
-          produtoUrl={`${window.location.origin}/produto/${sku}`}
+          produtoUrl={`${window.location.origin}/gerar-looks?itemObrigatorio=${sku}&lojaid=${produto.lojaId}`}
           produtoNome={produto.nome}
           produtoSku={produto.skuStyleMe || sku}
           onClose={() => setShowQRModal(false)}

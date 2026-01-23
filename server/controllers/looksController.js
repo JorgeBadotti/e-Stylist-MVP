@@ -91,10 +91,11 @@ export const gerarLooks = async (req, res) => {
     console.log("Dentro de Gerar Looks");
     try {
         const { sessionId, wardrobeId, prompt: userOccasion } = req.body;
+        const { lojaId: queryLojaId } = req.query; // ✅ NOVO: Capturar lojaId da query
         const userId = req.user?._id; // Para usuários autenticados
         const userType = req.userType || (req.isAuthenticated() ? 'authenticated' : 'guest');
 
-        // ✅ NOVO: Verificar se é nova abordagem (sessionId) ou antiga (wardrobeId)
+        // ✅ NOVO: Verificar se é nova abordagem (sessionId ou lojaId) ou antiga (wardrobeId)
         let itemObrigatorio = null;
         let lojaId = null;
 
@@ -108,11 +109,15 @@ export const gerarLooks = async (req, res) => {
             itemObrigatorio = session.itemObrigatorio;
             lojaId = session.lojaId;
             console.log(`[LookSession ${sessionId}] Gerando looks com itemObrigatorio: ${itemObrigatorio}, lojaId: ${lojaId}`);
+        } else if (queryLojaId) {
+            // ✅ NOVO FLUXO: lojaId como parâmetro de query
+            lojaId = queryLojaId;
+            console.log(`[LojaID Query] Gerando looks para loja: ${lojaId}`);
         } else if (wardrobeId) {
             // FLUXO ANTIGO: Guarda-roupa (manter compatibilidade)
             console.log(`[LooksPage] Fluxo antigo (guarda-roupa): ${wardrobeId}`);
         } else {
-            return res.status(400).json({ error: "Forneça sessionId ou wardrobeId." });
+            return res.status(400).json({ error: "Forneça sessionId, lojaId ou wardrobeId." });
         }
 
         // ✅ NOVO: Para visitantes, precisamos das medidas na requisição
@@ -310,6 +315,7 @@ export const salvarEscolha = async (req, res) => {
                 user_type: userType, // ✅ NOVO: Rastrear se é autenticado ou visitante
                 escolhido_pelo_usuario: isSelected,
                 score_relevancia: isSelected ? 100 : 10
+                // ✅ REMOVIDO: imagemVisualizacao (será adicionada depois via PATCH)
             };
 
             // ✅ NOVO: Se visitante com sessionId, salvar a sessão
@@ -333,7 +339,7 @@ export const salvarEscolha = async (req, res) => {
         console.log(`[Look Salvo] user_type=${userType}, sessionId=${sessionId}, lookId=${selectedLook._id}`);
 
         res.status(201).json({
-            message: "Preferência salva com sucesso!",
+            message: "Looks salvos com sucesso!",
             savedLookId: selectedLook._id,
             userType: userType // Confirmar para frontend
         });
@@ -347,21 +353,35 @@ export const salvarEscolha = async (req, res) => {
 export const listarMeusLooks = async (req, res) => {
     console.log("Dentro de Listar Meus Looks");
     try {
-        const userId = req.user._id;
+        const userId = req.user?._id || null; // null para visitantes
+        const userType = req.userType || (req.isAuthenticated() ? 'authenticated' : 'guest');
+        const sessionId = req.sessionId || req.headers['x-session-id']; // Para visitantes
         const { page = 1, limit = 12 } = req.query;
 
         const pageNum = Math.max(1, parseInt(page));
         const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
         const skip = (pageNum - 1) * limitNum;
 
+        // ✅ NOVO: Construir filtro baseado no tipo de usuário
+        let filter = {};
+        if (userType === 'authenticated' && userId) {
+            filter = { userId };
+            console.log(`[listarMeusLooks] Usuário autenticado: ${userId}`);
+        } else if (userType === 'guest' && sessionId) {
+            filter = { sessionId };
+            console.log(`[listarMeusLooks] Visitante com sessionId: ${sessionId}`);
+        } else {
+            return res.status(401).json({ error: "Não autorizado. Faça login ou use uma sessão válida." });
+        }
+
         // Busca looks do usuário atual com paginação
-        const looks = await Look.find({ userId })
+        const looks = await Look.find(filter)
             .sort({ data_visualizacao: -1, create_date: -1 })
             .skip(skip)
             .limit(limitNum);
 
         // Total de looks para pagination
-        const totalLooks = await Look.countDocuments({ userId });
+        const totalLooks = await Look.countDocuments(filter);
 
         // ENRIQUECIMENTO: Validar e enriquecer itens
         const looksFormatados = await Promise.all(
@@ -799,5 +819,61 @@ export const visualizarLook = async (req, res) => {
     } catch (error) {
         console.error("Erro ao visualizar look:", error);
         res.status(500).json({ error: "Erro ao gerar visualização do look.", detalhes: error.message });
+    }
+};
+
+// ✅ NOVO: Atualizar look (adicionar imagem ou outros campos)
+export const atualizarLook = async (req, res) => {
+    try {
+        const { lookId } = req.params;
+        const { imagem_visualizada } = req.body;
+
+        if (!lookId) {
+            return res.status(400).json({ error: "Look ID é obrigatório." });
+        }
+
+        // Buscar o look
+        const look = await Look.findById(lookId);
+        if (!look) {
+            return res.status(404).json({ error: "Look não encontrado." });
+        }
+
+        // Verificar permissão (usuário autenticado ou visitante com sessionId)
+        const userId = req.user?._id;
+        const sessionId = req.sessionId || req.headers['x-session-id'];
+
+        // Validar se usuário tem permissão para editar este look
+        if (userId && look.userId && look.userId.toString() !== userId.toString()) {
+            return res.status(403).json({ error: "Você não tem permissão para editar este look." });
+        }
+
+        if (sessionId && look.sessionId && look.sessionId !== sessionId) {
+            return res.status(403).json({ error: "Você não tem permissão para editar este look." });
+        }
+
+        // Atualizar campos fornecidos
+        const updateData = {};
+
+        if (imagem_visualizada) {
+            updateData.imagem_visualizada = imagem_visualizada;
+            updateData.data_visualizacao = new Date();
+        }
+
+        const updatedLook = await Look.findByIdAndUpdate(
+            lookId,
+            { $set: updateData },
+            { new: true }
+        );
+
+        console.log(`[atualizarLook] Look ${lookId} atualizado com sucesso`);
+
+        res.status(200).json({
+            message: "Look atualizado com sucesso!",
+            look: updatedLook
+        });
+
+    } catch (error) {
+        console.error("Erro ao atualizar look:", error);
+        res.status(500).json({ error: "Erro ao atualizar look.", detalhes: error.message });
     }
 };
