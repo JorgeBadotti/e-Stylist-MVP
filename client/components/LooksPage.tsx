@@ -214,24 +214,22 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
         setStep('visualizing');
 
         try {
-            let savedLookId = selectedLook.look_id;
-
-            // 1. Salvar a escolha no banco de dados (mesmo para visitantes)
+            // 1. ✅ PRIMEIRO: Salvar os 3 looks SEM imagem
             const savePayload: any = {
                 selectedLookId: selectedLook.look_id,
-                allLooks: looks
+                allLooks: looks // Sem imagemVisualizacao
             };
 
-            // ✅ NOVO: Se visitante com sessionId, enviar junto
             if (sessionId) {
                 savePayload.sessionId = sessionId;
-                console.log(`[LookSession] Salvando com sessionId: ${sessionId}`);
+                console.log(`[LookSession] Salvando looks com sessionId: ${sessionId}`);
             }
 
             const saveResponse = await api.post('/api/looks/salvar', savePayload);
-            savedLookId = saveResponse.data.savedLookId || selectedLook.look_id;
+            const savedLookId = saveResponse.data.savedLookId;
+            console.log(`[LookSession] Looks salvos! lookId selecionado: ${savedLookId}`);
 
-            // 2. Gerar a visualização do look
+            // 2. ✅ SEGUNDO: Gerar a visualização do look
             const visualizeResponse = await api.post('/api/looks/visualizar', {
                 lookData: {
                     ...selectedLook,
@@ -240,32 +238,24 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                 guestPhoto: guestPhoto || undefined
             });
 
-            // 3. ✅ NOVO: Resalvar o look com a imagem de visualização gerada
-            const updatePayload: any = {
-                selectedLookId: selectedLook.look_id,
-                allLooks: looks.map(look =>
-                    look.look_id === selectedLook.look_id
-                        ? { ...look, imagem_url: visualizeResponse.data.imagem_url }
-                        : look
-                ),
-                imagemVisualizacao: visualizeResponse.data.imagem_url // ✅ NOVO: Enviar a imagem
-            };
+            console.log(`[LookSession] Imagem gerada: ${visualizeResponse.data.imagem_url}`);
 
-            if (sessionId) {
-                updatePayload.sessionId = sessionId;
-            }
+            // 3. ✅ TERCEIRO: ATUALIZAR o look com a imagem gerada
+            await api.patch(`/api/looks/${savedLookId}`, {
+                imagem_visualizada: visualizeResponse.data.imagem_url
+            });
 
-            await api.post('/api/looks/salvar', updatePayload);
+            console.log(`[LookSession] Look atualizado com imagem`);
 
             // 4. Salvar a imagem gerada no estado
             setGeneratedImage(visualizeResponse.data.imagem_url);
             setSelectedLookName(selectedLook.name);
             setSelectedLookExplanation(selectedLook.explanation);
-            setSelectedLookItems(selectedLook.items); // ← Guardar os items
+            setSelectedLookItems(selectedLook.items);
 
             setSuccessMsg(`✨ Sua visualização foi criada! ${selectedLook.name} ficou sensacional!`);
 
-            // 5. Mudar para o step 'visualized' para mostrar a imagem permanentemente
+            // 5. Mudar para o step 'visualized'
             setStep('visualized');
             setSavingSelection(false);
 

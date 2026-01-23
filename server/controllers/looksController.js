@@ -294,7 +294,7 @@ export const salvarEscolha = async (req, res) => {
     try {
         const userId = req.user?._id || null; // null para visitantes
         const userType = req.userType || (req.isAuthenticated() ? 'authenticated' : 'guest');
-        const { selectedLookId, allLooks, sessionId, imagemVisualizacao } = req.body;
+        const { selectedLookId, allLooks, sessionId } = req.body;
 
         if (!allLooks || !Array.isArray(allLooks)) {
             return res.status(400).json({ error: "Dados inválidos." });
@@ -314,12 +314,8 @@ export const salvarEscolha = async (req, res) => {
                 afinidade_ia: look.body_affinity_index,
                 user_type: userType, // ✅ NOVO: Rastrear se é autenticado ou visitante
                 escolhido_pelo_usuario: isSelected,
-                score_relevancia: isSelected ? 100 : 10,
-                // ✅ NOVO: Se foi selecionado, salvar a imagem de visualização
-                ...(isSelected && imagemVisualizacao && {
-                    imagem_visualizada: imagemVisualizacao,
-                    data_visualizacao: new Date()
-                })
+                score_relevancia: isSelected ? 100 : 10
+                // ✅ REMOVIDO: imagemVisualizacao (será adicionada depois via PATCH)
             };
 
             // ✅ NOVO: Se visitante com sessionId, salvar a sessão
@@ -340,10 +336,10 @@ export const salvarEscolha = async (req, res) => {
         // Encontra o look que foi escolhido pelo usuário
         const selectedLook = savedLooks.find(look => look.nome === allLooks.find(l => l.look_id === selectedLookId)?.name);
 
-        console.log(`[Look Salvo] user_type=${userType}, sessionId=${sessionId}, lookId=${selectedLook._id}, tem imagem=${!!imagemVisualizacao}`);
+        console.log(`[Look Salvo] user_type=${userType}, sessionId=${sessionId}, lookId=${selectedLook._id}`);
 
         res.status(201).json({
-            message: "Preferência salva com sucesso!",
+            message: "Looks salvos com sucesso!",
             savedLookId: selectedLook._id,
             userType: userType // Confirmar para frontend
         });
@@ -823,5 +819,61 @@ export const visualizarLook = async (req, res) => {
     } catch (error) {
         console.error("Erro ao visualizar look:", error);
         res.status(500).json({ error: "Erro ao gerar visualização do look.", detalhes: error.message });
+    }
+};
+
+// ✅ NOVO: Atualizar look (adicionar imagem ou outros campos)
+export const atualizarLook = async (req, res) => {
+    try {
+        const { lookId } = req.params;
+        const { imagem_visualizada } = req.body;
+
+        if (!lookId) {
+            return res.status(400).json({ error: "Look ID é obrigatório." });
+        }
+
+        // Buscar o look
+        const look = await Look.findById(lookId);
+        if (!look) {
+            return res.status(404).json({ error: "Look não encontrado." });
+        }
+
+        // Verificar permissão (usuário autenticado ou visitante com sessionId)
+        const userId = req.user?._id;
+        const sessionId = req.sessionId || req.headers['x-session-id'];
+
+        // Validar se usuário tem permissão para editar este look
+        if (userId && look.userId && look.userId.toString() !== userId.toString()) {
+            return res.status(403).json({ error: "Você não tem permissão para editar este look." });
+        }
+
+        if (sessionId && look.sessionId && look.sessionId !== sessionId) {
+            return res.status(403).json({ error: "Você não tem permissão para editar este look." });
+        }
+
+        // Atualizar campos fornecidos
+        const updateData = {};
+
+        if (imagem_visualizada) {
+            updateData.imagem_visualizada = imagem_visualizada;
+            updateData.data_visualizacao = new Date();
+        }
+
+        const updatedLook = await Look.findByIdAndUpdate(
+            lookId,
+            { $set: updateData },
+            { new: true }
+        );
+
+        console.log(`[atualizarLook] Look ${lookId} atualizado com sucesso`);
+
+        res.status(200).json({
+            message: "Look atualizado com sucesso!",
+            look: updatedLook
+        });
+
+    } catch (error) {
+        console.error("Erro ao atualizar look:", error);
+        res.status(500).json({ error: "Erro ao atualizar look.", detalhes: error.message });
     }
 };

@@ -47,4 +47,7 @@ router.get('/', LooksController.listarMeusLooks);
 
 router.get('/:lookId', LooksController.obterDetalhesComunsLook);
 
+// ✅ NOVO: Atualizar look (PATCH)
+router.patch('/:lookId', LooksController.atualizarLook);
+
 export default router;
