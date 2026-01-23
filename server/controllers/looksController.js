@@ -91,10 +91,11 @@ export const gerarLooks = async (req, res) => {
     console.log("Dentro de Gerar Looks");
     try {
         const { sessionId, wardrobeId, prompt: userOccasion } = req.body;
+        const { lojaId: queryLojaId } = req.query; // ✅ NOVO: Capturar lojaId da query
         const userId = req.user?._id; // Para usuários autenticados
         const userType = req.userType || (req.isAuthenticated() ? 'authenticated' : 'guest');
 
-        // ✅ NOVO: Verificar se é nova abordagem (sessionId) ou antiga (wardrobeId)
+        // ✅ NOVO: Verificar se é nova abordagem (sessionId ou lojaId) ou antiga (wardrobeId)
         let itemObrigatorio = null;
         let lojaId = null;
 
@@ -108,11 +109,15 @@ export const gerarLooks = async (req, res) => {
             itemObrigatorio = session.itemObrigatorio;
             lojaId = session.lojaId;
             console.log(`[LookSession ${sessionId}] Gerando looks com itemObrigatorio: ${itemObrigatorio}, lojaId: ${lojaId}`);
+        } else if (queryLojaId) {
+            // ✅ NOVO FLUXO: lojaId como parâmetro de query
+            lojaId = queryLojaId;
+            console.log(`[LojaID Query] Gerando looks para loja: ${lojaId}`);
         } else if (wardrobeId) {
             // FLUXO ANTIGO: Guarda-roupa (manter compatibilidade)
             console.log(`[LooksPage] Fluxo antigo (guarda-roupa): ${wardrobeId}`);
         } else {
-            return res.status(400).json({ error: "Forneça sessionId ou wardrobeId." });
+            return res.status(400).json({ error: "Forneça sessionId, lojaId ou wardrobeId." });
         }
 
         // ✅ NOVO: Para visitantes, precisamos das medidas na requisição

@@ -262,6 +262,7 @@ const AppContent: React.FC<AppContentProps> = ({
     const [selectedSku, setSelectedSku] = useState<string | null>(initialSku || urlSku || null);
     const [selectedLojaId, setSelectedLojaId] = useState<string | null>(null);
     const [itemObrigatorio, setItemObrigatorio] = useState<string | null>(null); // ✅ NOVO: Armazenar item obrigatório
+    const [gerarLooksLojaId, setGerarLooksLojaId] = useState<string | null>(null); // ✅ NOVO: LojaId para /gerar-looks
 
     // ✅ UseEffect para monitorar mudanças de autenticação
     useEffect(() => {
@@ -280,9 +281,14 @@ const AppContent: React.FC<AppContentProps> = ({
         if (location.pathname === '/gerar-looks') {
             const params = new URLSearchParams(location.search);
             const itemObrigatorioParam = params.get('itemObrigatorio');
+            const lojaIdParam = params.get('lojaId') || params.get('lojaid'); // ✅ Aceita tanto lojaId quanto lojaid
+
             if (itemObrigatorioParam) {
-                console.log(`[App] Detectada rota /gerar-looks com itemObrigatorio: ${itemObrigatorioParam}`);
+                console.log(`[App] Detectada rota /gerar-looks com itemObrigatorio: ${itemObrigatorioParam}, lojaId: ${lojaIdParam}`);
                 setItemObrigatorio(itemObrigatorioParam);
+                if (lojaIdParam) {
+                    setGerarLooksLojaId(lojaIdParam);
+                }
                 setPrivateView('looks');
                 setSelectedSku(null); // Não estamos vendo produto, apenas gerando looks
             }
@@ -397,7 +403,7 @@ const AppContent: React.FC<AppContentProps> = ({
                                 {privateView === 'home' && <HomePage onNavigate={setPrivateView} />}
                                 {privateView === 'wardrobes' && <IndiceGuardaRoupas />}
                                 {privateView === 'profile' && <ProfilePage />}
-                                {privateView === 'looks' && <LooksPage onProductClick={handleProdutoSelect} initialItemObrigatorio={itemObrigatorio} />}
+                                {privateView === 'looks' && <LooksPage onProductClick={handleProdutoSelect} initialItemObrigatorio={itemObrigatorio} initialLojaId={gerarLooksLojaId} />}
                                 {privateView === 'invitacoes' && <MinhasInvitacoes />}
 
                                 {/* ✅ NOVO: Páginas para SALESPERSON (Vendedor) */}

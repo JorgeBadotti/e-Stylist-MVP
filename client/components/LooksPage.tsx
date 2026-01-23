@@ -33,9 +33,10 @@ interface LooksPageProps {
     onNavigateToProfile?: () => void;
     onProductClick?: (sku: string) => void;
     initialItemObrigatorio?: string | null; // ✅ NOVO: Item obrigatório inicial da URL
+    initialLojaId?: string | null; // ✅ NOVO: LojaId inicial da URL
 }
 
-const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductClick, initialItemObrigatorio }) => {
+const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductClick, initialItemObrigatorio, initialLojaId }) => {
     const [searchParams] = useSearchParams(); // ✅ NOVO: Capturar parâmetros da URL
     const [step, setStep] = useState<'selection' | 'generating' | 'results' | 'visualizing' | 'visualized'>('selection');
     const [wardrobes, setWardrobes] = useState<Wardrobe[]>([]);
@@ -52,7 +53,7 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
     const [selectedLookItems, setSelectedLookItems] = useState<LookItem[]>([]);
     const [itemObrigatorio, setItemObrigatorio] = useState<string | null>(initialItemObrigatorio || null); // ✅ NOVO: Armazenar peça obrigatória
     const [lojas, setLojas] = useState<any[]>([]); // ✅ NOVO: Lista de lojas
-    const [selectedLoja, setSelectedLoja] = useState<string>(''); // ✅ NOVO: Loja selecionada
+    const [selectedLoja, setSelectedLoja] = useState<string>(initialLojaId || ''); // ✅ NOVO: Loja selecionada (inicializa com initialLojaId)
     const [sessionId, setSessionId] = useState<string | null>(null); // ✅ NOVO: Session ID
     const [guestMeasurements, setGuestMeasurements] = useState<DetectedMeasurements | null>(null); // ✅ NOVO: Medidas do visitante
     const [guestPhoto, setGuestPhoto] = useState<string | null>(null); // ✅ NOVO: Foto do visitante em base64
