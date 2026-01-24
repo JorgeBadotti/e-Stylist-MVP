@@ -295,7 +295,8 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                                 altura: measurements.height_cm,
                                 busto: measurements.chest_cm,
                                 cintura: measurements.waist_cm,
-                                quadril: measurements.hips_cm
+                                quadril: measurements.hips_cm,
+                                peso_kg: measurements.weight_kg
                             }
                         });
                         console.log('[LooksPage] Foto e medidas salvas no BD');

@@ -63,6 +63,7 @@ export const updateBodyData = async (req, res) => {
                 cintura: medidas.cintura ? Number(medidas.cintura) : undefined,
                 quadril: medidas.quadril ? Number(medidas.quadril) : undefined,
                 altura: medidas.altura ? Number(medidas.altura) : undefined,
+                peso_kg: medidas.peso_kg ? Number(medidas.peso_kg) : undefined,
 
                 // Medidas superiores
                 pescoco: medidas.pescoco ? Number(medidas.pescoco) : undefined,
