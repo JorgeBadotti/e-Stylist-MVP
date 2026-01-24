@@ -306,11 +306,25 @@ export const salvarEscolha = async (req, res) => {
         const looksToSave = allLooks.map(look => {
             const isSelected = look.look_id === selectedLookId;
 
+            // ✅ NORMALIZAR items: converter 'name' para 'nome' para consistência no BD
+            const itensNormalizados = look.items.map(item => ({
+                id: item.id,
+                nome: item.nome || item.name, // Aceitar nome ou name da IA
+                origem: item.origem || 'gerado',
+                sku: item.sku,
+                skuStyleMe: item.skuStyleMe,
+                foto: item.foto,
+                cor: item.cor,
+                cor_codigo: item.cor_codigo,
+                categoria: item.categoria,
+                tamanho: item.tamanho
+            }));
+
             const lookData = {
                 batch_id: batchId,
                 nome: look.name,
                 explicacao: look.explanation,
-                itens: look.items,
+                itens: itensNormalizados,
                 afinidade_ia: look.body_affinity_index,
                 user_type: userType, // ✅ NOVO: Rastrear se é autenticado ou visitante
                 escolhido_pelo_usuario: isSelected,
@@ -506,6 +520,7 @@ export const obterDetalhesComunsLook = async (req, res) => {
                     return {
                         ...item,
                         _id: produto._id,
+                        nome: item.nome || produto.nome || produto.descricao, // ✅ Garantir nome
                         categoria: produto.categoria || item.categoria,
                         tamanho: produto.tamanho || item.tamanho,
                         skuStyleMe: produto.skuStyleMe || item.sku,
