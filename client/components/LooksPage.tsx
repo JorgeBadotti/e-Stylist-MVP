@@ -326,9 +326,8 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
     }
 
     return (
-        <div className="max-w-4xl mx-auto p-6 mt-6">
-            <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Gerador de Looks IA</h1>
-            <p className="text-gray-500 mb-8">Nossa inteligência artificial analisa seu corpo e suas roupas para sugerir combinações perfeitas.</p>
+        <div className="max-w-4xl mx-auto p-4 mt-3">
+            <h1 className="text-xl font-bold text-gray-900 mb-1">✨ Gerador de Looks</h1>
 
             {step === 'selection' && (
                 <div className="bg-white p-6 rounded-lg shadow-sm space-y-6">
