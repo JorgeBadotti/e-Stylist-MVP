@@ -19,6 +19,7 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
   const [detectedMeasurements, setDetectedMeasurements] = useState<DetectedMeasurements | null>(null);
   const [processing, setProcessing] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment'); // ✅ Controlar câmera (traseira/frontal)
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -26,7 +27,7 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
 
-  // ✅ Iniciar câmera - VERSÃO CORRIGIDA
+  // ✅ Iniciar câmera - VERSÃO CORRIGIDA COM FALLBACKS PARA MOBILE
   const startCamera = useCallback(async () => {
     console.log('[Camera] ✅ startCamera chamado - iniciando câmera');
     setCameraError(null);
@@ -34,16 +35,31 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
 
     try {
       console.log('[Camera] ✅ Solicitando acesso à câmera...');
-      // ✅ Constraints mais simples e compatíveis
-      const constraints = {
+
+      // ✅ VERIFICAR se o navegador suporta getUserMedia
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const errorMsg = 'Seu navegador/dispositivo não suporta acesso à câmera. Tente usar Google Chrome ou Firefox no Android.';
+        console.error('[Camera] ❌ mediaDevices não suportado:', errorMsg);
+        setCameraError(errorMsg);
+        setErrorMessage(errorMsg);
+        return;
+      }
+
+      // ✅ Constraints otimizadas para MOBILE - CÂMERA TRASEIRA
+      const constraints: MediaStreamConstraints = {
         video: {
-          facingMode: 'user'
+          facingMode: { ideal: facingMode },  // ✅ Usar estado facingMode
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         },
         audio: false
       };
 
+      console.log('[Camera] ✅ Constraints:', constraints);
+
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log('[Camera] ✅ Stream obtido:', stream);
+      console.log('[Camera] Tracks:', stream.getTracks().map(t => ({ kind: t.kind, settings: t.getSettings() })));
 
       streamRef.current = stream;
 
@@ -60,13 +76,23 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
             return;
           }
 
+          // ✅ TIMEOUT de 10 segundos para não travar
+          const timeoutId = setTimeout(() => {
+            console.error('[Camera] ❌ Timeout aguardando loadedmetadata');
+            setCameraError('Timeout ao carregar câmera. Tente novamente.');
+            stopCamera();
+            resolve();
+          }, 10000);
+
           const onLoadedMetadata = () => {
             console.log('[Camera] ✅ Vídeo carregado, começando a reproduzir');
             console.log('[Camera] Dimensões:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
 
+            clearTimeout(timeoutId);
+
             videoRef.current?.play().catch(err => {
               console.error('[Camera] Erro ao fazer play:', err);
-              setCameraError('Erro ao iniciar reprodução do vídeo');
+              setCameraError('Erro ao iniciar reprodução do vídeo. Tente novamente.');
             });
 
             videoRef.current?.removeEventListener('loadedmetadata', onLoadedMetadata);
@@ -81,13 +107,27 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
       }
     } catch (err: any) {
       console.error('[Camera] ❌ Erro ao acessar câmera:', err);
-      const errorMsg = err.name === 'NotAllowedError'
-        ? 'Permissão de câmera negada. Por favor, verifique as configurações de privacidade do navegador e tente novamente.'
-        : err.name === 'NotFoundError'
-          ? 'Nenhuma câmera encontrada no dispositivo.'
-          : err.name === 'NotReadableError'
-            ? 'Câmera indisponível (pode estar em uso por outro aplicativo). Tente fechar outros apps e recarregar a página.'
-            : 'Erro ao acessar a câmera: ' + err.message;
+      console.error('[Camera] Error name:', err.name);
+      console.error('[Camera] Error message:', err.message);
+
+      let errorMsg = 'Erro ao acessar a câmera: ' + err.message;
+
+      if (err.name === 'NotAllowedError') {
+        errorMsg = '🔒 Permissão de câmera negada!\n\n1. Toque na âncora 🔒 ao lado da URL\n2. Permita acesso à câmera\n3. Recarregue a página';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        errorMsg = '📷 Nenhuma câmera encontrada no dispositivo. Verifique se seu aparelho tem câmera.';
+      } else if (err.name === 'NotReadableError') {
+        errorMsg = '⚠️ Câmera indisponível (pode estar em uso por outro aplicativo).\n\nTente:\n1. Fechar outros apps que usam câmera\n2. Reiniciar o navegador\n3. Recarregar a página';
+      } else if (err.name === 'OverconstrainedError') {
+        errorMsg = '⚙️ Seu dispositivo não suporta os requisitos de câmera. Tente com constraints básicas.';
+        // ✅ FALLBACK: Tentar com constraints mais simples
+        console.log('[Camera] Tentando com constraints mais simples...');
+        setTimeout(() => startCamera(), 1000);
+        return;
+      } else if (err.message?.includes('getUserMedia')) {
+        errorMsg = '📱 Câmera não suportada. Use Google Chrome ou Firefox.\n\nRequisitos:\n- HTTPS (em produção)\n- Permissão de câmera';
+      }
+
       console.error('[Camera] Mensagem de erro:', errorMsg);
       setCameraError(errorMsg);
       setErrorMessage(errorMsg);
@@ -107,6 +147,15 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
       videoRef.current.srcObject = null;
     }
   }, []);
+
+  // ✅ Função para trocar câmera (frontal/traseira)
+  const toggleCamera = useCallback(() => {
+    setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
+    stopCamera();
+    setTimeout(() => {
+      startCamera();
+    }, 500);
+  }, [stopCamera, startCamera]);
 
   // ✅ Capturar foto
   const capturePhoto = useCallback(() => {
@@ -220,8 +269,26 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
       {step === 'camera' && (
         <div className="flex-1 flex flex-col relative bg-black">
           {cameraError && (
-            <div className="absolute top-4 left-4 right-4 bg-red-100 border border-red-400 text-red-700 p-4 rounded z-20">
-              {cameraError}
+            <div className="absolute top-4 left-4 right-4 bg-red-100 border-2 border-red-500 text-red-900 p-4 rounded z-20 shadow-lg">
+              <p className="font-bold mb-2">⚠️ Erro ao acessar câmera:</p>
+              <p className="text-sm whitespace-pre-line mb-4">{cameraError}</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setCameraError(null);
+                    startCamera();
+                  }}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-semibold transition text-sm"
+                >
+                  Tentar Novamente
+                </button>
+                <button
+                  onClick={onClose}
+                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded font-semibold transition text-sm"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           )}
 
@@ -231,7 +298,13 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
             playsInline
             muted
             className="absolute inset-0 w-full h-full object-cover"
-            style={{ transform: 'scaleX(-1)' }}
+            onLoadedMetadata={() => {
+              console.log('[Camera-Video] onLoadedMetadata disparado');
+            }}
+            onError={(e) => {
+              console.error('[Camera-Video] Video error:', e);
+              setCameraError('Erro ao carregar vídeo da câmera');
+            }}
           />
 
           <div className="absolute inset-0 border-4 border-dashed border-blue-400 flex items-center justify-center pointer-events-none">
@@ -240,21 +313,30 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
             </div>
           </div>
 
-          {/* Botões fixados no rodapé com padding para não sobrepor vídeo */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent pt-8 pb-6 px-4 flex flex-col items-center gap-4 z-10">
+          {/* Botão trocar câmera - canto superior direito */}
+          <button
+            onClick={toggleCamera}
+            className="absolute top-4 right-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full font-semibold transition shadow-lg z-10 active:scale-95"
+            title="Trocar entre câmera frontal e traseira"
+          >
+            🔄 Câmera
+          </button>
+
+          {/* Botões fixados no rodapé com altura reduzida */}
+          <div className="absolute bottom-4 left-0 right-0 bg-gradient-to-t from-black via-black to-transparent px-4 flex flex-col items-center gap-3 z-10">
             {countdown !== null ? (
-              <div className="text-white text-6xl font-bold drop-shadow-lg">{countdown}</div>
+              <div className="text-white text-5xl font-bold drop-shadow-lg">{countdown}</div>
             ) : (
-              <div className="flex gap-4 w-full max-w-sm justify-center">
+              <div className="flex gap-3 w-full max-w-sm justify-center">
                 <button
                   onClick={startCountdown}
-                  className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-full font-bold text-lg transition shadow-lg active:scale-95"
+                  className="flex-1 bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-bold transition shadow-lg active:scale-95"
                 >
                   Capturar
                 </button>
                 <button
                   onClick={onClose}
-                  className="bg-gray-600 hover:bg-gray-700 text-white px-8 py-3 rounded-full font-bold text-lg transition shadow-lg active:scale-95"
+                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-full font-bold transition shadow-lg active:scale-95"
                 >
                   Cancelar
                 </button>
