@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import api from '../src/services/api';
 
 interface LookItem {
     id?: string;
+    _id?: string;  // ✅ Adicionado para items do Mongoose
     sku?: string;
     nome: string;
     foto?: string;
@@ -41,6 +43,8 @@ const ViewLook: React.FC<ViewLookProps> = ({
     // Estado para controlar a visibilidade dos detalhes (UX: permitir ver a foto limpa)
     const [showDetails, setShowDetails] = useState(false); // Começa minimizado
     const [showItems, setShowItems] = useState(false); // Mostrar/ocultar itens
+    const [addingToCart, setAddingToCart] = useState<string | null>(null); // Track qual item está sendo adicionado
+    const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set()); // Track items recentemente adicionados
 
     // 🔍 LOG DEBUG: Verificar os itens e SKUs
     useEffect(() => {
@@ -65,6 +69,88 @@ const ViewLook: React.FC<ViewLookProps> = ({
     const getProductUrl = (skuStyleMe?: string) => {
         if (!skuStyleMe) return '#';
         return `${window.location.origin}/produtos/${skuStyleMe}`;
+    };
+
+    // ✅ Adicionar item ao carrinho
+    const handleAddToCart = async (item: LookItem) => {
+        const itemId = item.id || item._id;  // ✅ Tenta id primeiro, depois _id (Mongoose)
+        if (!itemId || !item.skuStyleMe) {
+            console.warn('Item sem id ou skuStyleMe', item);
+            return;
+        }
+
+        setAddingToCart(item.skuStyleMe);
+        try {
+            const response = await api.post('/api/carrinhos/adicionar-item', {
+                produtoId: itemId,
+                skuStyleMe: item.skuStyleMe,
+                quantidade: 1
+            });
+
+            console.log('✅ Item adicionado ao carrinho:', response.data);
+
+            // ✅ Mostrar feedback de sucesso
+            setRecentlyAdded(prev => new Set(prev).add(item.skuStyleMe));
+            setTimeout(() => {
+                setRecentlyAdded(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(item.skuStyleMe);
+                    return newSet;
+                });
+            }, 3000);
+        } catch (error: any) {
+            console.error('❌ Erro ao adicionar ao carrinho:', error);
+            const errorMsg = error.response?.data?.message || 'Erro ao adicionar ao carrinho';
+            console.error('Mensagem de erro:', errorMsg);
+        } finally {
+            setAddingToCart(null);
+        }
+    };
+
+    // ✅ Adicionar LOOK TODO ao carrinho
+    const handleAddLookToCart = async () => {
+        if (!lookItems || lookItems.length === 0) {
+            console.warn('Nenhum item no look');
+            return;
+        }
+
+        setAddingToCart('_look_'); // ✅ Flag especial para todo o look
+        try {
+            const validItems = lookItems.filter(item => !item._deletado && (item.id || item._id));
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const item of validItems) {
+                const itemId = item.id || item._id;
+                try {
+                    await api.post('/api/carrinhos/adicionar-item', {
+                        produtoId: itemId,
+                        skuStyleMe: item.skuStyleMe,
+                        quantidade: 1
+                    });
+                    successCount++;
+                } catch (err) {
+                    errorCount++;
+                    console.error(`❌ Erro ao adicionar ${item.nome}:`, err);
+                }
+            }
+
+            console.log(`✅ Look adicionado ao carrinho: ${successCount} itens | Erros: ${errorCount}`);
+
+            // ✅ Mostrar feedback de sucesso
+            setRecentlyAdded(prev => new Set(prev).add('_look_'));
+            setTimeout(() => {
+                setRecentlyAdded(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete('_look_');
+                    return newSet;
+                });
+            }, 3000);
+        } catch (error: any) {
+            console.error('❌ Erro ao adicionar look ao carrinho:', error);
+        } finally {
+            setAddingToCart(null);
+        }
     };
 
     return (
@@ -170,70 +256,147 @@ const ViewLook: React.FC<ViewLookProps> = ({
                             </button>
                         </div>
 
+                        {/* BOTÃO: Adicionar Look Todo à Sacola (NO TOPO) */}
+                        <div className="bg-black/50 border-b border-white/10 px-3 py-2">
+                            <button
+                                onClick={handleAddLookToCart}
+                                disabled={addingToCart === '_look_'}
+                                className={`w-full px-4 py-3 text-sm font-bold transition-all rounded-lg flex items-center justify-center gap-2 ${recentlyAdded.has('_look_')
+                                        ? 'bg-gray-600 text-gray-200'
+                                        : 'text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed'
+                                    }`}
+                            >
+                                {recentlyAdded.has('_look_') ? (
+                                    <span>Adicionado a sacola!!</span>
+                                ) : addingToCart === '_look_' ? (
+                                    <>
+                                        <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
+                                        <span>Adicionando Look...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                        </svg>
+                                        <span>Adicionar Look à Sacola</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+
+                        {/* Divisor */}
+                        <div className="h-px bg-white/10" />
+
                         {/* Lista de itens com scroll */}
-                        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                        <div className="flex-1 overflow-y-auto p-3 space-y-3">
                             {lookItems.map((item, idx) => (
-                                <a
+                                <div
                                     key={idx}
-                                    href={item.skuStyleMe ? `${window.location.origin}/produtos/${item.skuStyleMe}` : '#'}
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => {
-                                        if (!item.skuStyleMe) e.preventDefault();
-                                        if (item.skuStyleMe && onProductClick) {
-                                            e.preventDefault();
-                                            onProductClick(item.skuStyleMe);
-                                        }
-                                    }}
-                                    className={`group relative flex items-center gap-3 p-2 rounded-lg border transition-all ${item._deletado
-                                        ? 'bg-red-500/5 border-red-500/20 opacity-60 cursor-not-allowed'
-                                        : item.skuStyleMe
-                                            ? 'bg-white/5 border-white/10 hover:border-purple-500/50 hover:bg-white/10 cursor-pointer'
-                                            : 'bg-white/5 border-white/10'
+                                    className={`rounded-lg border overflow-hidden transition-all ${item._deletado
+                                        ? 'bg-red-500/5 border-red-500/20 opacity-60'
+                                        : 'bg-white/5 border-white/10 hover:border-purple-500/30 hover:bg-white/8'
                                         }`}
                                 >
-                                    {/* Miniatura */}
-                                    <div className="w-12 h-12 rounded-md bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center flex-shrink-0 overflow-hidden border border-white/10">
-                                        {item.foto ? (
-                                            <img
-                                                src={item.foto}
-                                                alt={item.nome || item.name}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        ) : (
-                                            <span className="text-xs opacity-50">👕</span>
-                                        )}
-                                    </div>
+                                    {/* CARD SUPERIOR: Clicável para ir ao produto */}
+                                    <a
+                                        href={item.skuStyleMe ? `${window.location.origin}/produtos/${item.skuStyleMe}` : '#'}
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => {
+                                            if (!item.skuStyleMe) e.preventDefault();
+                                            if (item.skuStyleMe && onProductClick) {
+                                                e.preventDefault();
+                                                onProductClick(item.skuStyleMe);
+                                            }
+                                        }}
+                                        className={`block p-3 transition-all ${item._deletado || !item.skuStyleMe
+                                            ? 'cursor-not-allowed'
+                                            : 'cursor-pointer'
+                                            }`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            {/* Imagem do Produto */}
+                                            <div className="w-16 h-16 rounded-md bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center flex-shrink-0 overflow-hidden border border-white/20">
+                                                {item.foto ? (
+                                                    <img
+                                                        src={item.foto}
+                                                        alt={item.nome || item.name}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <span className="text-lg opacity-50">■</span>
+                                                )}
+                                            </div>
 
-                                    {/* Info do Item */}
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-white truncate">
-                                            {item.nome || item.name || 'Sem nome'}
-                                            {item._deletado && (
-                                                <span className="ml-2 text-xs text-red-400 font-normal">(deletado)</span>
-                                            )}
-                                        </p>
+                                            {/* Info do Produto */}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold text-white truncate">
+                                                    {item.nome || item.name || 'Sem nome'}
+                                                    {item._deletado && (
+                                                        <span className="ml-2 text-xs text-red-400 font-normal">(deletado)</span>
+                                                    )}
+                                                </p>
 
-                                        {/* Detalhe: Cor + Tamanho */}
-                                        <div className="flex gap-2 mt-1 text-xs text-gray-400">
-                                            {item.cor && (
-                                                <span className="flex items-center gap-1">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
-                                                    {item.cor}
-                                                </span>
-                                            )}
-                                            {item.tamanho && (
-                                                <span>P: {item.tamanho}</span>
+                                                {/* Detalhes: Cor + Tamanho */}
+                                                <div className="flex gap-2 mt-1 text-xs text-gray-400">
+                                                    {item.cor && (
+                                                        <span className="flex items-center gap-1">
+                                                            <span className="w-2 h-2 rounded-full bg-gray-400" />
+                                                            {item.cor}
+                                                        </span>
+                                                    )}
+                                                    {item.tamanho && (
+                                                        <span className="text-gray-500">P: {item.tamanho}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Seta para indicar ação */}
+                                            {item.skuStyleMe && !item._deletado && (
+                                                <div className="flex items-center justify-center flex-shrink-0">
+                                                    <svg className="w-4 h-4 text-purple-400/60 group-hover:text-purple-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                </div>
                                             )}
                                         </div>
-                                    </div>
+                                    </a>
 
-                                    {/* Badge de link */}
-                                    {item.skuStyleMe ? (
-                                        <span className="text-xs text-green-400 flex-shrink-0">→</span>
-                                    ) : (
-                                        <span className="text-xs text-gray-500 flex-shrink-0">—</span>
+                                    {/* SEPARADOR */}
+                                    {!item._deletado && (
+                                        <div className="h-px bg-white/5" />
                                     )}
-                                </a>
+
+                                    {/* BOTÃO SACOLA: Abaixo, mas ainda no card */}
+                                    {!item._deletado && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                handleAddToCart(item);
+                                            }}
+                                            disabled={addingToCart === item.skuStyleMe}
+                                            className={`w-full px-3 py-2 text-sm font-medium transition-all flex items-center justify-center gap-2 ${recentlyAdded.has(item.skuStyleMe)
+                                                    ? 'bg-gray-600 text-gray-200'
+                                                    : 'text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed'
+                                                }`}
+                                        >
+                                            {recentlyAdded.has(item.skuStyleMe) ? (
+                                                <span>Adicionado a sacola!!</span>
+                                            ) : addingToCart === item.skuStyleMe ? (
+                                                <>
+                                                    <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full" />
+                                                    <span>Adicionando...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                                    </svg>
+                                                    <span>Adicionar à Sacola</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
                             ))}
                         </div>
                     </div>
