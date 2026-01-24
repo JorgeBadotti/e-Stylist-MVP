@@ -19,12 +19,12 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
   const [detectedMeasurements, setDetectedMeasurements] = useState<DetectedMeasurements | null>(null);
   const [processing, setProcessing] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment'); // ✅ Controlar câmera (traseira/frontal)
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const facingModeRef = useRef<'user' | 'environment'>('environment');
   const [countdown, setCountdown] = useState<number | null>(null);
 
   // ✅ Iniciar câmera - VERSÃO CORRIGIDA COM FALLBACKS PARA MOBILE
@@ -48,7 +48,7 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
       // ✅ Constraints otimizadas para MOBILE - CÂMERA TRASEIRA
       const constraints: MediaStreamConstraints = {
         video: {
-          facingMode: { ideal: facingMode },  // ✅ Usar estado facingMode
+          facingMode: { ideal: facingModeRef.current },
           width: { ideal: 1280 },
           height: { ideal: 720 }
         },
@@ -149,13 +149,13 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
   }, []);
 
   // ✅ Função para trocar câmera (frontal/traseira)
-  const toggleCamera = useCallback(() => {
-    setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
+  const toggleCamera = () => {
+    facingModeRef.current = facingModeRef.current === 'environment' ? 'user' : 'environment';
     stopCamera();
     setTimeout(() => {
       startCamera();
     }, 500);
-  }, [stopCamera, startCamera]);
+  };
 
   // ✅ Capturar foto
   const capturePhoto = useCallback(() => {
@@ -240,12 +240,13 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
   }, [photoData, onMeasurementsCaptured]);
 
   // ✅ Retry foto
-  const retakePhoto = useCallback(() => {
+  const retakePhoto = () => {
     setPhotoData(null);
     setDetectedMeasurements(null);
     setCountdown(null);
+    setStep('camera');
     startCamera();
-  }, [startCamera]);
+  };
 
   // ✅ Cleanup
   useEffect(() => {
@@ -323,7 +324,7 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
           </button>
 
           {/* Botões fixados no rodapé com altura reduzida */}
-          <div className="absolute bottom-4 left-0 right-0 bg-gradient-to-t from-black via-black to-transparent px-4 flex flex-col items-center gap-3 z-10">
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black to-transparent py-2 px-4 flex flex-col items-center gap-2 z-10">
             {countdown !== null ? (
               <div className="text-white text-5xl font-bold drop-shadow-lg">{countdown}</div>
             ) : (
