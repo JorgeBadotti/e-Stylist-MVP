@@ -42,6 +42,7 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
     const [wardrobes, setWardrobes] = useState<Wardrobe[]>([]);
     const [selectedWardrobe, setSelectedWardrobe] = useState<string>('');
     const [occasion, setOccasion] = useState('');
+    const [occasionPreset, setOccasionPreset] = useState<'trabalho' | 'casual' | 'festa' | 'outros' | ''>(''); // ✅ NOVO: Rastrear ocasião selecionada
     const [hasBodyPhoto, setHasBodyPhoto] = useState<boolean | null>(null);
     const [looks, setLooks] = useState<GeneratedLook[]>([]);
     const [error, setError] = useState('');
@@ -343,7 +344,8 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                             <select
                                 value={selectedLoja}
                                 onChange={(e) => setSelectedLoja(e.target.value)}
-                                className="w-full border border-gray-300 rounded-md p-3 focus:ring-purple-500 focus:border-purple-500 bg-white"
+                                disabled={!!initialLojaId}
+                                className={`w-full border border-gray-300 rounded-md p-3 focus:ring-purple-500 focus:border-purple-500 bg-white ${initialLojaId ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''}`}
                             >
                                 <option value="">Selecione uma loja...</option>
                                 {lojas.map((loja: any) => (
@@ -352,6 +354,9 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                                     </option>
                                 ))}
                             </select>
+                            {initialLojaId && (
+                                <p className="text-xs text-gray-500 mt-2">🔒 Loja pré-selecionada na URL</p>
+                            )}
                         </div>
                     ) : (
                         <div>
@@ -372,14 +377,43 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                     )}
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">2. Para qual ocasião? (Opcional)</label>
-                        <input
-                            type="text"
-                            value={occasion}
-                            onChange={(e) => setOccasion(e.target.value)}
-                            placeholder="Ex: Jantar romântico, Reunião de trabalho, Passeio no parque..."
-                            className="w-full border border-gray-300 rounded-md p-3 focus:ring-blue-500 focus:border-blue-500"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-3">2. Para qual ocasião? (Opcional)</label>
+                        <div className="space-y-3">
+                            {[
+                                { value: 'trabalho', label: '💼 Trabalho / Reunião' },
+                                { value: 'casual', label: '🚶 Casual / Passeio' },
+                                { value: 'festa', label: '🎉 Festa / Evento' },
+                                { value: 'outros', label: '✨ Outra ocasião' }
+                            ].map((opt) => (
+                                <label key={opt.value} className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
+                                    <input
+                                        type="radio"
+                                        name="occasion"
+                                        value={opt.value}
+                                        checked={occasionPreset === opt.value}
+                                        onChange={(e) => {
+                                            setOccasionPreset(e.target.value as any);
+                                            if (e.target.value !== 'outros') {
+                                                setOccasion('');
+                                            }
+                                        }}
+                                        className="w-4 h-4 text-blue-600 cursor-pointer"
+                                    />
+                                    <span className="ml-3 text-gray-700">{opt.label}</span>
+                                </label>
+                            ))}
+                        </div>
+
+                        {/* Custom input quando "Outros" está selecionado */}
+                        {occasionPreset === 'outros' && (
+                            <input
+                                type="text"
+                                value={occasion}
+                                onChange={(e) => setOccasion(e.target.value)}
+                                placeholder="Descreva a ocasião..."
+                                className="w-full border border-gray-300 rounded-md p-3 mt-3 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                        )}
                     </div>
 
                     <button
