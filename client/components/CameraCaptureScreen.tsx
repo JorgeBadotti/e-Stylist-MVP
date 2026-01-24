@@ -10,7 +10,7 @@ interface CameraCaptureScreenProps {
   skipOnboarding?: boolean; // ✅ NOVO: Pular tela de onboarding
 }
 
-type CameraStep = 'camera' | 'preview' | 'edit-measurements' | 'processing' | 'done';
+type CameraStep = 'camera' | 'preview' | 'edit-measurements' | 'processing';
 
 const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMeasurementsCaptured, onClose, skipOnboarding }) => {
   const [step, setStep] = useState<CameraStep>('camera'); // ✅ Sempre começar direto na câmera
@@ -257,7 +257,7 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
 
     console.log('[Camera] Confirmando medidas:', editedMeasurements);
     onMeasurementsCaptured(editedMeasurements, photoData);
-    setStep('done');
+    onClose(); // Fechar o componente de câmera após confirmar
   };
 
   // ✅ Editar medida individual
@@ -488,44 +488,6 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
         <div className="flex-1 flex flex-col items-center justify-center bg-white">
           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 mb-6"></div>
           <p className="text-xl font-semibold text-gray-800">Analisando suas medidas...</p>
-        </div>
-      )}
-
-      {/* DONE */}
-      {step === 'done' && detectedMeasurements && (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white">
-          <h2 className="text-3xl font-bold mb-4 text-gray-900">✅ Sucesso!</h2>
-          <p className="text-gray-600 mb-8">Suas medidas foram detectadas</p>
-
-          <div className="w-full max-w-md grid grid-cols-2 gap-4 mb-8">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-xs text-gray-600">Busto</p>
-              <p className="text-2xl font-bold text-blue-600">{detectedMeasurements.chest_cm}cm</p>
-            </div>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-xs text-gray-600">Cintura</p>
-              <p className="text-2xl font-bold text-blue-600">{detectedMeasurements.waist_cm}cm</p>
-            </div>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-xs text-gray-600">Quadril</p>
-              <p className="text-2xl font-bold text-blue-600">{detectedMeasurements.hips_cm}cm</p>
-            </div>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-xs text-gray-600">Altura</p>
-              <p className="text-2xl font-bold text-blue-600">{detectedMeasurements.height_cm}cm</p>
-            </div>
-            <div className="bg-orange-50 p-4 rounded-lg">
-              <p className="text-xs text-gray-600">Peso</p>
-              <p className="text-2xl font-bold text-orange-600">{detectedMeasurements.weight_kg}kg</p>
-            </div>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="w-full max-w-sm bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition"
-          >
-            Continuar
-          </button>
         </div>
       )}
     </div>
