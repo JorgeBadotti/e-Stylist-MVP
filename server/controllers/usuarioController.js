@@ -200,7 +200,7 @@ export const describeBody = async (req, res) => {
 
         // Obter o modelo Gemini para análise de imagens
         const model = genAIClient.getGenerativeModel({
-            model: 'gemini-2.0-flash-exp'
+            model: 'gemini-2.5-flash-image'
         });
 
         // Carregar prompt do arquivo analyze_body.md

@@ -30,7 +30,7 @@ export async function analisarImagemProduto(imagemBuffer, mimeType = 'image/jpeg
         const base64Imagem = imagemBuffer.toString('base64');
 
         const model = genAIClient.getGenerativeModel({
-            model: 'gemini-2.0-flash-exp',
+            model: 'gemini-2.5-flash-image',
         });
 
         // Prompt baseado no generate_sku.md
