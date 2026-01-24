@@ -10,13 +10,14 @@ interface CameraCaptureScreenProps {
   skipOnboarding?: boolean; // ✅ NOVO: Pular tela de onboarding
 }
 
-type CameraStep = 'camera' | 'preview' | 'processing' | 'done';
+type CameraStep = 'camera' | 'preview' | 'edit-measurements' | 'processing' | 'done';
 
 const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMeasurementsCaptured, onClose, skipOnboarding }) => {
   const [step, setStep] = useState<CameraStep>('camera'); // ✅ Sempre começar direto na câmera
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [photoData, setPhotoData] = useState<string | null>(null);
   const [detectedMeasurements, setDetectedMeasurements] = useState<DetectedMeasurements | null>(null);
+  const [editedMeasurements, setEditedMeasurements] = useState<DetectedMeasurements | null>(null);
   const [processing, setProcessing] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
@@ -222,14 +223,15 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
         waist_cm: Math.round(65 + Math.random() * 20),
         hips_cm: Math.round(90 + Math.random() * 20),
         height_cm: Math.round(160 + Math.random() * 15),
+        weight_kg: Math.round(55 + Math.random() * 30),
         confidence: 0.85 + Math.random() * 0.15
       };
 
       console.log('[Camera] Medidas detectadas:', measurements);
 
       setDetectedMeasurements(measurements);
-      onMeasurementsCaptured(measurements, photoData);
-      setStep('done');
+      setEditedMeasurements(measurements);
+      setStep('edit-measurements');
     } catch (err: any) {
       console.error('[Camera] Erro ao processar:', err);
       setErrorMessage('Erro ao processar a foto: ' + err.message);
@@ -237,15 +239,36 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
     } finally {
       setProcessing(false);
     }
-  }, [photoData, onMeasurementsCaptured]);
+  }, [photoData]);
 
   // ✅ Retry foto
   const retakePhoto = () => {
     setPhotoData(null);
     setDetectedMeasurements(null);
+    setEditedMeasurements(null);
     setCountdown(null);
     setStep('camera');
     startCamera();
+  };
+
+  // ✅ Confirmar medidas editadas
+  const confirmMeasurements = () => {
+    if (!editedMeasurements || !photoData) return;
+
+    console.log('[Camera] Confirmando medidas:', editedMeasurements);
+    onMeasurementsCaptured(editedMeasurements, photoData);
+    setStep('done');
+  };
+
+  // ✅ Editar medida individual
+  const updateMeasurement = (key: keyof DetectedMeasurements, value: string) => {
+    if (!editedMeasurements) return;
+
+    const numValue = parseFloat(value) || 0;
+    setEditedMeasurements({
+      ...editedMeasurements,
+      [key]: numValue
+    });
   };
 
   // ✅ Cleanup
@@ -378,6 +401,88 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
         </div>
       )}
 
+      {/* EDITAR MEDIDAS */}
+      {step === 'edit-measurements' && editedMeasurements && (
+        <div className="flex-1 flex flex-col items-center justify-center p-4 bg-white">
+          <h2 className="text-xl font-bold mb-1 text-gray-900">Verifique Suas Medidas</h2>
+          <p className="text-gray-600 mb-6 text-xs">Edite se necessário e confirme</p>
+
+          <div className="w-full max-w-sm space-y-4">
+            {/* LINHA 1: ALTURA E PESO */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                <label className="text-xs font-semibold text-gray-600 block">Altura (cm)</label>
+                <input
+                  type="number"
+                  value={editedMeasurements.height_cm}
+                  onChange={(e) => updateMeasurement('height_cm', e.target.value)}
+                  className="w-full border-2 border-green-300 rounded px-2 py-1 text-lg font-bold text-green-600 focus:outline-none focus:border-green-500"
+                />
+              </div>
+
+              <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
+                <label className="text-xs font-semibold text-gray-600 block">Peso (kg)</label>
+                <input
+                  type="number"
+                  value={editedMeasurements.weight_kg}
+                  onChange={(e) => updateMeasurement('weight_kg', e.target.value)}
+                  className="w-full border-2 border-orange-300 rounded px-2 py-1 text-lg font-bold text-orange-600 focus:outline-none focus:border-orange-500"
+                />
+              </div>
+            </div>
+
+            {/* LINHA 2: BUSTO, CINTURA E QUADRIL */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                <label className="text-xs font-semibold text-gray-600 block">Busto</label>
+                <input
+                  type="number"
+                  value={editedMeasurements.chest_cm}
+                  onChange={(e) => updateMeasurement('chest_cm', e.target.value)}
+                  className="w-full border-2 border-blue-300 rounded px-2 py-1 text-base font-bold text-blue-600 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                <label className="text-xs font-semibold text-gray-600 block">Cintura</label>
+                <input
+                  type="number"
+                  value={editedMeasurements.waist_cm}
+                  onChange={(e) => updateMeasurement('waist_cm', e.target.value)}
+                  className="w-full border-2 border-purple-300 rounded px-2 py-1 text-base font-bold text-purple-600 focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div className="bg-pink-50 p-3 rounded-lg border border-pink-200">
+                <label className="text-xs font-semibold text-gray-600 block">Quadril</label>
+                <input
+                  type="number"
+                  value={editedMeasurements.hips_cm}
+                  onChange={(e) => updateMeasurement('hips_cm', e.target.value)}
+                  className="w-full border-2 border-pink-300 rounded px-2 py-1 text-base font-bold text-pink-600 focus:outline-none focus:border-pink-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* BOTÕES */}
+          <div className="w-full max-w-sm flex gap-2 mt-6">
+            <button
+              onClick={() => setStep('preview')}
+              className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 rounded-lg font-semibold text-sm transition"
+            >
+              Voltar
+            </button>
+            <button
+              onClick={confirmMeasurements}
+              className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-2 rounded-lg font-semibold text-sm transition"
+            >
+              ✅ Confirmar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* PROCESSING */}
       {step === 'processing' && (
         <div className="flex-1 flex flex-col items-center justify-center bg-white">
@@ -408,6 +513,10 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
             <div className="bg-blue-50 p-4 rounded-lg">
               <p className="text-xs text-gray-600">Altura</p>
               <p className="text-2xl font-bold text-blue-600">{detectedMeasurements.height_cm}cm</p>
+            </div>
+            <div className="bg-orange-50 p-4 rounded-lg">
+              <p className="text-xs text-gray-600">Peso</p>
+              <p className="text-2xl font-bold text-orange-600">{detectedMeasurements.weight_kg}kg</p>
             </div>
           </div>
 
