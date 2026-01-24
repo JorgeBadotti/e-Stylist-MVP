@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import HomePage from './components/HomePage';
-import PublicHomePage from './components/PublicHomePage';
+import LandingPage from './components/LandingPage';
 import LoginPage from './components/Login';
 import IndiceGuardaRoupas from './components/IndiceGuardaRoupas';
 import RegisterPage from './components/Register';
@@ -502,8 +502,19 @@ const AppContent: React.FC<AppContentProps> = ({
     }
 
     // --- USUÁRIO DESLOGADO ---
+    // A LandingPage já tem sua própria navegação, então o Navbar principal não é necessário
+    if (publicView === 'landing') {
+        return (
+            <LandingPage
+                onLoginClick={() => setPublicView('login')}
+                onRegisterClick={() => setPublicView('register')}
+            />
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gray-100">
+            {/* O Navbar só é renderizado para as visualizações de login e registro */}
             <Navbar
                 isAuthenticated={false}
                 user={null}
@@ -541,13 +552,7 @@ const AppContent: React.FC<AppContentProps> = ({
                         });
                     }}
                 />
-            ) : (
-                // LANDING PAGE (Home Pública)
-                <PublicHomePage
-                    onLoginClick={() => setPublicView('login')}
-                    onRegisterClick={() => setPublicView('register')}
-                />
-            )}
+            ) : null}
         </div>
     );
 };
