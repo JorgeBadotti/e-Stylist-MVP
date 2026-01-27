@@ -172,15 +172,29 @@ router.post('/lotes/imagens', uploadMultipleWrapper('imagens', 50), async (req, 
                 if (arquivo && arquivo.buffer) {
                     try {
                         console.log(`📸 [Cloudinary] Fazendo upload da foto: ${arquivo.originalname}`);
+                        console.log(`   - Tamanho do buffer: ${arquivo.buffer.length} bytes`);
+                        console.log(`   - MIME type: ${arquivo.mimetype}`);
+
                         const uploadResult = await uploadImage(arquivo.buffer, 'produtos');
+
+                        console.log(`✅ [Cloudinary] Foto enviada com sucesso!`);
+                        console.log(`   - URL: ${uploadResult.secure_url}`);
+                        console.log(`   - Public ID: ${uploadResult.public_id}`);
+
                         foto = uploadResult.secure_url;
                         fotoPublicId = uploadResult.public_id;
-                        console.log(`✅ [Cloudinary] Foto enviada com sucesso!`);
                     } catch (erroCloudinary) {
-                        console.error(`⚠️  [Cloudinary] Erro ao fazer upload da foto:`, erroCloudinary.message);
+                        console.error(`❌ [Cloudinary] Erro ao fazer upload da foto:`, erroCloudinary);
+                        console.error(`   - Mensagem: ${erroCloudinary.message}`);
+                        console.error(`   - Stack: ${erroCloudinary.stack}`);
                     }
+                } else {
+                    console.warn(`⚠️  [Cloudinary] Arquivo não encontrado ou sem buffer`);
+                    console.warn(`   - arquivo: ${!!arquivo}`);
+                    console.warn(`   - arquivo.buffer: ${!!arquivo?.buffer}`);
                 }
 
+                console.log(`📝 [Produto] Foto a salvar: ${foto || '(vazia)'}`);
                 dadosProduto.foto = foto;
                 dadosProduto.fotoPublicId = fotoPublicId;
 

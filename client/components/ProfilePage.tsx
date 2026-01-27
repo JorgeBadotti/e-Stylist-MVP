@@ -1,6 +1,7 @@
 // src/components/ProfilePage.tsx
 import React, { useState, useEffect } from 'react';
 import api from '../src/services/api';
+import CameraCapture from './CameraCapture';
 
 interface Medidas {
     busto: number;
@@ -192,91 +193,163 @@ const ProfilePage: React.FC = () => {
             const reader = new FileReader();
             reader.onloadend = async () => {
                 const base64String = reader.result as string;
-                // O resultado é uma string longa: "data:image/jpeg;base64,..."
-                setFormData(prev => ({ ...prev, foto_corpo: base64String }));
-
-                // ✅ NOVO: Chamar API describe_body assim que foto é enviada
-                try {
-                    console.log('📸 Enviando foto para análise do corpo...');
-                    const response = await api.post('/api/usuario/descrever-corpo', {
-                        foto_base64: base64String
-                    });
-
-                    console.log('✅ Análise do corpo recebida:', response.data);
-
-                    const { analise } = response.data;
-
-                    console.log('📋 ============ DADOS DA ANÁLISE RECEBIDOS ============');
-                    console.log('Sexo:', analise.sexo);
-                    console.log('Altura:', analise.altura_estimada_cm);
-                    console.log('Tipo de Corpo:', analise.tipo_corpo);
-                    console.log('Medidas:', analise.medidas);
-                    console.log('Proporções (RAW):', analise.proporcoes);
-                    console.log('  - pernas:', analise.proporcoes?.pernas);
-                    console.log('  - torso:', analise.proporcoes?.torso);
-                    console.log('  - ombros_vs_quadril:', analise.proporcoes?.ombros_vs_quadril);
-                    console.log('  - confidence:', analise.proporcoes?.confidence);
-                    console.log('Confiança:', analise.confianca);
-                    console.log('📋 ============ FIM DOS DADOS ============');
-
-                    // Atualizar formulário com dados da análise
-                    setFormData(prev => {
-                        const novoFormData = {
-                            ...prev,
-                            sexo: analise.sexo || prev.sexo,
-                            altura_cm: analise.altura_estimada_cm || prev.altura_cm,
-                            tipo_corpo: analise.tipo_corpo || prev.tipo_corpo,
-                            medidas: {
-                                ...prev.medidas,
-                                // Medidas básicas
-                                busto: analise.medidas?.busto || prev.medidas.busto,
-                                cintura: analise.medidas?.cintura || prev.medidas.cintura,
-                                quadril: analise.medidas?.quadril || prev.medidas.quadril,
-                                altura: analise.medidas?.altura || prev.medidas.altura,
-                                // Medidas superiores
-                                pescoco: analise.medidas?.pescoco || prev.medidas.pescoco || 0,
-                                ombro: analise.medidas?.ombro || prev.medidas.ombro || 0,
-                                braco: analise.medidas?.braco || prev.medidas.braco || 0,
-                                antebraco: analise.medidas?.antebraco || prev.medidas.antebraco || 0,
-                                pulso: analise.medidas?.pulso || prev.medidas.pulso || 0,
-                                torax: analise.medidas?.torax || prev.medidas.torax || 0,
-                                sobpeito: analise.medidas?.sobpeito || prev.medidas.sobpeito || 0,
-                                costelas: analise.medidas?.costelas || prev.medidas.costelas || 0,
-                                // Medidas inferiores
-                                coxa: analise.medidas?.coxa || prev.medidas.coxa || 0,
-                                panturrilha: analise.medidas?.panturrilha || prev.medidas.panturrilha || 0,
-                                tornozelo: analise.medidas?.tornozelo || prev.medidas.tornozelo || 0,
-                                // Comprimentos
-                                comprimento_torso: analise.medidas?.comprimento_torso || prev.medidas.comprimento_torso || 0,
-                                comprimento_perna: analise.medidas?.comprimento_perna || prev.medidas.comprimento_perna || 0,
-                                comprimento_braco: analise.medidas?.comprimento_braco || prev.medidas.comprimento_braco || 0
-                            },
-                            proporcoes: {
-                                ...prev.proporcoes,
-                                pernas: analise.proporcoes?.pernas || prev.proporcoes?.pernas,
-                                torso: analise.proporcoes?.torso || prev.proporcoes?.torso,
-                                ombros_vs_quadril: analise.proporcoes?.ombros_vs_quadril || prev.proporcoes?.ombros_vs_quadril,
-                                confidence: analise.confianca || prev.proporcoes?.confidence
-                            }
-                        };
-                        console.log('📝 FormData após setFormData (proporcoes):', novoFormData.proporcoes);
-                        return novoFormData;
-                    });
-
-                    setMessage({
-                        type: 'success',
-                        text: `✅ Corpo analisado com sucesso! (Confiança: ${analise.confianca}%)\n${analise.descricao}`
-                    });
-
-                } catch (error) {
-                    console.error('❌ Erro ao analisar corpo:', error);
-                    setMessage({
-                        type: 'error',
-                        text: 'Foto enviada, mas erro ao analisar corpo. Você pode preencher os dados manualmente.'
-                    });
-                }
+                await analisarFotoCorporal(base64String);
             };
             reader.readAsDataURL(file);
+        }
+    };
+
+    // ✅ NOVO: Handler para câmera que reutiliza a mesma análise
+    const handleCameraCapture = async (base64String: string) => {
+        // 1. Salvar a foto base64 no formData
+        setFormData(prev => ({
+            ...prev,
+            foto_corpo: base64String
+        }));
+
+        // 2. Fazer a análise da foto
+        await analisarFotoCorporal(base64String);
+    };
+
+    // ✅ Função centralizada para análise de foto
+    const analisarFotoCorporal = async (base64String: string) => {
+
+        // ✅ NOVO: Chamar API describe_body assim que foto é enviada
+        try {
+            console.log('📸 Enviando foto para análise do corpo...');
+            const response = await api.post('/api/usuario/descrever-corpo', {
+                foto_base64: base64String
+            });
+
+            console.log('✅ Análise do corpo recebida:', response.data);
+
+            const { analise } = response.data;
+
+            console.log('📋 ============ DADOS DA ANÁLISE RECEBIDOS ============');
+            console.log('Sexo:', analise.sexo);
+            console.log('Altura:', analise.altura_estimada_cm);
+            console.log('Tipo de Corpo:', analise.tipo_corpo);
+            console.log('Medidas:', analise.medidas);
+            console.log('Proporções (RAW):', analise.proporcoes);
+            console.log('  - pernas:', analise.proporcoes?.pernas);
+            console.log('  - torso:', analise.proporcoes?.torso);
+            console.log('  - ombros_vs_quadril:', analise.proporcoes?.ombros_vs_quadril);
+            console.log('  - confidence:', analise.proporcoes?.confidence);
+            console.log('Confiança:', analise.confianca);
+            console.log('📋 ============ FIM DOS DADOS ============');
+
+            // Atualizar formulário com dados da análise
+            setFormData(prev => {
+                const novoFormData = {
+                    ...prev,
+                    sexo: analise.sexo || prev.sexo,
+                    altura_cm: analise.altura_estimada_cm || prev.altura_cm,
+                    tipo_corpo: analise.tipo_corpo || prev.tipo_corpo,
+                    medidas: {
+                        ...prev.medidas,
+                        // Medidas básicas
+                        busto: analise.medidas?.busto || prev.medidas.busto,
+                        cintura: analise.medidas?.cintura || prev.medidas.cintura,
+                        quadril: analise.medidas?.quadril || prev.medidas.quadril,
+                        altura: analise.medidas?.altura || prev.medidas.altura,
+                        // Medidas superiores
+                        pescoco: analise.medidas?.pescoco || prev.medidas.pescoco || 0,
+                        ombro: analise.medidas?.ombro || prev.medidas.ombro || 0,
+                        braco: analise.medidas?.braco || prev.medidas.braco || 0,
+                        antebraco: analise.medidas?.antebraco || prev.medidas.antebraco || 0,
+                        pulso: analise.medidas?.pulso || prev.medidas.pulso || 0,
+                        torax: analise.medidas?.torax || prev.medidas.torax || 0,
+                        sobpeito: analise.medidas?.sobpeito || prev.medidas.sobpeito || 0,
+                        costelas: analise.medidas?.costelas || prev.medidas.costelas || 0,
+                        // Medidas inferiores
+                        coxa: analise.medidas?.coxa || prev.medidas.coxa || 0,
+                        panturrilha: analise.medidas?.panturrilha || prev.medidas.panturrilha || 0,
+                        tornozelo: analise.medidas?.tornozelo || prev.medidas.tornozelo || 0,
+                        // Comprimentos
+                        comprimento_torso: analise.medidas?.comprimento_torso || prev.medidas.comprimento_torso || 0,
+                        comprimento_perna: analise.medidas?.comprimento_perna || prev.medidas.comprimento_perna || 0,
+                        comprimento_braco: analise.medidas?.comprimento_braco || prev.medidas.comprimento_braco || 0
+                    },
+                    proporcoes: {
+                        ...prev.proporcoes,
+                        pernas: analise.proporcoes?.pernas || prev.proporcoes?.pernas,
+                        torso: analise.proporcoes?.torso || prev.proporcoes?.torso,
+                        ombros_vs_quadril: analise.proporcoes?.ombros_vs_quadril || prev.proporcoes?.ombros_vs_quadril,
+                        confidence: analise.confianca || prev.proporcoes?.confidence
+                    }
+                };
+                console.log('📝 FormData após setFormData (proporcoes):', novoFormData.proporcoes);
+
+                // 🔄 AUTO-SAVE: Salvar dados automaticamente após análise
+                setTimeout(() => salvarDadosAnalise(novoFormData), 500);
+
+                return novoFormData;
+            });
+
+            setMessage({
+                type: 'success',
+                text: `✅ Corpo analisado com sucesso! (Confiança: ${analise.confianca}%)\n${analise.descricao}`
+            });
+
+        } catch (error) {
+            console.error('❌ Erro ao analisar corpo:', error);
+            setMessage({
+                type: 'error',
+                text: 'Foto enviada, mas erro ao analisar corpo. Você pode preencher os dados manualmente.'
+            });
+        }
+    };
+
+    // 🔄 Função auxiliar para salvar dados da análise
+    const salvarDadosAnalise = async (dadosParaSalvar: UserProfileData) => {
+        try {
+            console.log('💾 Salvando dados da análise no banco de dados...');
+            setSaving(true);
+
+            const payload = {
+                nome: dadosParaSalvar.nome,
+                cpf: dadosParaSalvar.cpf,
+                sexo: dadosParaSalvar.sexo,
+                altura_cm: dadosParaSalvar.altura_cm,
+                tipo_corpo: dadosParaSalvar.tipo_corpo,
+                estilo_pessoal: dadosParaSalvar.estilo_pessoal,
+                foto_corpo: dadosParaSalvar.foto_corpo,
+                medidas: {
+                    busto: dadosParaSalvar.medidas.busto,
+                    cintura: dadosParaSalvar.medidas.cintura,
+                    quadril: dadosParaSalvar.medidas.quadril,
+                    altura: dadosParaSalvar.medidas.altura,
+                    pescoco: dadosParaSalvar.medidas.pescoco,
+                    ombro: dadosParaSalvar.medidas.ombro,
+                    braco: dadosParaSalvar.medidas.braco,
+                    antebraco: dadosParaSalvar.medidas.antebraco,
+                    pulso: dadosParaSalvar.medidas.pulso,
+                    torax: dadosParaSalvar.medidas.torax,
+                    sobpeito: dadosParaSalvar.medidas.sobpeito,
+                    costelas: dadosParaSalvar.medidas.costelas,
+                    panturrilha: dadosParaSalvar.medidas.panturrilha,
+                    coxa: dadosParaSalvar.medidas.coxa,
+                    tornozelo: dadosParaSalvar.medidas.tornozelo,
+                    comprimento_torso: dadosParaSalvar.medidas.comprimento_torso,
+                    comprimento_perna: dadosParaSalvar.medidas.comprimento_perna,
+                    comprimento_braco: dadosParaSalvar.medidas.comprimento_braco
+                },
+                proporcoes: {
+                    pernas: dadosParaSalvar.proporcoes?.pernas,
+                    torso: dadosParaSalvar.proporcoes?.torso,
+                    ombros_vs_quadril: dadosParaSalvar.proporcoes?.ombros_vs_quadril,
+                    confidence: dadosParaSalvar.proporcoes?.confidence
+                }
+            };
+
+            await api.put('/api/usuario/medidas', payload);
+            console.log('✅ Dados salvos com sucesso!');
+            setMessage({ type: 'success', text: '✅ Perfil atualizado com sucesso!' });
+        } catch (error) {
+            console.error("❌ Erro ao salvar análise:", error);
+            setMessage({ type: 'error', text: 'Erro ao salvar perfil. Tente novamente.' });
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -419,7 +492,7 @@ const ProfilePage: React.FC = () => {
                             </div>
 
                             {/* Botões de upload */}
-                            <div className="flex flex-col space-y-2">
+                            <div className="flex flex-col space-y-2 flex-1">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Enviar Foto</label>
                                 <div className="flex flex-col space-y-2">
                                     <input
@@ -434,6 +507,16 @@ const ProfilePage: React.FC = () => {
                                             hover:file:bg-blue-100 cursor-pointer"
                                     />
                                     <p className="text-xs text-gray-500">JPG, PNG (máx 5MB)</p>
+                                </div>
+
+                                {/* ✅ NOVO: Câmera para capturar foto */}
+                                <div className="border-t pt-4 mt-2">
+                                    <CameraCapture
+                                        onPhotoCapture={handleCameraCapture}
+                                        isLoading={saving}
+                                        buttonText="📷 Tirar Foto de Corpo"
+                                        facingMode="user"
+                                    />
                                 </div>
                             </div>
                         </div>

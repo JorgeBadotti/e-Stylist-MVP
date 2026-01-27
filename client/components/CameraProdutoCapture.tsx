@@ -1,14 +1,12 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState } from 'react';
+import CameraCapture from './CameraCapture';
 
 /**
  * CameraProdutoCapture.tsx
  * 
- * Componente de câmera simplificado para captura de fotos de produtos
- * Fluxo:
- * 1. Capturar foto do produto
- * 2. Enviar para Cloudinary
- * 3. Passar para análise IA (Gemini)
- * 4. Gerar SKU automaticamente
+ * Wrapper que usa CameraCapture genérico para captura de fotos de produtos
+ * Converte base64 para FormData e envia para análise com IA
+ * Realiza streaming NDJSON de progresso de criação
  */
 
 interface CameraProdutoCaptureProps {
@@ -22,282 +20,233 @@ export default function CameraProdutoCapture({
     onProdutosCriados,
     onCancelar
 }: CameraProdutoCaptureProps) {
-    const [step, setStep] = useState<'camera' | 'preview' | 'enviando'>('camera');
-    const [cameraError, setCameraError] = useState<string | null>(null);
-    const [processError, setProcessError] = useState<string | null>(null);
-    const [sucesso, setSucesso] = useState<string | null>(null);
-    const [photoData, setPhotoData] = useState<string | null>(null);
     const [enviando, setEnviando] = useState(false);
+    const [statusMensagem, setStatusMensagem] = useState<string | null>(null);
+    const [progresso, setProgresso] = useState({ processados: 0, total: 1 });
 
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const streamRef = useRef<MediaStream | null>(null);
-    const facingModeRef = useRef<'user' | 'environment'>('environment');
-
-    // ═══════════════════════════════════════════════════════════
-    // INICIAR CÂMERA
-    // ═══════════════════════════════════════════════════════════
-    const startCamera = useCallback(async () => {
-        setCameraError(null);
-        setProcessError(null);
-
-        try {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                setCameraError('Seu navegador não suporta acesso à câmera.');
-                return;
-            }
-
-            const constraints: MediaStreamConstraints = {
-                video: {
-                    facingMode: { ideal: facingModeRef.current },
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                },
-                audio: false
-            };
-
-            const stream = await navigator.mediaDevices.getUserMedia(constraints);
-            streamRef.current = stream;
-
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-
-                return new Promise<void>((resolve) => {
-                    if (!videoRef.current) {
-                        resolve();
-                        return;
-                    }
-
-                    const onLoadedMetadata = () => {
-                        videoRef.current?.removeEventListener('loadedmetadata', onLoadedMetadata);
-                        resolve();
-                    };
-
-                    videoRef.current.addEventListener('loadedmetadata', onLoadedMetadata);
-
-                    setTimeout(() => {
-                        videoRef.current?.removeEventListener('loadedmetadata', onLoadedMetadata);
-                        resolve();
-                    }, 3000);
-                });
-            }
-        } catch (error: any) {
-            console.error('Erro ao acessar câmera:', error);
-            let mensagem = 'Erro ao acessar a câmera.';
-
-            if (error.name === 'NotAllowedError') {
-                mensagem = 'Acesso à câmera foi recusado. Verifique as permissões do navegador.';
-            } else if (error.name === 'NotFoundError') {
-                mensagem = 'Nenhuma câmera encontrada no dispositivo.';
-            }
-
-            setCameraError(mensagem);
-        }
-    }, []);
-
-    // ═══════════════════════════════════════════════════════════
-    // PARAR CÂMERA
-    // ═══════════════════════════════════════════════════════════
-    const stopCamera = useCallback(() => {
-        if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop());
-            streamRef.current = null;
-        }
-    }, []);
-
-    // ═══════════════════════════════════════════════════════════
-    // CAPTURAR FOTO
-    // ═══════════════════════════════════════════════════════════
-    const capturePhoto = useCallback(() => {
-        if (!videoRef.current || !canvasRef.current) return;
-
-        const context = canvasRef.current.getContext('2d');
-        if (!context) return;
-
-        canvasRef.current.width = videoRef.current.videoWidth;
-        canvasRef.current.height = videoRef.current.videoHeight;
-        context.drawImage(videoRef.current, 0, 0);
-
-        const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.9);
-        setPhotoData(dataUrl);
-        setStep('preview');
-    }, []);
-
-    // ═══════════════════════════════════════════════════════════
-    // ENVIAR PARA ANÁLISE
-    // ═══════════════════════════════════════════════════════════
-    const handleEnviarParaAnalise = async () => {
-        if (!photoData) {
-            setProcessError('Nenhuma foto foi capturada.');
-            return;
-        }
-
+    /**
+     * Handler para quando a câmera captura uma foto (base64)
+     * Converte para FormData e envia ao endpoint de análise
+     */
+    const handlePhotoCapture = async (base64String: string) => {
         try {
             setEnviando(true);
-            setProcessError(null);
+            setStatusMensagem('🔄 Enviando para análise...');
+            setProgresso({ processados: 0, total: 1 });
 
-            // Converter data URL para Blob
-            const response = await fetch(photoData);
-            const blob = await response.blob();
+            // ════════════════════════════════════════════════════════════
+            // CONVERTER BASE64 DATA URL PARA BLOB
+            // ════════════════════════════════════════════════════════════
+            // base64String é como: "data:image/jpeg;base64,/9j/4AAQSkZJR..."
+            const arr = base64String.split(',');
+            const mimeMatch = arr[0].match(/:(.*?);/);
+            const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+            const bstr = atob(arr[1]);
+            const n = bstr.length;
+            const u8arr = new Uint8Array(n);
+
+            for (let i = 0; i < n; i++) {
+                u8arr[i] = bstr.charCodeAt(i);
+            }
+
+            const blob = new Blob([u8arr], { type: mime });
 
             // Criar FormData com a imagem
             const formData = new FormData();
             formData.append('imagens', blob, 'produto.jpg');
             formData.append('lojaId', lojaId);
 
-            // Enviar para o mesmo endpoint de lotes (reutilizar lógica de IA)
+            console.log(`📸 [CameraProdutoCapture] Enviando para análise...`);
+            console.log(`   - Tamanho do blob: ${blob.size} bytes`);
+            console.log(`   - MIME type: ${blob.type}`);
+
+            // Enviar para endpoint que retorna NDJSON
             const resultado = await fetch('/api/produtos/lotes/imagens', {
                 method: 'POST',
                 body: formData
             });
 
-            const data = await resultado.json();
-
             if (!resultado.ok) {
-                setProcessError(data.message || 'Erro ao processar imagem');
-                return;
+                throw new Error(`Erro HTTP: ${resultado.status}`);
             }
 
-            // Sucesso
-            setSucesso('✅ Produto analisado e criado com sucesso!');
-
-            if (onProdutosCriados) {
-                onProdutosCriados(data.produtos || []);
+            // ════════════════════════════════════════════════════════════
+            // PARSEAR STREAM NDJSON
+            // ════════════════════════════════════════════════════════════
+            const reader = resultado.body?.getReader();
+            if (!reader) {
+                throw new Error('Não foi possível acessar o stream de resposta');
             }
 
-            // Limpar e fechar
-            setTimeout(() => {
-                setPhotoData(null);
-                setStep('camera');
-                setSucesso(null);
-                if (onCancelar) onCancelar();
-            }, 2000);
+            const decoder = new TextDecoder();
+            let buffer = '';
+            const produtosGravados: any[] = [];
+
+            while (true) {
+                const { done, value } = await reader.read();
+
+                if (value) {
+                    buffer += decoder.decode(value, { stream: true });
+                }
+
+                if (done) {
+                    buffer += decoder.decode(); // Flush final
+                }
+
+                // Processar linhas completas
+                const linhas = buffer.split('\n');
+                buffer = linhas[linhas.length - 1]; // Manter linha incompleta
+
+                for (let i = 0; i < linhas.length - 1; i++) {
+                    const linha = linhas[i].trim();
+                    if (!linha) continue;
+
+                    try {
+                        const evento = JSON.parse(linha);
+
+                        switch (evento.tipo) {
+                            case 'iniciando':
+                                setStatusMensagem(`⏳ Analisando produto (${evento.numeroPeca}/${evento.totalPecas})...`);
+                                setProgresso({ processados: evento.numeroPeca - 1, total: evento.totalPecas });
+                                break;
+
+                            case 'analisando_ia':
+                                setStatusMensagem(`🤖 Analisando com IA...`);
+                                break;
+
+                            case 'gerando_sku':
+                                setStatusMensagem(`🏷️  Gerando SKU...`);
+                                break;
+
+                            case 'enviando_cloudinary':
+                                setStatusMensagem(`☁️  Enviando para nuvem...`);
+                                break;
+
+                            case 'salvando_banco':
+                                setStatusMensagem(`💾 Salvando no banco...`);
+                                break;
+
+                            case 'sucesso':
+                                if (evento.produto) {
+                                    produtosGravados.push(evento.produto);
+                                }
+                                setStatusMensagem(`✅ Produto criado: ${evento.produto?.skuStyleMe || 'SKU desconhecido'}`);
+                                setProgresso({ processados: evento.numeroPeca, total: evento.totalPecas });
+                                break;
+
+                            case 'erro':
+                                setStatusMensagem(`❌ Erro no produto ${evento.numeroPeca}: ${evento.mensagem}`);
+                                break;
+
+                            case 'concluido':
+                                setStatusMensagem(`🎉 Concluído! ${evento.resumo?.produtosSalvos || 0} produto(s) criado(s)`);
+                                // Callback com produtos gravados
+                                if (onProdutosCriados && produtosGravados.length > 0) {
+                                    onProdutosCriados(produtosGravados);
+                                }
+                                // Fechar após 2s
+                                setTimeout(() => {
+                                    setEnviando(false);
+                                    setStatusMensagem(null);
+                                    if (onCancelar) onCancelar();
+                                }, 2000);
+                                return;
+                        }
+                    } catch (parseError) {
+                        console.warn('Erro ao parsear linha NDJSON:', linha, parseError);
+                    }
+                }
+
+                if (done) break;
+            }
         } catch (error) {
             console.error('Erro ao enviar para análise:', error);
-            setProcessError('Erro ao processar imagem. Tente novamente.');
-        } finally {
+            setStatusMensagem(`❌ Erro: ${error instanceof Error ? error.message : 'Desconhecido'}`);
             setEnviando(false);
         }
     };
 
-    // ═══════════════════════════════════════════════════════════
-    // USAR CAMERA
-    // ═══════════════════════════════════════════════════════════
-    useEffect(() => {
-        if (step === 'camera') {
-            startCamera();
-        }
+    return (
+        <div className="w-full space-y-4">
+            {/* Header com instruções */}
+            {!enviando && !statusMensagem && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 mb-4">
+                    <h3 className="font-semibold text-gray-800 mb-2">📸 Capturar Foto do Produto</h3>
+                    <p className="text-sm text-gray-600">
+                        Tire uma foto clara do seu produto com boa iluminação. A IA analisará automaticamente e criará a ficha com SKU.
+                    </p>
+                </div>
+            )}
 
-        return () => {
-            if (step === 'camera') {
-                stopCamera();
-            }
-        };
-    }, [step, startCamera, stopCamera]);
+            {/* Componente da câmera */}
+            <CameraCapture
+                onPhotoCapture={handlePhotoCapture}
+                isLoading={enviando}
+                buttonText="📷 Capturar Foto do Produto"
+                facingMode="environment"
+                showPreview={true}
+            />
 
-    // ═══════════════════════════════════════════════════════════
-    // RENDER
-    // ═══════════════════════════════════════════════════════════
+            {/* Status e Progresso durante processamento */}
+            {statusMensagem && (
+                <div className="animate-fadeIn space-y-3">
+                    {/* Card de status */}
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-300 rounded-xl p-6 shadow-md">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="text-3xl">{enviando ? '⚙️' : '✅'}</div>
+                            <div className="flex-1">
+                                <p className="text-sm font-semibold text-gray-600">Status do Processamento</p>
+                                <p className="text-lg font-bold text-gray-800">{statusMensagem}</p>
+                            </div>
+                        </div>
 
-    if (step === 'camera') {
-        return (
-            <div className="w-full max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
-                <h2 className="text-2xl font-bold mb-6 text-gray-800">
-                    📸 Capturar Foto do Produto
-                </h2>
+                        {/* Barra de progresso */}
+                        {enviando && progresso.total > 0 && (
+                            <div className="mt-4">
+                                <div className="flex justify-between mb-2">
+                                    <span className="text-xs font-medium text-gray-600">
+                                        Processado: {progresso.processados}/{progresso.total}
+                                    </span>
+                                    <span className="text-xs font-medium text-gray-600">
+                                        {Math.round((progresso.processados / progresso.total) * 100)}%
+                                    </span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                                    <div
+                                        className="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-full transition-all duration-500 ease-out"
+                                        style={{
+                                            width: `${(progresso.processados / progresso.total) * 100}%`
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        )}
 
-                {cameraError && (
-                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-red-700 font-medium">❌ Erro:</p>
-                        <p className="text-red-600 text-sm mt-1">{cameraError}</p>
+                        {/* Passo a passo de processamento */}
+                        <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                            {[
+                                { icon: '🤖', label: 'Análise IA', active: statusMensagem?.includes('Analisando') },
+                                { icon: '🏷️', label: 'Gerar SKU', active: statusMensagem?.includes('Gerando') },
+                                { icon: '☁️', label: 'Cloudinary', active: statusMensagem?.includes('nuvem') },
+                                { icon: '💾', label: 'Banco Dados', active: statusMensagem?.includes('Salvando') }
+                            ].map((passo, i) => (
+                                <div
+                                    key={i}
+                                    className={`p-2 rounded-lg text-center transition-all ${passo.active
+                                            ? 'bg-blue-500 text-white font-semibold'
+                                            : statusMensagem?.includes('Concluído')
+                                                ? 'bg-green-100 text-green-800'
+                                                : 'bg-gray-100 text-gray-600'
+                                        }`}
+                                >
+                                    <div className="text-lg mb-1">{passo.icon}</div>
+                                    <div className="text-xs">{passo.label}</div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                )}
-
-                <div className="relative bg-black rounded-lg overflow-hidden mb-6" style={{ aspectRatio: '4/3' }}>
-                    <video
-                        ref={videoRef}
-                        className="w-full h-full object-cover"
-                        autoPlay
-                        playsInline
-                        muted
-                    />
                 </div>
-
-                <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-                <div className="flex gap-4 justify-center">
-                    <button
-                        onClick={() => {
-                            stopCamera();
-                            if (onCancelar) onCancelar();
-                        }}
-                        className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition"
-                    >
-                        ❌ Cancelar
-                    </button>
-                    <button
-                        onClick={capturePhoto}
-                        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-bold text-lg"
-                    >
-                        📷 Capturar Foto
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    if (step === 'preview') {
-        return (
-            <div className="w-full max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
-                <h2 className="text-2xl font-bold mb-6 text-gray-800">
-                    👀 Preview da Foto
-                </h2>
-
-                {processError && (
-                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-red-700 font-medium">❌ Erro:</p>
-                        <p className="text-red-600 text-sm mt-1">{processError}</p>
-                    </div>
-                )}
-
-                {sucesso && (
-                    <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-green-700 font-medium">{sucesso}</p>
-                    </div>
-                )}
-
-                <div className="relative bg-gray-100 rounded-lg overflow-hidden mb-6" style={{ aspectRatio: '4/3' }}>
-                    {photoData && (
-                        <img
-                            src={photoData}
-                            alt="Preview"
-                            className="w-full h-full object-cover"
-                        />
-                    )}
-                </div>
-
-                <div className="flex gap-4 justify-center">
-                    <button
-                        onClick={() => {
-                            setPhotoData(null);
-                            setStep('camera');
-                        }}
-                        disabled={enviando}
-                        className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition disabled:opacity-50"
-                    >
-                        ◀️ Retomar
-                    </button>
-                    <button
-                        onClick={handleEnviarParaAnalise}
-                        disabled={enviando}
-                        className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-bold disabled:opacity-50"
-                    >
-                        {enviando ? '⏳ Analisando...' : '✅ Enviar para Análise'}
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    return null;
+            )}
+        </div>
+    );
 }
