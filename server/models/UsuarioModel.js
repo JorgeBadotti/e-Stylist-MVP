@@ -111,7 +111,7 @@ const userSchema = new Schema({
         },
         ombros_vs_quadril: {
             type: String,
-            enum: ['ombros_larcos', 'balanced', 'quadril_largo', null],
+            enum: ['ombros_largos', 'balanced', 'quadril_largo', null],
             default: null,
             comment: "Proporção entre ombros e quadril"
         },
