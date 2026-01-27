@@ -449,11 +449,53 @@ export const updateProduto = async (req, res) => {
         ];
 
         const updateData = {};
+        const componentesSKU = ['categoria', 'linha', 'cor_codigo', 'tamanho', 'colecao'];
+        let skuMudou = false;
+
         camposAtualizaveis.forEach(campo => {
             if (req.body[campo] !== undefined) {
                 updateData[campo] = req.body[campo];
+                // Verificar se algum componente do SKU foi alterado
+                if (componentesSKU.includes(campo) && produtoAtual[campo] !== req.body[campo]) {
+                    skuMudou = true;
+                }
             }
         });
+
+        // ═══════════════════════════════════════════════════════
+        // REGENERAR SKU se componentes mudaram
+        // ═══════════════════════════════════════════════════════
+        if (skuMudou) {
+            try {
+                const novoSKU = await gerarSKUStyleMe({
+                    categoria: updateData.categoria || produtoAtual.categoria,
+                    linha: updateData.linha || produtoAtual.linha,
+                    cor_codigo: updateData.cor_codigo || produtoAtual.cor_codigo,
+                    tamanho: updateData.tamanho || produtoAtual.tamanho,
+                    colecao: updateData.colecao || produtoAtual.colecao,
+                    sequencia: produtoAtual.sequencia // Manter sequência original
+                }, Produto);
+
+                // Verificar se novo SKU já existe
+                const skuDuplicado = await verificarDuplicataSKU(novoSKU.skuStyleMe, Produto);
+                if (skuDuplicado) {
+                    return res.status(400).json({
+                        message: 'SKU STYLEME já existe no sistema',
+                        skuDuplicado: novoSKU.skuStyleMe
+                    });
+                }
+
+                // Atualizar SKU e componentes
+                updateData.skuStyleMe = novoSKU.skuStyleMe;
+                updateData.sequencia = novoSKU.sequencia;
+            } catch (error) {
+                console.error('Erro ao regenerar SKU:', error);
+                return res.status(400).json({
+                    message: 'Erro ao regenerar SKU',
+                    detalhes: error.message
+                });
+            }
+        }
 
         // Se houver nova imagem
         if (req.file) {
@@ -480,6 +522,7 @@ export const updateProduto = async (req, res) => {
 
         res.status(200).json({
             message: 'Produto atualizado com sucesso',
+            skuStyleMe: produtoAtualizado.skuStyleMe,
             produto: produtoAtualizado
         });
     } catch (error) {

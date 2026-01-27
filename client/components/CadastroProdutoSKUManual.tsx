@@ -326,8 +326,9 @@ export default function CadastroProdutoSKUManual({
             }
 
             // Sucesso
+            const skuFinal = resultado.skuStyleMe || resultado.produto?.skuStyleMe;
             const mensagem = isEditando
-                ? `✅ Produto atualizado com sucesso!`
+                ? `✅ Produto atualizado com sucesso!${skuFinal ? ` SKU: ${skuFinal}` : ''}`
                 : `✅ Produto criado! SKU: ${resultado.skuStyleMe}`;
 
             console.log(`✅ [CadastroProdutoSKU] ${mensagem}`);
