@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import QRCodeStyling from 'qr-code-styling';
 
 interface QRCodeModalProps {
@@ -18,9 +18,15 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
 }) => {
     const qrRef = useRef<HTMLDivElement>(null);
     const qrInstanceRef = useRef<QRCodeStyling | null>(null);
+    const [copiado, setCopiado] = useState(false);
 
     useEffect(() => {
-        if (isOpen && !qrInstanceRef.current) {
+        // Gerar QR code quando modal abre
+        if (isOpen) {
+            if (qrRef.current) {
+                qrRef.current.innerHTML = '';
+            }
+
             qrInstanceRef.current = new QRCodeStyling({
                 width: 256,
                 height: 256,
@@ -47,13 +53,36 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
             });
 
             if (qrRef.current) {
-                qrRef.current.innerHTML = '';
                 qrInstanceRef.current.append(qrRef.current);
             }
         }
     }, [isOpen, produtoUrl]);
 
+    // Cleanup ao desmontar ou quando fecha
+    useEffect(() => {
+        return () => {
+            if (qrRef.current) {
+                qrRef.current.innerHTML = '';
+            }
+            qrInstanceRef.current = null;
+        };
+    }, []);
+
     if (!isOpen) return null;
+
+    // ═══════════════════════════════════════════════════════════
+    // FUNÇÃO PARA COPIAR LINK
+    // ═══════════════════════════════════════════════════════════
+    const handleCopyLink = async () => {
+        try {
+            await navigator.clipboard.writeText(produtoUrl);
+            setCopiado(true);
+            // Reset do feedback após 2 segundos
+            setTimeout(() => setCopiado(false), 2000);
+        } catch (err) {
+            console.error('Erro ao copiar link:', err);
+        }
+    };
 
     const handlePrint = () => {
         if (!qrRef.current) return;
@@ -197,13 +226,30 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
 
                 <div
                     ref={qrRef}
-                    className="bg-gray-50 p-6 rounded-lg flex justify-center mb-6"
+                    className="bg-gray-50 p-6 rounded-lg flex justify-center mb-4"
                 />
+
+                {/* Link clicável simples */}
+                <div className="text-center mb-6">
+                    <button
+                        onClick={handleCopyLink}
+                        className={`text-sm font-semibold transition-all ${copiado
+                            ? 'text-green-600'
+                            : 'text-blue-600 hover:text-blue-800'
+                            }`}
+                    >
+                        {copiado ? '✓ COPIADO' : 'LINK'}
+                    </button>
+                </div>
 
                 <div className="mb-6 text-center">
                     <p className="text-gray-700 font-semibold mb-2">{produtoNome}</p>
                     <p className="text-sm text-gray-500 font-mono">{produtoSku}</p>
                 </div>
+
+                {/* ═══════════════════════════════════════════════════════════
+                    SEÇÃO DO LINK (REMOVIDA - VERSÃO SIMPLIFICADA ACIMA)
+                ═══════════════════════════════════════════════════════════ */}
 
                 <div className="space-y-3">
                     <button
