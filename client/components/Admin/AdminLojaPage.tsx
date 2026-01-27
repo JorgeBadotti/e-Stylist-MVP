@@ -5,6 +5,7 @@ import VendedoresList from '../VendedoresList';
 import ConvidarVendedorModal from '../ConvidarVendedorModal';
 import CadastroProdutoSKUManual from '../CadastroProdutoSKUManual';
 import CadastroProdutoSKULotes from '../CadastroProdutoSKULotes';
+import CameraProdutoCapture from '../CameraProdutoCapture';
 import ProdutoDetalhe from '../Loja/ProdutoDetalhe';
 import DetalheGuardaRoupa from '../DetalheGuardaRoupa';
 
@@ -14,7 +15,7 @@ interface AdminLojaPageProps {
   onSelectSku?: (sku: string | null) => void;
 }
 
-type TipoCadastroProduto = 'manual' | 'lotes' | null;
+type TipoCadastroProduto = 'manual' | 'lotes' | 'foto' | null;
 
 export default function AdminLojaPage({ lojaId, selectedSku: globalSelectedSku, onSelectSku }: AdminLojaPageProps) {
   const [selectedColecaoId, setSelectedColecaoId] = useState<string | null>(null);
@@ -126,6 +127,12 @@ export default function AdminLojaPage({ lojaId, selectedSku: globalSelectedSku, 
                 >
                   📥 Cadastro por Lotes
                 </button>
+                <button
+                  onClick={() => setTipoCadastroProduto('foto')}
+                  className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition text-lg shadow-lg flex-1 sm:flex-none"
+                >
+                  📸 Capturar Foto
+                </button>
               </div>
             )}
 
@@ -144,6 +151,17 @@ export default function AdminLojaPage({ lojaId, selectedSku: globalSelectedSku, 
             {tipoCadastroProduto === 'lotes' && (
               <div className="bg-gray-50 p-6 rounded-lg border-2 border-blue-300 mb-6">
                 <CadastroProdutoSKULotes
+                  lojaId={lojaId}
+                  onProdutosCriados={handleProdutosCriados}
+                  onCancelar={() => setTipoCadastroProduto(null)}
+                />
+              </div>
+            )}
+
+            {/* Formulário de Cadastro por Câmera */}
+            {tipoCadastroProduto === 'foto' && (
+              <div className="bg-gray-50 p-6 rounded-lg border-2 border-indigo-300 mb-6">
+                <CameraProdutoCapture
                   lojaId={lojaId}
                   onProdutosCriados={handleProdutosCriados}
                   onCancelar={() => setTipoCadastroProduto(null)}
