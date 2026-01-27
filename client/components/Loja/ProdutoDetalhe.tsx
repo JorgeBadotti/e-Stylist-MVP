@@ -112,6 +112,13 @@ const labelMaps = {
   },
 };
 
+// Função helper para obter labels baseado no tipo e valor
+const getLabel = (type: string, value: string): string => {
+  const typeMap = labelMaps[type as keyof typeof labelMaps];
+  if (!typeMap) return value;
+  return typeMap[value as any] || value;
+};
+
 const ProdutoDetalhe: React.FC<ProdutoDetalheProps> = ({ sku, onBack, lojaId, onGerarLookComPeca }) => {
   const navigate = useNavigate(); // ✅ NOVO: Para navegar com itemObrigatorio
   const [produto, setProduto] = useState<Produto | null>(null);
@@ -124,6 +131,8 @@ const ProdutoDetalhe: React.FC<ProdutoDetalheProps> = ({ sku, onBack, lojaId, on
   const [carrinhoLoading, setCarrinhoLoading] = useState(false);
   const [sucessoMsg, setSucessoMsg] = useState<string | null>(null);
   const [carrinhoError, setCarrinhoError] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletando, setDeletando] = useState(false);
 
   // Get user context for lojaId and role
   const userContext = useContext(UserContext);
@@ -194,9 +203,34 @@ const ProdutoDetalhe: React.FC<ProdutoDetalheProps> = ({ sku, onBack, lojaId, on
     }
   };
 
-  const getLabel = (field: keyof typeof labelMaps, value: any) => {
-    return (labelMaps[field] as any)?.[value] || value;
+  // ═══════════════════════════════════════════════════════════
+  // FUNÇÃO PARA DELETAR PRODUTO
+  // ═══════════════════════════════════════════════════════════
+  const handleDeletarProduto = async () => {
+    if (!produto?._id) return;
+
+    try {
+      setDeletando(true);
+      await api.delete(`/api/produtos/${produto._id}`);
+
+      setShowDeleteModal(false);
+      setSucessoMsg(`✅ Produto ${produto.skuStyleMe} deletado com sucesso!`);
+
+      // Voltar para catálogo após 2 segundos
+      setTimeout(() => {
+        navigate('/loja-catalogo');
+      }, 2000);
+    } catch (err: any) {
+      console.error('Erro ao deletar produto:', err);
+      setCarrinhoError(err.response?.data?.message || 'Erro ao deletar produto');
+    } finally {
+      setDeletando(false);
+    }
   };
+
+  // ═══════════════════════════════════════════════════════════
+  // RENDERIZAÇÃO CONDICIONAL
+  // ═══════════════════════════════════════════════════════════
 
   if (loading)
     return (
@@ -262,6 +296,18 @@ const ProdutoDetalhe: React.FC<ProdutoDetalheProps> = ({ sku, onBack, lojaId, on
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
               Editar Produto
+            </button>
+          )}
+          {/* Botão Deletar - Visível apenas para STORE_ADMIN */}
+          {effectiveLojaId && (contextUserRole === 'STORE_ADMIN') && (
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              Deletar
             </button>
           )}
         </div>
@@ -588,6 +634,73 @@ const ProdutoDetalhe: React.FC<ProdutoDetalheProps> = ({ sku, onBack, lojaId, on
           produtoSku={produto.skuStyleMe || sku}
           onClose={() => setShowQRModal(false)}
         />
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════
+          MODAL DE CONFIRMAÇÃO DE DELETE
+      ═══════════════════════════════════════════════════════════ */}
+      {showDeleteModal && produto && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          onClick={() => setShowDeleteModal(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl p-8 max-w-sm w-full mx-4 animate-fadeIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="mb-6">
+              <h3 className="text-xl font-bold text-gray-900">
+                Deletar Produto?
+              </h3>
+              <p className="text-sm text-gray-600 mt-2">
+                Você realmente quer deletar este produto?
+              </p>
+            </div>
+
+            {/* Informações do produto */}
+            <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-2">
+              <div>
+                <p className="text-xs text-gray-600 font-semibold uppercase">Nome</p>
+                <p className="text-base font-semibold text-gray-900">{produto.nome}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600 font-semibold uppercase">SKU</p>
+                <p className="text-base font-mono text-gray-800">{produto.skuStyleMe}</p>
+              </div>
+            </div>
+
+            {/* Botões */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deletando}
+                className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-900 font-semibold rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeletarProduto}
+                disabled={deletando}
+                className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {deletando ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Deletando...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    Confirmar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
