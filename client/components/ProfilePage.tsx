@@ -213,7 +213,7 @@ const ProfilePage: React.FC = () => {
     const handleCameraMeasurements = async (measurements: DetectedMeasurements, photoBase64: string) => {
         console.log('📸 [ProfilePage] Câmera: Medidas capturadas:', measurements);
 
-        // 1. Salvar a foto no estado
+        // 1. Salvar a foto e medidas no estado
         setFormData(prev => ({
             ...prev,
             foto_corpo: photoBase64,
@@ -230,8 +230,8 @@ const ProfilePage: React.FC = () => {
         // 2. Fechar modal da câmera
         setShowCamera(false);
 
-        // 3. Fazer a análise da foto
-        await analisarFotoCorporal(photoBase64);
+        // 3. Mostrar mensagem de sucesso
+        setMessage({ type: 'success', text: '✅ Medidas capturadas! Clique em "Salvar Alterações" para confirmar.' });
     };
 
     // ✅ Função centralizada para análise de foto
