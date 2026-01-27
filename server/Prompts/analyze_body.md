@@ -50,14 +50,9 @@ Analise a FOTO DO CORPO INTEIRO fornecida e estime todas as medidas antropomórf
 - longo: Tronco notavelmente mais longo que as pernas
 
 **Proporção Ombros vs Quadril (CRÍTICA - OBRIGATÓRIA):**
-- ombros_largos: Largura de ombros > circunferência do quadril
+- ombros_larcos: Largura de ombros > circunferência do quadril
 - balanced: Largura de ombros ≈ circunferência do quadril
 - quadril_largo: Circunferência do quadril > largura de ombros
-
-**Proporção Ombros vs Quadril:**
-- ombros_largos: Ombros notavelmente mais largos que quadril
-- balanced: Proporções equilibradas
-- quadril_largo: Quadril notavelmente mais largo que ombros
 
 ## Resposta Esperada
 
@@ -89,7 +84,7 @@ Retorne um JSON VÁLIDO (sem markdown, apenas JSON puro) com esta estrutura:
   "proportions": {
     "pernas": "curtas|balanced|longas",
     "torso": "curto|balanced|longo",
-    "ombros_vs_quadril": "ombros_largos|balanced|quadril_largo"
+    "ombros_vs_quadril": "ombros_larcos|balanced|quadril_largo"
   },
   "confidence": número entre 0 e 100
 }

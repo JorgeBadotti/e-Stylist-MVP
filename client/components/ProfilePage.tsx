@@ -193,6 +193,14 @@ const ProfilePage: React.FC = () => {
             const reader = new FileReader();
             reader.onloadend = async () => {
                 const base64String = reader.result as string;
+
+                // ✅ CORRIGIDO: Salvar a foto base64 no formData
+                setFormData(prev => ({
+                    ...prev,
+                    foto_corpo: base64String
+                }));
+
+                // Fazer a análise da foto
                 await analisarFotoCorporal(base64String);
             };
             reader.readAsDataURL(file);
