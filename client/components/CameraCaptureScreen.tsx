@@ -281,17 +281,22 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
 
   // ✅ NOVO: Iniciar câmera automaticamente ao montar
   useEffect(() => {
-    console.log('[Camera] Iniciando câmera no mount do componente');
-    startCamera();
+    console.log('[CameraCaptureScreen] Montando componente');
+    console.log('[CameraCaptureScreen] Iniciando câmera no mount do componente');
+    startCamera().then(() => {
+      console.log('[CameraCaptureScreen] startCamera completado');
+    }).catch(err => {
+      console.error('[CameraCaptureScreen] Erro ao iniciar câmera:', err);
+    });
   }, [startCamera]);
 
   return (
-    <div className="w-full h-full bg-black flex flex-col">
+    <div className="w-full h-full bg-black flex flex-col" style={{ minHeight: '90vh' }}>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
       {/* CAMERA */}
       {step === 'camera' && (
-        <div className="flex-1 flex flex-col relative bg-black">
+        <div className="flex-1 flex flex-col relative bg-black overflow-hidden">
           {cameraError && (
             <div className="absolute top-4 left-4 right-4 bg-red-100 border-2 border-red-500 text-red-900 p-4 rounded z-20 shadow-lg">
               <p className="font-bold mb-2">⚠️ Erro ao acessar câmera:</p>
@@ -322,6 +327,7 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
             playsInline
             muted
             className="absolute inset-0 w-full h-full object-cover"
+            style={{ width: '100%', height: '100%' }}
             onLoadedMetadata={() => {
               console.log('[Camera-Video] onLoadedMetadata disparado');
             }}
@@ -337,34 +343,34 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ profile, onMe
             </div>
           </div>
 
-          {/* Botão trocar câmera - canto superior direito */}
-          <button
-            onClick={toggleCamera}
-            className="absolute top-4 right-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full font-semibold transition shadow-lg z-10 active:scale-95"
-            title="Trocar entre câmera frontal e traseira"
-          >
-            🔄 Câmera
-          </button>
-
           {/* Botões fixados no rodapé com altura reduzida */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black to-transparent py-2 px-4 flex flex-col items-center gap-2 z-10">
+          <div className="pb-4 pt-6 px-4 flex flex-col items-center gap-2 z-10">
             {countdown !== null ? (
-              <div className="text-white text-5xl font-bold drop-shadow-lg">{countdown}</div>
+              <div className="text-white text-3xl font-bold drop-shadow-lg">{countdown}</div>
             ) : (
-              <div className="flex gap-3 w-full max-w-sm justify-center">
+              <>
+                <div className="flex gap-3 w-full max-w-sm justify-center">
+                  <button
+                    onClick={startCountdown}
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full font-bold transition shadow-lg active:scale-95 text-xs sm:text-sm"
+                  >
+                    📸 Capturar
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-full font-bold transition shadow-lg active:scale-95 text-xs sm:text-sm"
+                  >
+                    ✕ Cancelar
+                  </button>
+                </div>
                 <button
-                  onClick={startCountdown}
-                  className="flex-1 bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-bold transition shadow-lg active:scale-95"
+                  onClick={toggleCamera}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-full font-semibold transition shadow-lg active:scale-95 text-xs sm:text-sm"
+                  title="Trocar entre câmera frontal e traseira"
                 >
-                  Capturar
+                  🔄 Câmera
                 </button>
-                <button
-                  onClick={onClose}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-full font-bold transition shadow-lg active:scale-95"
-                >
-                  Cancelar
-                </button>
-              </div>
+              </>
             )}
           </div>
         </div>
