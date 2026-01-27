@@ -238,7 +238,7 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
                             : 'text-blue-600 hover:text-blue-800'
                             }`}
                     >
-                        {copiado ? '✓ COPIADO' : 'LINK'}
+                        {copiado ? '✓ COPIADO' : 'Copiar Link'}
                     </button>
                 </div>
 
