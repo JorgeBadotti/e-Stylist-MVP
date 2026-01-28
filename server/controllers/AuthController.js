@@ -35,13 +35,14 @@ const migrateGuestLooks = async (sessionId, userId) => {
 // ✅ ATUALIZADO: Cadastro com auto-login (igual à loja)
 export const register = async (req, res) => {
     try {
-        const { email, password, nome } = req.body;
-        console.log('👤 [register] Criando usuário:', { email, nome });
+        const { email, password, nome, telefone } = req.body;
+        console.log('👤 [register] Criando usuário:', { email, nome, telefone });
 
         // O método .register vem do plugin passport-local-mongoose
         const novoUsuario = new Usuario({
             email,
-            nome: nome || ''
+            nome: nome || '',
+            telefone: telefone || null
         });
 
         // Aguarda o registro ser criado

@@ -8,6 +8,7 @@ interface FormDadosPessoaisProps {
         nome: string;
         email: string;
         cpf?: string;
+        telefone?: string;
         sexo?: string;
     };
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
@@ -28,17 +29,25 @@ export const FormDadosPessoais: React.FC<FormDadosPessoaisProps> = ({ formData, 
                 disabled
             />
             <InputText
+                label="Telefone"
+                name="telefone"
+                placeholder="(00) 0000-0000"
+                value={formData.telefone || ''}
+                onChange={onChange}
+                optional
+            />
+            <InputText
                 label="CPF"
                 name="cpf"
                 placeholder="000.000.000-00"
-                value={formData.cpf}
+                value={formData.cpf || ''}
                 onChange={onChange}
                 optional
             />
             <InputSelect
                 label="Sexo"
                 name="sexo"
-                value={formData.sexo}
+                value={formData.sexo || ''}
                 onChange={onChange}
                 options={[
                     { value: 'feminino', label: 'Feminino' },
