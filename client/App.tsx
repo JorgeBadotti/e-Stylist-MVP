@@ -18,14 +18,8 @@ import ProdutoDetalhe from './components/Loja/ProdutoDetalhe';
 import api, { API_BASE_URL } from './src/services/api';
 import { getSessionId, storeSessionId } from './src/services/sessionService';
 import { UserContext, UserContextType } from './src/contexts/UserContext';
+import { PublicView, PrivateView, UserData, AppContentProps, NavbarUserData } from './types/app.types';
 
-
-// Tipos para as telas de quem NÃO está logado
-type PublicView = 'landing' | 'login' | 'register';
-
-type PrivateView = 'home' | 'wardrobes' | 'profile' | 'looks' | 'myLooks' | 'vendor-lojas' | 'vendor-loja' | 'admin-loja' | 'invitacoes' | 'carrinho';
-
-// Componente para página pública de produto
 const PublicProdutoPage: React.FC<{ isAuthenticated: boolean; user: UserData | null; onLogoutClick: () => void }> = ({ isAuthenticated, user, onLogoutClick }) => {
     const { sku } = useParams<{ sku: string }>();
 
@@ -69,16 +63,6 @@ const PublicProdutoPage: React.FC<{ isAuthenticated: boolean; user: UserData | n
     );
 };
 
-
-// 1. Definir a interface para os dados do usuário
-interface UserData {
-    id: string;
-    nome: string;
-    email: string;
-    foto?: string;
-    role?: string;
-    lojaId?: string;
-}
 
 const App: React.FC = () => {
     // Estados Globais (fora do Router para compartilhar entre rotas)
@@ -263,18 +247,6 @@ const App: React.FC = () => {
         </Router>
     );
 };
-
-interface AppContentProps {
-    isAuthenticated: boolean;
-    setIsAuthenticated: (value: boolean) => void;
-    userData: UserData | null;
-    setUserData: (value: UserData | null) => void;
-    isLoading: boolean;
-    setIsLoading: (value: boolean) => void;
-    handleLogout: () => void;
-    fetchUserSession: () => Promise<void>; // ✅ NOVO
-    initialSku?: string; // ✅ NOVO: SKU inicial da URL
-}
 
 const AppContent: React.FC<AppContentProps> = ({
     isAuthenticated,
