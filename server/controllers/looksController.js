@@ -352,9 +352,16 @@ export const salvarEscolha = async (req, res) => {
 
         console.log(`[Look Salvo] user_type=${userType}, sessionId=${sessionId}, lookId=${selectedLook._id}`);
 
+        // ✅ NOVO: Retornar IDs de todos os 3 looks salvos
+        const savedLookIds = allLooks.map(look => {
+            const savedLook = savedLooks.find(sl => sl.nome === look.name);
+            return savedLook ? savedLook._id : null;
+        });
+
         res.status(201).json({
             message: "Looks salvos com sucesso!",
             savedLookId: selectedLook._id,
+            savedLookIds: savedLookIds, // ✅ NOVO: Array com IDs de todos os looks
             userType: userType // Confirmar para frontend
         });
 
