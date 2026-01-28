@@ -15,6 +15,7 @@ import AdminLojaPage from './components/Admin/AdminLojaPage';
 import VendorLojasPage from './components/Vendor/VendorLojasPage';
 import VendorLojaPage from './components/Vendor/VendorLojaPage';
 import ProdutoDetalhe from './components/Loja/ProdutoDetalhe';
+import { LoadingScreen } from './components/LoadingScreen';
 import { UserContext, UserContextType } from './src/contexts/UserContext';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { PublicView, PrivateView, UserData, AppContentProps, NavbarUserData } from './types/app.types';
@@ -224,26 +225,12 @@ const AppContent: React.FC<AppContentProps> = ({
 
     // ✅ NOVO: Tela de Carregamento durante redirecionamento após cadastro
     if (isRedirecting) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-100">
-                <div className="flex flex-col items-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-                    <span className="text-gray-600 font-medium">Entrando na plataforma...</span>
-                </div>
-            </div>
-        );
+        return <LoadingScreen variant="redirecting" />;
     }
 
     // Tela de Carregamento
     if (isLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-100">
-                <div className="flex flex-col items-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-                    <span className="text-gray-600 font-medium">Carregando...</span>
-                </div>
-            </div>
-        );
+        return <LoadingScreen variant="loading" />;
     }
 
     // --- USUÁRIO LOGADO ---
