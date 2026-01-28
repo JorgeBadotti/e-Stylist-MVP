@@ -1,16 +1,16 @@
 import React from 'react';
 import HomePage from './HomePage';
-import IndiceGuardaRoupas from './features/wardrobe/IndiceGuardaRoupas';
+import IndiceGuardaRoupas from '../features/wardrobe/IndiceGuardaRoupas';
 import ProfilePage from './ProfilePage';
-import LooksPage from './features/looks/LooksPage';
-import MyLooksPage from './features/looks/MyLooksPage';
-import MinhasInvitacoes from './features/invites/MinhasInvitacoes';
-import CarrinhoPage from './features/cart/CarrinhoPage';
-import AdminLojaPage from './Admin/AdminLojaPage';
-import VendorLojasPage from './Vendor/VendorLojasPage';
-import VendorLojaPage from './Vendor/VendorLojaPage';
-import ProdutoDetalhe from './Loja/ProdutoDetalhe';
-import { PrivateView, UserData } from '../types/app.types';
+import LooksPage from '../features/looks/LooksPage';
+import MyLooksPage from '../features/looks/MyLooksPage';
+import MinhasInvitacoes from '../features/invites/MinhasInvitacoes';
+import CarrinhoPage from '../features/cart/CarrinhoPage';
+import AdminLojaPage from '../features/admin/AdminLojaPage';
+import VendorLojasPage from '../features/vendor/VendorLojasPage';
+import VendorLojaPage from '../features/vendor/VendorLojaPage';
+import ProdutoDetalhe from '../features/loja/ProdutoDetalhe';
+import { PrivateView, UserData } from '../../types/app.types';
 
 interface ViewRouterProps {
     // Estado

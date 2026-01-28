@@ -1,9 +1,9 @@
 import React from 'react';
-import LoginPage from './features/auth/Login';
-import RegisterPage from './features/auth/Register';
-import PublicHomePage from './PublicHomePage';
-import Navbar from './common/Navbar/Navbar';
-import { PublicView } from '../types/app.types';
+import LoginPage from '../features/auth/Login';
+import RegisterPage from '../features/auth/Register';
+import PublicHomePage from '../pages/PublicHomePage';
+import Navbar from '../common/Navbar/Navbar';
+import { PublicView } from '../../types/app.types';
 
 interface PublicLayoutProps {
     publicView: PublicView;

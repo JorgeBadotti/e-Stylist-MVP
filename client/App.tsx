@@ -29,8 +29,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
 import { LoadingScreen } from './components/ui/LoadingScreen';
-import { AppContent } from './components/AppContent';
-import ProdutoDetalhe from './components/Loja/ProdutoDetalhe';
+import { AppContent } from './components/pages/AppContent';
+import ProdutoDetalhe from './components/features/loja/ProdutoDetalhe';
 import Navbar from './components/common/Navbar/Navbar';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { useAuthContext } from './src/contexts/AuthContext';

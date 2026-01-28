@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import GerenciadorColecoes from '../../Loja/GerenciadorColecoes';
+import GerenciadorColecoes from '../loja/GerenciadorColecoes';
 import DetalheGuardaRoupa from './DetalheGuardaRoupa';
 
 const IndiceGuardaRoupas: React.FC = () => {

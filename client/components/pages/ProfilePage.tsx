@@ -1,8 +1,8 @@
 // src/components/ProfilePage.tsx
 import React, { useState, useEffect } from 'react';
-import api from '../src/services/api';
-import CameraCaptureScreen from './features/camera/CameraCaptureScreen';
-import { DetectedMeasurements, Profile } from '../src/types/types';
+import api from '../../src/services/api';
+import CameraCaptureScreen from '../features/camera/CameraCaptureScreen';
+import { DetectedMeasurements, Profile } from '../../src/types/types';
 
 interface Medidas {
     busto: number;

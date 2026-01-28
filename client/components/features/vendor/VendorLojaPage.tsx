@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import Catalogo from '../Loja/Catalogo';
-import GerenciadorColecoes from '../Loja/GerenciadorColecoes';
-import ProdutoDetalhe from '../Loja/ProdutoDetalhe';
-import DetalheGuardaRoupa from '../features/wardrobe/DetalheGuardaRoupa';
+import Catalogo from '../loja/Catalogo';
+import GerenciadorColecoes from '../loja/GerenciadorColecoes';
+import ProdutoDetalhe from '../loja/ProdutoDetalhe';
+import DetalheGuardaRoupa from '../wardrobe/DetalheGuardaRoupa';
 
 interface VendorLojaPageProps {
   lojaId: string;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ProdutoCard from './ProdutoCard';
-import { getCatalogo, getProdutosLoja } from '../../src/services/lojaService';
-import { Produto } from '../../src/types/types';
+import { getCatalogo, getProdutosLoja } from '../../../src/services/lojaService';
+import { Produto } from '../../../src/types/types';
 
 interface CatalogoProps {
   onProdutoSelect: (sku: string) => void;
@@ -79,8 +79,8 @@ const Catalogo: React.FC<CatalogoProps> = ({ onProdutoSelect, lojaId, refresh })
           <button
             onClick={() => setViewMode('table')}
             className={`px-4 py-2 rounded-lg transition ${viewMode === 'table'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
               }`}
           >
             📋 Tabela
@@ -88,8 +88,8 @@ const Catalogo: React.FC<CatalogoProps> = ({ onProdutoSelect, lojaId, refresh })
           <button
             onClick={() => setViewMode('grid')}
             className={`px-4 py-2 rounded-lg transition ${viewMode === 'grid'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
               }`}
           >
             🎴 Cards

@@ -1,7 +1,7 @@
 import React from 'react';
-import Navbar from './common/Navbar/Navbar';
-import { ViewRouter } from './ViewRouter';
-import { PrivateView, UserData, NavbarUserData } from '../types/app.types';
+import Navbar from '../common/Navbar/Navbar';
+import { ViewRouter } from '../pages/ViewRouter';
+import { PrivateView, UserData, NavbarUserData } from '../../types/app.types';
 
 interface PrivateLayoutProps {
     // Navbar props

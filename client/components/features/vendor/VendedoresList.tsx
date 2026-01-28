@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { listarVendedoresLoja } from '../src/services/conviteService';
+import { listarVendedoresLoja } from '../../../src/services/conviteService';
 
 interface Vendedor {
   _id: string;
@@ -89,9 +89,8 @@ export default function VendedoresList({
             {vendedores.map((vendedor, index) => (
               <tr
                 key={vendedor._id}
-                className={`border-b transition-colors hover:bg-blue-50 ${
-                  index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                }`}
+                className={`border-b transition-colors hover:bg-blue-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                  }`}
               >
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">

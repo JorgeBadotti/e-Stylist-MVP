@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { UserContext } from '../../index';
-import api from '../../src/services/api';
+import { UserContext } from '../../../index';
+import api from '../../../src/services/api';
 
 interface Loja {
   _id: string;

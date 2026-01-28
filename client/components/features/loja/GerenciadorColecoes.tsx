@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { minhasColecoes, deletarColecao, GuardaRoupa } from '../../src/services/guardaRoupaService';
-import NovoGuardaRoupaModal from '../features/wardrobe/NovoGuardaRoupa';
+import { minhasColecoes, deletarColecao, GuardaRoupa } from '../../../src/services/guardaRoupaService';
+import NovoGuardaRoupaModal from '../wardrobe/NovoGuardaRoupa';
 
 interface GerenciadorColecoeProps {
   titulo?: string;

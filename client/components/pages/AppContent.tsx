@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { LoadingScreen } from './ui/LoadingScreen';
-import { PublicLayout } from './PublicLayout';
-import { PrivateLayout } from './PrivateLayout';
-import ProdutoDetalhe from './Loja/ProdutoDetalhe';
-import Navbar from './common/Navbar/Navbar';
-import { UserContext, UserContextType } from '../src/contexts/UserContext';
-import { UserData } from '../types/app.types';
-import { useRouting } from '../hooks/useRouting';
-import { useAuthContext } from '../src/contexts/AuthContext';
+import { LoadingScreen } from '../ui/LoadingScreen';
+import { PublicLayout } from '../layouts/PublicLayout';
+import { PrivateLayout } from '../layouts/PrivateLayout';
+import ProdutoDetalhe from '../features/loja/ProdutoDetalhe';
+import Navbar from '../common/Navbar/Navbar';
+import { UserContext, UserContextType } from '../../src/contexts/UserContext';
+import { UserData } from '../../types/app.types';
+import { useRouting } from '../../hooks/useRouting';
+import { useAuthContext } from '../../src/contexts/AuthContext';
 
 /**
  * AppContent

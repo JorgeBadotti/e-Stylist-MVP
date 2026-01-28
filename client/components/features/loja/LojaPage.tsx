@@ -1,10 +1,10 @@
 import React, { useState, useContext } from 'react';
 import Catalogo from './Catalogo';
-import VendedoresList from '../features/vendor/VendedoresList';
-import ConvidarVendedorModal from '../features/invites/ConvidarVendedorModal';
-import CadastroProdutoSKU from '../features/product/CadastroProdutoSKU';
-import CameraProdutoCapture from '../features/camera/CameraProdutoCapture';
-import { UserContext } from '../../index';
+import VendedoresList from '../vendor/VendedoresList';
+import ConvidarVendedorModal from '../invites/ConvidarVendedorModal';
+import CadastroProdutoSKU from '../product/CadastroProdutoSKU';
+import CameraProdutoCapture from '../camera/CameraProdutoCapture';
+import { UserContext } from '../../../index';
 
 interface LojaPageProps {
   onProdutoSelect: (sku: string) => void;
