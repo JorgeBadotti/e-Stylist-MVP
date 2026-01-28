@@ -3,6 +3,7 @@ import Catalogo from './Catalogo';
 import VendedoresList from '../VendedoresList';
 import ConvidarVendedorModal from '../ConvidarVendedorModal';
 import CadastroProdutoSKU from '../CadastroProdutoSKU';
+import CameraProdutoCapture from '../CameraProdutoCapture';
 import { UserContext } from '../../index';
 
 interface LojaPageProps {
@@ -10,10 +11,12 @@ interface LojaPageProps {
   lojaId?: string; // ✅ NOVO: ID da loja do usuário logado
 }
 
+type TipoCadastro = 'manual' | 'foto' | null;
+
 const LojaPage: React.FC<LojaPageProps> = ({ onProdutoSelect, lojaId }) => {
   const userContext = useContext(UserContext);
   const [showConviteModal, setShowConviteModal] = useState(false);
-  const [showCadastroProduto, setShowCadastroProduto] = useState(false);
+  const [tipoCadastro, setTipoCadastro] = useState<TipoCadastro>(null);
   const [refreshVendedores, setRefreshVendedores] = useState(false);
   const [refreshCatalogo, setRefreshCatalogo] = useState(false);
 
@@ -29,7 +32,7 @@ const LojaPage: React.FC<LojaPageProps> = ({ onProdutoSelect, lojaId }) => {
 
   const handleProdutoCriado = (produto: any) => {
     // Fecha o modal de cadastro
-    setShowCadastroProduto(false);
+    setTipoCadastro(null);
     // Recarrega o catálogo
     setRefreshCatalogo((prev) => !prev);
   };
@@ -63,24 +66,41 @@ const LojaPage: React.FC<LojaPageProps> = ({ onProdutoSelect, lojaId }) => {
       <Catalogo onProdutoSelect={onProdutoSelect} lojaId={lojaId} refresh={refreshCatalogo} />
 
       {/* Seção de Cadastro de Produto (apenas para admin) */}
-      {isAdmin && lojaId && !showCadastroProduto && (
-        <div className="mt-8 text-center">
+      {isAdmin && lojaId && !tipoCadastro && (
+        <div className="mt-8 flex flex-col gap-4 sm:flex-row justify-center items-center">
           <button
             className="px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition text-lg"
-            onClick={() => setShowCadastroProduto(true)}
+            onClick={() => setTipoCadastro('manual')}
           >
-            ✨ Cadastrar Novo Produto SKU
+            ✨ Cadastro Manual SKU
+          </button>
+          <button
+            className="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition text-lg"
+            onClick={() => setTipoCadastro('foto')}
+          >
+            📸 Capturar Foto
           </button>
         </div>
       )}
 
-      {/* Formulário de Cadastro de Produto */}
-      {isAdmin && lojaId && showCadastroProduto && (
+      {/* Formulário de Cadastro Manual */}
+      {isAdmin && lojaId && tipoCadastro === 'manual' && (
         <div className="mt-8 bg-gray-50 p-6 rounded-lg border-2 border-green-300">
           <CadastroProdutoSKU
             lojaId={lojaId}
             onProdutoCriado={handleProdutoCriado}
-            onCancelar={() => setShowCadastroProduto(false)}
+            onCancelar={() => setTipoCadastro(null)}
+          />
+        </div>
+      )}
+
+      {/* Formulário de Cadastro por Câmera */}
+      {isAdmin && lojaId && tipoCadastro === 'foto' && (
+        <div className="mt-8 bg-gray-50 p-6 rounded-lg border-2 border-blue-300">
+          <CameraProdutoCapture
+            lojaId={lojaId}
+            onProdutosCriados={handleProdutoCriado}
+            onCancelar={() => setTipoCadastro(null)}
           />
         </div>
       )}

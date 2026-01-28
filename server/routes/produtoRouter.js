@@ -65,6 +65,7 @@ router.post('/', uploadWrapper('foto'), createProduto);
  * POST /api/produtos/lotes/imagens
  * Cadastrar produtos em lotes através de imagens
  * Análise automática de imagens com Gemini para extração de dados
+ * Retorna evento a evento (streaming de progresso)
  */
 router.post('/lotes/imagens', uploadMultipleWrapper('imagens', 50), async (req, res) => {
     try {
@@ -85,32 +86,54 @@ router.post('/lotes/imagens', uploadMultipleWrapper('imagens', 50), async (req, 
             });
         }
 
-        const produtosAnalysados = [];
+        // Configurar headers para streaming de eventos
+        res.setHeader('Content-Type', 'application/x-ndjson');
+        res.setHeader('Transfer-Encoding', 'chunked');
+
         const produtosSalvos = [];
-        const errosAnalise = [];
-        const errosSalvamento = [];
+        const errosGerais = [];
 
         // Processar cada imagem
         for (let i = 0; i < req.files.length; i++) {
             const arquivo = req.files[i];
+            const numeroPeca = i + 1;
+            const totalPecas = req.files.length;
+
             try {
-                console.log(`\n🔍 [ProdutoRouter] Analisando imagem ${i + 1}/${req.files.length}: ${arquivo.originalname}`);
+                // 🔔 EVENTO 1: Iniciando análise
+                res.write(JSON.stringify({
+                    tipo: 'iniciando',
+                    numeroPeca,
+                    totalPecas,
+                    nomeArquivo: arquivo.originalname,
+                    timestamp: new Date().toISOString()
+                }) + '\n');
 
-                // Com memoryStorage(), o arquivo já está em buffer (não em disco)
+                console.log(`\n🔍 [ProdutoRouter] Analisando imagem ${numeroPeca}/${totalPecas}: ${arquivo.originalname}`);
+
                 const imagemBuffer = arquivo.buffer;
-
-                // Determinar mime type
                 const mimeType = arquivo.mimetype || 'image/jpeg';
+
+                // 🔔 EVENTO 2: Analisando com IA
+                res.write(JSON.stringify({
+                    tipo: 'analisando_ia',
+                    numeroPeca,
+                    totalPecas,
+                    status: 'Analisando imagem com IA...'
+                }) + '\n');
 
                 // Analisar imagem com Gemini
                 const dadosProduto = await analisarImagemProduto(imagemBuffer, mimeType);
-
-                // Adicionar lojaId aos dados
                 dadosProduto.lojaId = lojaId;
 
-                // GERAR SKU STYLEME (mesmo processo do modo manual)
-                // A IA preencheu apenas os componentes (categoria, linha, cor_codigo, tamanho, colecao)
-                // Agora geramos o SKU e a sequencia automaticamente
+                // 🔔 EVENTO 3: Gerando SKU
+                res.write(JSON.stringify({
+                    tipo: 'gerando_sku',
+                    numeroPeca,
+                    totalPecas,
+                    status: 'Gerando SKU...'
+                }) + '\n');
+
                 let skuGerado;
                 try {
                     skuGerado = await gerarSKUStyleMe({
@@ -119,143 +142,130 @@ router.post('/lotes/imagens', uploadMultipleWrapper('imagens', 50), async (req, 
                         cor_codigo: dadosProduto.cor_codigo,
                         tamanho: dadosProduto.tamanho,
                         colecao: dadosProduto.colecao
-                        // sequencia: NÃO fornecido - será gerado automaticamente por gerarSKUStyleMe
                     }, Produto);
 
-                    // Verificar se SKU já existe
                     const temDuplicata = await verificarDuplicataSKU(skuGerado.skuStyleMe, Produto);
                     if (temDuplicata) {
                         throw new Error(`SKU ${skuGerado.skuStyleMe} já existe no banco de dados`);
                     }
 
-                    // Preencher os dados com componentes do SKU gerado
-                    // gerarSKUStyleMe agora retorna um objeto com todos os campos
                     dadosProduto.skuStyleMe = skuGerado.skuStyleMe;
                     dadosProduto.sequencia = skuGerado.sequencia;
 
                     console.log(`✅ SKU STYLEME gerado: ${skuGerado.skuStyleMe}`);
-                    console.log(`🔑 Sequencia preenchida: ${skuGerado.sequencia}`);
                 } catch (erroSku) {
                     throw new Error(`Erro ao gerar SKU: ${erroSku.message}`);
                 }
 
-                console.log(`✅ [Gemini] Imagem ${i + 1} analisada com sucesso`);
-                console.log('📋 [DEBUG] Dados extraídos do Gemini:', JSON.stringify(dadosProduto, null, 2));
+                // 🔔 EVENTO 4: Enviando para Cloudinary
+                res.write(JSON.stringify({
+                    tipo: 'enviando_cloudinary',
+                    numeroPeca,
+                    totalPecas,
+                    status: 'Enviando para Cloudinary...',
+                    sku: dadosProduto.skuStyleMe
+                }) + '\n');
 
-                produtosAnalysados.push(dadosProduto);
-            } catch (erro) {
-                console.error(`❌ Erro ao analisar imagem ${i + 1} (${arquivo.originalname}):`, erro.message);
-                errosAnalise.push({
-                    imagem: arquivo.originalname,
-                    erro: erro.message,
-                    etapa: 'analise_gemini'
-                });
-            }
-        }
-
-        console.log(`\n💾 [ProdutoRouter] Iniciando processamento de ${produtosAnalysados.length} produtos analisados`);
-
-        // Processar upload de fotos e salvar produtos
-        for (let i = 0; i < produtosAnalysados.length; i++) {
-            const dadosProduto = produtosAnalysados[i];
-            const arquivo = req.files[i];
-
-            try {
-                console.log(`\n📝 [Processing] Processando produto ${i + 1}/${produtosAnalysados.length}`);
-                console.log('🔑 SKU:', dadosProduto.skuStyleMe);
-                console.log('📦 Categoria:', dadosProduto.categoria);
-
-                // ═══════════════════════════════════════════════════════
-                // FAZER UPLOAD DA FOTO PARA CLOUDINARY
-                // ═══════════════════════════════════════════════════════
                 let foto = '';
                 let fotoPublicId = '';
 
                 if (arquivo && arquivo.buffer) {
                     try {
                         console.log(`📸 [Cloudinary] Fazendo upload da foto: ${arquivo.originalname}`);
+                        console.log(`   - Tamanho do buffer: ${arquivo.buffer.length} bytes`);
+                        console.log(`   - MIME type: ${arquivo.mimetype}`);
+
                         const uploadResult = await uploadImage(arquivo.buffer, 'produtos');
+
+                        console.log(`✅ [Cloudinary] Foto enviada com sucesso!`);
+                        console.log(`   - URL: ${uploadResult.secure_url}`);
+                        console.log(`   - Public ID: ${uploadResult.public_id}`);
+
                         foto = uploadResult.secure_url;
                         fotoPublicId = uploadResult.public_id;
-                        console.log(`✅ [Cloudinary] Foto enviada com sucesso!`);
                     } catch (erroCloudinary) {
-                        console.error(`⚠️  [Cloudinary] Erro ao fazer upload da foto:`, erroCloudinary.message);
-                        // Continuar mesmo se falhar o upload - a foto é opcional
+                        console.error(`❌ [Cloudinary] Erro ao fazer upload da foto:`, erroCloudinary);
+                        console.error(`   - Mensagem: ${erroCloudinary.message}`);
+                        console.error(`   - Stack: ${erroCloudinary.stack}`);
                     }
+                } else {
+                    console.warn(`⚠️  [Cloudinary] Arquivo não encontrado ou sem buffer`);
+                    console.warn(`   - arquivo: ${!!arquivo}`);
+                    console.warn(`   - arquivo.buffer: ${!!arquivo?.buffer}`);
                 }
 
-                // Adicionar foto ao dados do produto
+                console.log(`📝 [Produto] Foto a salvar: ${foto || '(vazia)'}`);
                 dadosProduto.foto = foto;
                 dadosProduto.fotoPublicId = fotoPublicId;
 
-                console.log(`📸 Foto URL: ${foto || '(não enviada)'}`);
+                // 🔔 EVENTO 5: Salvando no banco
+                res.write(JSON.stringify({
+                    tipo: 'salvando_banco',
+                    numeroPeca,
+                    totalPecas,
+                    status: 'Salvando no banco de dados...',
+                    sku: dadosProduto.skuStyleMe
+                }) + '\n');
 
-                // ═══════════════════════════════════════════════════════
-                // SALVAR PRODUTO NO BANCO DE DADOS
-                // ═══════════════════════════════════════════════════════
-
-                // Criar novo documento Produto
                 const novoProduto = new Produto(dadosProduto);
-
-                // Salvar no banco de dados
                 const produtoSalvo = await novoProduto.save();
 
                 console.log(`✅ [Database] Produto salvo com sucesso! ID: ${produtoSalvo._id}`);
-                produtosSalvos.push({
-                    _id: produtoSalvo._id,
-                    skuStyleMe: produtoSalvo.skuStyleMe,
-                    categoria: produtoSalvo.categoria,
-                    lojaId: produtoSalvo.lojaId,
-                    foto: produtoSalvo.foto
-                });
-            } catch (erro) {
-                console.error(`❌ Erro ao processar produto ${i + 1}:`, erro.message);
 
-                // Verificar se é erro de duplicação de SKU
-                if (erro.code === 11000) {
-                    errosSalvamento.push({
-                        sku: dadosProduto.skuStyleMe,
-                        erro: 'SKU já existe no banco de dados',
-                        etapa: 'salvamento_database',
-                        tipo: 'duplicacao'
-                    });
-                } else {
-                    errosSalvamento.push({
-                        sku: dadosProduto.skuStyleMe || 'desconhecido',
-                        erro: erro.message,
-                        etapa: 'salvamento_database',
-                        validacao: erro.errors ? Object.keys(erro.errors) : null
-                    });
-                }
+                // 🔔 EVENTO 6: Sucesso!
+                res.write(JSON.stringify({
+                    tipo: 'sucesso',
+                    numeroPeca,
+                    totalPecas,
+                    status: 'Peça concluída com sucesso! ✅',
+                    sku: produtoSalvo.skuStyleMe,
+                    produto: {
+                        _id: produtoSalvo._id,
+                        skuStyleMe: produtoSalvo.skuStyleMe,
+                        categoria: produtoSalvo.categoria,
+                        lojaId: produtoSalvo.lojaId,
+                        foto: produtoSalvo.foto
+                    }
+                }) + '\n');
+
+                produtosSalvos.push(produtoSalvo);
+            } catch (erro) {
+                console.error(`❌ Erro ao processar produto ${numeroPeca}:`, erro.message);
+
+                // 🔔 EVENTO X: Erro
+                res.write(JSON.stringify({
+                    tipo: 'erro',
+                    numeroPeca,
+                    totalPecas,
+                    status: 'Erro ao processar peça ❌',
+                    erro: erro.message,
+                    nomeArquivo: arquivo.originalname
+                }) + '\n');
+
+                errosGerais.push({
+                    imagem: arquivo.originalname,
+                    numeroPeca,
+                    erro: erro.message
+                });
             }
         }
 
-        console.log(`\n📊 [Resumo] Análise: ${produtosAnalysados.length} imagens processadas`);
-        console.log(`📊 [Resumo] Salvamento: ${produtosSalvos.length} produtos salvos com sucesso`);
-        console.log(`📊 [Resumo] Erros de análise: ${errosAnalise.length}`);
-        console.log(`📊 [Resumo] Erros de salvamento: ${errosSalvamento.length}`);
-
-        // Responder com resultados detalhados
-        return res.status(200).json({
-            mensagem: `✅ Processamento concluído: ${produtosSalvos.length} produtos salvos, ${errosAnalise.length + errosSalvamento.length} erros`,
+        // 🔔 EVENTO FINAL: Resumo
+        res.write(JSON.stringify({
+            tipo: 'concluido',
             resumo: {
                 totalImagens: req.files.length,
-                imagensAnalisadas: produtosAnalysados.length,
                 produtosSalvos: produtosSalvos.length,
-                errosAnalise: errosAnalise.length,
-                errosSalvamento: errosSalvamento.length
+                erros: errosGerais.length
             },
-            produtosSalvos: produtosSalvos,
-            produtosAnalysados: produtosAnalysados, // Retornar os dados analisados também para referência
-            erros: {
-                analise: errosAnalise.length > 0 ? errosAnalise : null,
-                salvamento: errosSalvamento.length > 0 ? errosSalvamento : null
-            },
-            status: produtosSalvos.length === req.files.length ? 'sucesso_total' : 'sucesso_parcial'
-        });
+            status: 'Processamento concluído!',
+            timestamp: new Date().toISOString()
+        }) + '\n');
+
+        res.end();
     } catch (erro) {
         console.error('❌ [ProdutoRouter] Erro ao processar lotes de imagens:', erro);
-        return res.status(500).json({
+        res.status(500).json({
             message: 'Erro ao processar imagens',
             erro: erro.message
         });

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import api from '../src/services/api';
 import ViewLook from './ViewLook';
 import GuestBodyCaptureScreen from './GuestBodyCaptureScreen';
-import { DetectedMeasurements } from '../types';
+import { DetectedMeasurements } from '../src/types/types';
 
 interface Wardrobe {
     _id: string;
@@ -42,6 +42,7 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
     const [wardrobes, setWardrobes] = useState<Wardrobe[]>([]);
     const [selectedWardrobe, setSelectedWardrobe] = useState<string>('');
     const [occasion, setOccasion] = useState('');
+    const [occasionPreset, setOccasionPreset] = useState<'trabalho' | 'casual' | 'festa' | 'outros' | ''>(''); // ✅ NOVO: Rastrear ocasião selecionada
     const [hasBodyPhoto, setHasBodyPhoto] = useState<boolean | null>(null);
     const [looks, setLooks] = useState<GeneratedLook[]>([]);
     const [error, setError] = useState('');
@@ -58,6 +59,8 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
     const [guestMeasurements, setGuestMeasurements] = useState<DetectedMeasurements | null>(null); // ✅ NOVO: Medidas do visitante
     const [guestPhoto, setGuestPhoto] = useState<string | null>(null); // ✅ NOVO: Foto do visitante em base64
     const [showGuestCamera, setShowGuestCamera] = useState<boolean>(false); // ✅ NOVO: Controlar câmera do visitante
+    const [lookImages, setLookImages] = useState<{ [lookId: string]: string | null }>({}); // ✅ NOVO: Mapear look_id -> imagem URL
+    const [savedLookIds, setSavedLookIds] = useState<{ [lookId: string]: string }>({}); // ✅ NOVO: Mapear look_id -> savedLookId no BD
 
     // ✅ NOVO: Detectar parâmetro itemObrigatorio na URL
     useEffect(() => {
@@ -86,6 +89,111 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
         console.log('[LooksPage] handleShowCameraChange chamado com:', show);
         setShowGuestCamera(show);
     }, []);
+
+    // ✅ NOVO: Gerar imagens dos 3 looks em paralelo quando entra em 'results'
+    useEffect(() => {
+        if (step === 'results' && looks.length > 0) {
+            console.log('[LooksPage] Iniciando geração de imagens em paralelo para os 3 looks');
+            generateAllLookImages();
+        }
+    }, [step, looks]);
+
+    // ✅ NOVO: Função para gerar imagens de todos os looks em paralelo
+    const generateAllLookImages = async () => {
+        try {
+            // 1. Primeiro salvar todos os 3 looks (sem imagem ainda)
+            const savePayload: any = {
+                selectedLookId: looks[0].look_id, // Temporariamente seleciona o primeiro
+                allLooks: looks
+            };
+
+            if (sessionId) {
+                savePayload.sessionId = sessionId;
+            }
+
+            const saveResponse = await api.post('/api/looks/salvar', savePayload);
+            const batchResponse = saveResponse.data;
+
+            console.log('[LooksPage] Looks salvos em lote:', batchResponse);
+
+            // 2. Mapear os looks originais com seus IDs salvos no BD
+            const lookIdMap: { [key: string]: string } = {};
+
+            // Se backend retorna savedLookIds array, usar para mapear
+            if (batchResponse.savedLookIds && Array.isArray(batchResponse.savedLookIds)) {
+                looks.forEach((look, idx) => {
+                    // Validar que o índice existe e não é null
+                    if (idx < batchResponse.savedLookIds.length && batchResponse.savedLookIds[idx]) {
+                        lookIdMap[look.look_id] = batchResponse.savedLookIds[idx];
+                        console.log(`[LooksPage] ${look.name} -> ${batchResponse.savedLookIds[idx]}`);
+                    }
+                });
+            } else {
+                // Fallback: usar o primeiro savedLookId (compatibilidade)
+                looks.forEach((look) => {
+                    lookIdMap[look.look_id] = batchResponse.savedLookId;
+                });
+            }
+
+            setSavedLookIds(lookIdMap);
+            console.log('[LooksPage] Mapa de looks salvos:', lookIdMap);
+
+            // 3. Inicializar lookImages com null para cada look
+            const initialImages: { [key: string]: string | null } = {};
+            looks.forEach(look => {
+                initialImages[look.look_id] = null;
+            });
+            setLookImages(initialImages);
+
+            // 4. Gerar imagens em paralelo
+            const imagePromises = looks.map(async (look) => {
+                try {
+                    console.log(`[LooksPage] Gerando imagem para: ${look.name}`);
+
+                    // ✅ CORRIGIDO: Passar o lookData COM o _id do MongoDB
+                    const savedId = lookIdMap[look.look_id];
+
+                    const visualizeResponse = await api.post('/api/looks/visualizar', {
+                        lookData: {
+                            ...look,
+                            _id: savedId // ✅ CRÍTICO: Passar o _id salvo no BD
+                        },
+                        guestPhoto: guestPhoto || undefined
+                    });
+
+                    const imageUrl = visualizeResponse.data.imagem_url;
+                    console.log(`[LooksPage] ✅ Imagem gerada para ${look.name}: ${imageUrl}`);
+
+                    // Atualizar imagem do look
+                    setLookImages(prev => ({
+                        ...prev,
+                        [look.look_id]: imageUrl
+                    }));
+
+                    // Atualizar no BD
+                    if (savedId) {
+                        await api.patch(`/api/looks/${savedId}`, {
+                            imagem_visualizada: imageUrl
+                        });
+                        console.log(`[LooksPage] Look ${savedId} atualizado no BD`);
+                    }
+
+                    return { lookId: look.look_id, imageUrl };
+                } catch (err) {
+                    console.error(`[LooksPage] Erro ao gerar imagem para ${look.name}:`, err);
+                    return { lookId: look.look_id, imageUrl: null };
+                }
+            });
+
+            // Aguardar todas as imagens em paralelo
+            await Promise.all(imagePromises);
+            console.log('[LooksPage] Todas as imagens foram geradas!');
+
+        } catch (err) {
+            console.error('[LooksPage] Erro ao gerar imagens em lote:', err);
+            setError("Erro ao gerar visualizações dos looks. Tente novamente.");
+        }
+    };
 
     // Carregar dados iniciais
     useEffect(() => {
@@ -211,58 +319,54 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
     const handleSelectLook = async (selectedLook: GeneratedLook) => {
         setSavingSelection(true);
         setError('');
-        setStep('visualizing');
 
         try {
-            // 1. ✅ PRIMEIRO: Salvar os 3 looks SEM imagem
-            const savePayload: any = {
-                selectedLookId: selectedLook.look_id,
-                allLooks: looks // Sem imagemVisualizacao
-            };
+            // ✅ NOVO: Apenas registrar a escolha do usuário (feedback/nota)
+            // O look já foi salvo em generateAllLookImages
+            const savedLookId = savedLookIds[selectedLook.look_id];
 
-            if (sessionId) {
-                savePayload.sessionId = sessionId;
-                console.log(`[LookSession] Salvando looks com sessionId: ${sessionId}`);
+            if (!savedLookId) {
+                setError("Erro: Look não foi encontrado. Tente novamente.");
+                setSavingSelection(false);
+                return;
             }
 
-            const saveResponse = await api.post('/api/looks/salvar', savePayload);
-            const savedLookId = saveResponse.data.savedLookId;
-            console.log(`[LookSession] Looks salvos! lookId selecionado: ${savedLookId}`);
+            console.log(`[LooksPage] Usuário escolheu: ${selectedLook.name} (ID: ${savedLookId})`);
 
-            // 2. ✅ SEGUNDO: Gerar a visualização do look
-            const visualizeResponse = await api.post('/api/looks/visualizar', {
-                lookData: {
-                    ...selectedLook,
-                    _id: savedLookId
-                },
-                guestPhoto: guestPhoto || undefined
-            });
+            // Carregar imagem do look
+            let imageUrl = lookImages[selectedLook.look_id];
 
-            console.log(`[LookSession] Imagem gerada: ${visualizeResponse.data.imagem_url}`);
+            if (!imageUrl) {
+                // Aguardar um pouco e tentar novamente (a imagem ainda está sendo gerada)
+                console.log('[LooksPage] Imagem ainda está sendo gerada. Aguardando...');
+                setError("A imagem está sendo gerada. Aguarde alguns momentos...");
 
-            // 3. ✅ TERCEIRO: ATUALIZAR o look com a imagem gerada
-            await api.patch(`/api/looks/${savedLookId}`, {
-                imagem_visualizada: visualizeResponse.data.imagem_url
-            });
+                // Aguardar 2 segundos e tentar novamente
+                await new Promise(resolve => setTimeout(resolve, 2000));
 
-            console.log(`[LookSession] Look atualizado com imagem`);
+                const retryImageUrl = lookImages[selectedLook.look_id];
+                if (!retryImageUrl) {
+                    setSavingSelection(false);
+                    setError("Tempo limite para carregamento da imagem. Tente novamente.");
+                    return;
+                }
 
-            // 4. Salvar a imagem gerada no estado
-            setGeneratedImage(visualizeResponse.data.imagem_url);
+                imageUrl = retryImageUrl;
+            }
+
+            // Se chegou aqui, temos a imagem
+            setGeneratedImage(imageUrl);
             setSelectedLookName(selectedLook.name);
             setSelectedLookExplanation(selectedLook.explanation);
             setSelectedLookItems(selectedLook.items);
-
-            setSuccessMsg(`✨ Sua visualização foi criada! ${selectedLook.name} ficou sensacional!`);
-
-            // 5. Mudar para o step 'visualized'
+            setSuccessMsg(`✨ Você escolheu: ${selectedLook.name}!`);
             setStep('visualized');
+
             setSavingSelection(false);
 
         } catch (err) {
             console.error(err);
-            setError("Erro ao salvar e visualizar o look. Tente novamente.");
-            setStep('results');
+            setError("Erro ao processar sua escolha. Tente novamente.");
             setSavingSelection(false);
         }
     };
@@ -277,6 +381,8 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
         setError('');
         setSelectedWardrobe('');
         setOccasion('');
+        setLookImages({}); // ✅ NOVO: Limpar imagens
+        setSavedLookIds({}); // ✅ NOVO: Limpar IDs salvos
     };
 
     // ✅ VERIFICAR se tem foto de referência ANTES de renderizar
@@ -295,7 +401,8 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                                 altura: measurements.height_cm,
                                 busto: measurements.chest_cm,
                                 cintura: measurements.waist_cm,
-                                quadril: measurements.hips_cm
+                                quadril: measurements.hips_cm,
+                                peso_kg: measurements.weight_kg
                             }
                         });
                         console.log('[LooksPage] Foto e medidas salvas no BD');
@@ -324,9 +431,8 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
     }
 
     return (
-        <div className="max-w-4xl mx-auto p-6 mt-6">
-            <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Gerador de Looks IA</h1>
-            <p className="text-gray-500 mb-8">Nossa inteligência artificial analisa seu corpo e suas roupas para sugerir combinações perfeitas.</p>
+        <div className="max-w-4xl mx-auto p-4 mt-3">
+            <h1 className="text-xl font-bold text-gray-900 mb-1">✨ Gerador de Looks</h1>
 
             {step === 'selection' && (
                 <div className="bg-white p-6 rounded-lg shadow-sm space-y-6">
@@ -342,7 +448,8 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                             <select
                                 value={selectedLoja}
                                 onChange={(e) => setSelectedLoja(e.target.value)}
-                                className="w-full border border-gray-300 rounded-md p-3 focus:ring-purple-500 focus:border-purple-500 bg-white"
+                                disabled={!!initialLojaId}
+                                className={`w-full border border-gray-300 rounded-md p-3 focus:ring-purple-500 focus:border-purple-500 bg-white ${initialLojaId ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''}`}
                             >
                                 <option value="">Selecione uma loja...</option>
                                 {lojas.map((loja: any) => (
@@ -351,6 +458,9 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                                     </option>
                                 ))}
                             </select>
+                            {initialLojaId && (
+                                <p className="text-xs text-gray-500 mt-2">🔒 Loja pré-selecionada na URL</p>
+                            )}
                         </div>
                     ) : (
                         <div>
@@ -371,14 +481,43 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                     )}
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">2. Para qual ocasião? (Opcional)</label>
-                        <input
-                            type="text"
-                            value={occasion}
-                            onChange={(e) => setOccasion(e.target.value)}
-                            placeholder="Ex: Jantar romântico, Reunião de trabalho, Passeio no parque..."
-                            className="w-full border border-gray-300 rounded-md p-3 focus:ring-blue-500 focus:border-blue-500"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-3">2. Para qual ocasião? (Opcional)</label>
+                        <div className="space-y-3">
+                            {[
+                                { value: 'trabalho', label: '💼 Trabalho / Reunião' },
+                                { value: 'casual', label: '🚶 Casual / Passeio' },
+                                { value: 'festa', label: '🎉 Festa / Evento' },
+                                { value: 'outros', label: '✨ Outra ocasião' }
+                            ].map((opt) => (
+                                <label key={opt.value} className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
+                                    <input
+                                        type="radio"
+                                        name="occasion"
+                                        value={opt.value}
+                                        checked={occasionPreset === opt.value}
+                                        onChange={(e) => {
+                                            setOccasionPreset(e.target.value as any);
+                                            if (e.target.value !== 'outros') {
+                                                setOccasion('');
+                                            }
+                                        }}
+                                        className="w-4 h-4 text-blue-600 cursor-pointer"
+                                    />
+                                    <span className="ml-3 text-gray-700">{opt.label}</span>
+                                </label>
+                            ))}
+                        </div>
+
+                        {/* Custom input quando "Outros" está selecionado */}
+                        {occasionPreset === 'outros' && (
+                            <input
+                                type="text"
+                                value={occasion}
+                                onChange={(e) => setOccasion(e.target.value)}
+                                placeholder="Descreva a ocasião..."
+                                className="w-full border border-gray-300 rounded-md p-3 mt-3 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                        )}
                     </div>
 
                     <button
@@ -413,8 +552,11 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                         <h2 className="text-2xl font-bold text-gray-800">Qual é o seu favorito?</h2>
                         <button onClick={() => setStep('selection')} className="text-gray-500 hover:text-gray-700">Descartar todos</button>
                     </div>
-                    <p className="text-sm text-gray-500">Clique no look que você mais gostou para salvá-lo e ver a visualização!</p>
+                    <p className="text-sm text-gray-500">Estamos gerando as visualizações! Clique no look que você mais gostou para avaliar.</p>
 
+                    {error && <div className="p-3 bg-red-100 text-red-700 rounded">{error}</div>}
+
+                    {/* ✅ Card original de seleção de looks (INTOCADO) */}
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {looks.map((look) => (
                             <div
@@ -431,6 +573,28 @@ const LooksPage: React.FC<LooksPageProps> = ({ onNavigateToProfile, onProductCli
                                         {look.body_affinity_index} / 10
                                     </span>
                                 </div>
+
+                                {/* ✅ NOVO: Imagem do look (gerada em paralelo) */}
+                                <div className="relative bg-gray-100 aspect-[3/4] flex items-center justify-center overflow-hidden border-b border-gray-200">
+                                    {lookImages[look.look_id] ? (
+                                        <>
+                                            <img
+                                                src={lookImages[look.look_id] || ''}
+                                                alt={look.name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                            <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded font-semibold flex items-center gap-1">
+                                                <span>✓</span> Pronta
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center gap-3">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                            <p className="text-sm text-gray-500 text-center">Gerando...</p>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div className="p-4 space-y-4">
                                     <p className="text-sm text-gray-600 italic">"{look.explanation}"</p>
 

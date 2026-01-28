@@ -74,6 +74,7 @@ const userSchema = new Schema({
         cintura: { type: Number, default: 0, comment: "Medida da cintura em cm" },
         quadril: { type: Number, default: 0, comment: "Medida do quadril em cm" },
         altura: { type: Number, default: 0, comment: "Altura em cm (duplicado por compatibilidade)" },
+        peso_kg: { type: Number, default: 0, comment: "Peso em quilogramas" },
 
         // Novos campos antropomórficos
         pescoco: { type: Number, default: 0, comment: "Medida do pescoço em cm" },
@@ -110,7 +111,7 @@ const userSchema = new Schema({
         },
         ombros_vs_quadril: {
             type: String,
-            enum: ['ombros_larcos', 'balanced', 'quadril_largo', null],
+            enum: ['ombros_largos', 'balanced', 'quadril_largo', null],
             default: null,
             comment: "Proporção entre ombros e quadril"
         },

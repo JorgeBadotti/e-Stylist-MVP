@@ -1,6 +1,8 @@
 // src/components/ProfilePage.tsx
 import React, { useState, useEffect } from 'react';
 import api from '../src/services/api';
+import CameraCaptureScreen from './CameraCaptureScreen';
+import { DetectedMeasurements, Profile } from '../src/types/types';
 
 interface Medidas {
     busto: number;
@@ -48,6 +50,7 @@ const ProfilePage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [showCamera, setShowCamera] = useState(false);
 
     // Estado do Formulário
     const [formData, setFormData] = useState<UserProfileData>({
@@ -192,91 +195,184 @@ const ProfilePage: React.FC = () => {
             const reader = new FileReader();
             reader.onloadend = async () => {
                 const base64String = reader.result as string;
-                // O resultado é uma string longa: "data:image/jpeg;base64,..."
-                setFormData(prev => ({ ...prev, foto_corpo: base64String }));
 
-                // ✅ NOVO: Chamar API describe_body assim que foto é enviada
-                try {
-                    console.log('📸 Enviando foto para análise do corpo...');
-                    const response = await api.post('/api/usuario/descrever-corpo', {
-                        foto_base64: base64String
-                    });
+                // ✅ CORRIGIDO: Salvar a foto base64 no formData
+                setFormData(prev => ({
+                    ...prev,
+                    foto_corpo: base64String
+                }));
 
-                    console.log('✅ Análise do corpo recebida:', response.data);
-
-                    const { analise } = response.data;
-
-                    console.log('📋 ============ DADOS DA ANÁLISE RECEBIDOS ============');
-                    console.log('Sexo:', analise.sexo);
-                    console.log('Altura:', analise.altura_estimada_cm);
-                    console.log('Tipo de Corpo:', analise.tipo_corpo);
-                    console.log('Medidas:', analise.medidas);
-                    console.log('Proporções (RAW):', analise.proporcoes);
-                    console.log('  - pernas:', analise.proporcoes?.pernas);
-                    console.log('  - torso:', analise.proporcoes?.torso);
-                    console.log('  - ombros_vs_quadril:', analise.proporcoes?.ombros_vs_quadril);
-                    console.log('  - confidence:', analise.proporcoes?.confidence);
-                    console.log('Confiança:', analise.confianca);
-                    console.log('📋 ============ FIM DOS DADOS ============');
-
-                    // Atualizar formulário com dados da análise
-                    setFormData(prev => {
-                        const novoFormData = {
-                            ...prev,
-                            sexo: analise.sexo || prev.sexo,
-                            altura_cm: analise.altura_estimada_cm || prev.altura_cm,
-                            tipo_corpo: analise.tipo_corpo || prev.tipo_corpo,
-                            medidas: {
-                                ...prev.medidas,
-                                // Medidas básicas
-                                busto: analise.medidas?.busto || prev.medidas.busto,
-                                cintura: analise.medidas?.cintura || prev.medidas.cintura,
-                                quadril: analise.medidas?.quadril || prev.medidas.quadril,
-                                altura: analise.medidas?.altura || prev.medidas.altura,
-                                // Medidas superiores
-                                pescoco: analise.medidas?.pescoco || prev.medidas.pescoco || 0,
-                                ombro: analise.medidas?.ombro || prev.medidas.ombro || 0,
-                                braco: analise.medidas?.braco || prev.medidas.braco || 0,
-                                antebraco: analise.medidas?.antebraco || prev.medidas.antebraco || 0,
-                                pulso: analise.medidas?.pulso || prev.medidas.pulso || 0,
-                                torax: analise.medidas?.torax || prev.medidas.torax || 0,
-                                sobpeito: analise.medidas?.sobpeito || prev.medidas.sobpeito || 0,
-                                costelas: analise.medidas?.costelas || prev.medidas.costelas || 0,
-                                // Medidas inferiores
-                                coxa: analise.medidas?.coxa || prev.medidas.coxa || 0,
-                                panturrilha: analise.medidas?.panturrilha || prev.medidas.panturrilha || 0,
-                                tornozelo: analise.medidas?.tornozelo || prev.medidas.tornozelo || 0,
-                                // Comprimentos
-                                comprimento_torso: analise.medidas?.comprimento_torso || prev.medidas.comprimento_torso || 0,
-                                comprimento_perna: analise.medidas?.comprimento_perna || prev.medidas.comprimento_perna || 0,
-                                comprimento_braco: analise.medidas?.comprimento_braco || prev.medidas.comprimento_braco || 0
-                            },
-                            proporcoes: {
-                                ...prev.proporcoes,
-                                pernas: analise.proporcoes?.pernas || prev.proporcoes?.pernas,
-                                torso: analise.proporcoes?.torso || prev.proporcoes?.torso,
-                                ombros_vs_quadril: analise.proporcoes?.ombros_vs_quadril || prev.proporcoes?.ombros_vs_quadril,
-                                confidence: analise.confianca || prev.proporcoes?.confidence
-                            }
-                        };
-                        console.log('📝 FormData após setFormData (proporcoes):', novoFormData.proporcoes);
-                        return novoFormData;
-                    });
-
-                    setMessage({
-                        type: 'success',
-                        text: `✅ Corpo analisado com sucesso! (Confiança: ${analise.confianca}%)\n${analise.descricao}`
-                    });
-
-                } catch (error) {
-                    console.error('❌ Erro ao analisar corpo:', error);
-                    setMessage({
-                        type: 'error',
-                        text: 'Foto enviada, mas erro ao analisar corpo. Você pode preencher os dados manualmente.'
-                    });
-                }
+                // Fazer a análise da foto
+                await analisarFotoCorporal(base64String);
             };
             reader.readAsDataURL(file);
+        }
+    };
+
+    // ✅ NOVO: Handler para câmera CameraCaptureScreen
+    const handleCameraMeasurements = async (measurements: DetectedMeasurements, photoBase64: string) => {
+        console.log('📸 [ProfilePage] Câmera: Medidas capturadas:', measurements);
+
+        // 1. Salvar a foto e medidas no estado
+        setFormData(prev => ({
+            ...prev,
+            foto_corpo: photoBase64,
+            altura_cm: measurements.height_cm || prev.altura_cm,
+            medidas: {
+                ...prev.medidas,
+                altura: measurements.height_cm || prev.medidas.altura,
+                busto: measurements.chest_cm || prev.medidas.busto,
+                cintura: measurements.waist_cm || prev.medidas.cintura,
+                quadril: measurements.hips_cm || prev.medidas.quadril,
+            }
+        }));
+
+        // 2. Fechar modal da câmera
+        setShowCamera(false);
+
+        // 3. Mostrar mensagem de sucesso
+        setMessage({ type: 'success', text: '✅ Medidas capturadas! Clique em "Salvar Alterações" para confirmar.' });
+    };
+
+    // ✅ Função centralizada para análise de foto
+    const analisarFotoCorporal = async (base64String: string) => {
+
+        // ✅ NOVO: Chamar API describe_body assim que foto é enviada
+        try {
+            console.log('📸 Enviando foto para análise do corpo...');
+            const response = await api.post('/api/usuario/descrever-corpo', {
+                foto_base64: base64String
+            });
+
+            console.log('✅ Análise do corpo recebida:', response.data);
+
+            const { analise } = response.data;
+
+            console.log('📋 ============ DADOS DA ANÁLISE RECEBIDOS ============');
+            console.log('Sexo:', analise.sexo);
+            console.log('Altura:', analise.altura_estimada_cm);
+            console.log('Tipo de Corpo:', analise.tipo_corpo);
+            console.log('Medidas:', analise.medidas);
+            console.log('Proporções (RAW):', analise.proporcoes);
+            console.log('  - pernas:', analise.proporcoes?.pernas);
+            console.log('  - torso:', analise.proporcoes?.torso);
+            console.log('  - ombros_vs_quadril:', analise.proporcoes?.ombros_vs_quadril);
+            console.log('  - confidence:', analise.proporcoes?.confidence);
+            console.log('Confiança:', analise.confianca);
+            console.log('📋 ============ FIM DOS DADOS ============');
+
+            // Atualizar formulário com dados da análise
+            setFormData(prev => {
+                const novoFormData = {
+                    ...prev,
+                    sexo: analise.sexo || prev.sexo,
+                    altura_cm: analise.altura_estimada_cm || prev.altura_cm,
+                    tipo_corpo: analise.tipo_corpo || prev.tipo_corpo,
+                    medidas: {
+                        ...prev.medidas,
+                        // Medidas básicas
+                        busto: analise.medidas?.busto || prev.medidas.busto,
+                        cintura: analise.medidas?.cintura || prev.medidas.cintura,
+                        quadril: analise.medidas?.quadril || prev.medidas.quadril,
+                        altura: analise.medidas?.altura || prev.medidas.altura,
+                        // Medidas superiores
+                        pescoco: analise.medidas?.pescoco || prev.medidas.pescoco || 0,
+                        ombro: analise.medidas?.ombro || prev.medidas.ombro || 0,
+                        braco: analise.medidas?.braco || prev.medidas.braco || 0,
+                        antebraco: analise.medidas?.antebraco || prev.medidas.antebraco || 0,
+                        pulso: analise.medidas?.pulso || prev.medidas.pulso || 0,
+                        torax: analise.medidas?.torax || prev.medidas.torax || 0,
+                        sobpeito: analise.medidas?.sobpeito || prev.medidas.sobpeito || 0,
+                        costelas: analise.medidas?.costelas || prev.medidas.costelas || 0,
+                        // Medidas inferiores
+                        coxa: analise.medidas?.coxa || prev.medidas.coxa || 0,
+                        panturrilha: analise.medidas?.panturrilha || prev.medidas.panturrilha || 0,
+                        tornozelo: analise.medidas?.tornozelo || prev.medidas.tornozelo || 0,
+                        // Comprimentos
+                        comprimento_torso: analise.medidas?.comprimento_torso || prev.medidas.comprimento_torso || 0,
+                        comprimento_perna: analise.medidas?.comprimento_perna || prev.medidas.comprimento_perna || 0,
+                        comprimento_braco: analise.medidas?.comprimento_braco || prev.medidas.comprimento_braco || 0
+                    },
+                    proporcoes: {
+                        ...prev.proporcoes,
+                        pernas: analise.proporcoes?.pernas || prev.proporcoes?.pernas,
+                        torso: analise.proporcoes?.torso || prev.proporcoes?.torso,
+                        ombros_vs_quadril: analise.proporcoes?.ombros_vs_quadril || prev.proporcoes?.ombros_vs_quadril,
+                        confidence: analise.confianca || prev.proporcoes?.confidence
+                    }
+                };
+                console.log('📝 FormData após setFormData (proporcoes):', novoFormData.proporcoes);
+
+                // 🔄 AUTO-SAVE: Salvar dados automaticamente após análise
+                setTimeout(() => salvarDadosAnalise(novoFormData), 500);
+
+                return novoFormData;
+            });
+
+            setMessage({
+                type: 'success',
+                text: `✅ Corpo analisado com sucesso! (Confiança: ${analise.confianca}%)\n${analise.descricao}`
+            });
+
+        } catch (error) {
+            console.error('❌ Erro ao analisar corpo:', error);
+            setMessage({
+                type: 'error',
+                text: 'Foto enviada, mas erro ao analisar corpo. Você pode preencher os dados manualmente.'
+            });
+        }
+    };
+
+    // 🔄 Função auxiliar para salvar dados da análise
+    const salvarDadosAnalise = async (dadosParaSalvar: UserProfileData) => {
+        try {
+            console.log('💾 Salvando dados da análise no banco de dados...');
+            setSaving(true);
+
+            const payload = {
+                nome: dadosParaSalvar.nome,
+                cpf: dadosParaSalvar.cpf,
+                sexo: dadosParaSalvar.sexo,
+                altura_cm: dadosParaSalvar.altura_cm,
+                tipo_corpo: dadosParaSalvar.tipo_corpo,
+                estilo_pessoal: dadosParaSalvar.estilo_pessoal,
+                foto_corpo: dadosParaSalvar.foto_corpo,
+                medidas: {
+                    busto: dadosParaSalvar.medidas.busto,
+                    cintura: dadosParaSalvar.medidas.cintura,
+                    quadril: dadosParaSalvar.medidas.quadril,
+                    altura: dadosParaSalvar.medidas.altura,
+                    pescoco: dadosParaSalvar.medidas.pescoco,
+                    ombro: dadosParaSalvar.medidas.ombro,
+                    braco: dadosParaSalvar.medidas.braco,
+                    antebraco: dadosParaSalvar.medidas.antebraco,
+                    pulso: dadosParaSalvar.medidas.pulso,
+                    torax: dadosParaSalvar.medidas.torax,
+                    sobpeito: dadosParaSalvar.medidas.sobpeito,
+                    costelas: dadosParaSalvar.medidas.costelas,
+                    panturrilha: dadosParaSalvar.medidas.panturrilha,
+                    coxa: dadosParaSalvar.medidas.coxa,
+                    tornozelo: dadosParaSalvar.medidas.tornozelo,
+                    comprimento_torso: dadosParaSalvar.medidas.comprimento_torso,
+                    comprimento_perna: dadosParaSalvar.medidas.comprimento_perna,
+                    comprimento_braco: dadosParaSalvar.medidas.comprimento_braco
+                },
+                proporcoes: {
+                    pernas: dadosParaSalvar.proporcoes?.pernas,
+                    torso: dadosParaSalvar.proporcoes?.torso,
+                    ombros_vs_quadril: dadosParaSalvar.proporcoes?.ombros_vs_quadril,
+                    confidence: dadosParaSalvar.proporcoes?.confidence
+                }
+            };
+
+            await api.put('/api/usuario/medidas', payload);
+            console.log('✅ Dados salvos com sucesso!');
+            setMessage({ type: 'success', text: '✅ Perfil atualizado com sucesso!' });
+        } catch (error) {
+            console.error("❌ Erro ao salvar análise:", error);
+            setMessage({ type: 'error', text: 'Erro ao salvar perfil. Tente novamente.' });
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -398,45 +494,64 @@ const ProfilePage: React.FC = () => {
 
                 {/* Seção Foto de Corpo Inteiro */}
                 <div className="border-t border-gray-200 pt-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">📸 Foto de Corpo Inteiro</h3>
-                    <div className="p-4 bg-gray-50 border border-dashed border-gray-300 rounded-lg">
-                        <div className="flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-4">
-                            {/* Visualização da imagem (Preview) */}
-                            <div className="h-48 w-36 bg-gray-200 rounded overflow-hidden flex-shrink-0 border border-gray-300">
-                                {formData.foto_corpo ? (
-                                    <img
-                                        src={formData.foto_corpo}
-                                        alt="Preview"
-                                        className="h-full w-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="h-full w-full flex items-center justify-center text-gray-400">
-                                        <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Botões de upload */}
-                            <div className="flex flex-col space-y-2">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Enviar Foto</label>
-                                <div className="flex flex-col space-y-2">
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleImageChange}
-                                        className="block text-sm text-gray-500
-                                            file:mr-4 file:py-2 file:px-4
-                                            file:rounded-md file:border-0
-                                            file:text-sm file:font-semibold
-                                            file:bg-blue-50 file:text-blue-700
-                                            hover:file:bg-blue-100 cursor-pointer"
-                                    />
-                                    <p className="text-xs text-gray-500">JPG, PNG (máx 5MB)</p>
+                    <h3 className="text-lg font-bold text-gray-900 mb-6">📸 Foto de Corpo Inteiro</h3>
+                    <div className="flex flex-col items-center gap-4">
+                        {/* Preview da Imagem */}
+                        <div className="w-40 h-56 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden border-2 border-gray-300 shadow-md">
+                            {formData.foto_corpo ? (
+                                <img
+                                    src={formData.foto_corpo}
+                                    alt="Preview"
+                                    className="h-full w-full object-cover"
+                                />
+                            ) : (
+                                <div className="h-full w-full flex items-center justify-center text-gray-400">
+                                    <svg className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
                                 </div>
-                            </div>
+                            )}
                         </div>
+
+                        {/* Título */}
+                        <h4 className="text-base font-semibold text-gray-800">Editar foto</h4>
+
+                        {/* Botões lado a lado */}
+                        <div className="flex gap-3 justify-center w-full max-w-md">
+                            {/* Botão Galeria */}
+                            <label className="flex-1 relative inline-flex cursor-pointer">
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageChange}
+                                    className="sr-only"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => (document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
+                                    className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2"
+                                >
+                                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    Galeria
+                                </button>
+                            </label>
+
+                            {/* Botão Câmera */}
+                            <button
+                                type="button"
+                                onClick={() => setShowCamera(true)}
+                                className="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-2"
+                            >
+                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                Câmera
+                            </button>
+                        </div>
+
                     </div>
                 </div>
 
@@ -768,6 +883,30 @@ const ProfilePage: React.FC = () => {
                     </button>
                 </div>
             </form>
+
+            {/* Modal Câmera - Fora da Form */}
+            {showCamera && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style={{ width: '100%', height: '100%' }}>
+                    <div className="w-full h-full sm:h-auto bg-white rounded-lg overflow-hidden flex flex-col" style={{ maxWidth: '1200px', maxHeight: '90vh' }}>
+                        <CameraCaptureScreen
+                            profile={{
+                                name: formData.nome || 'Usuário',
+                                style_preferences: formData.estilo_pessoal ? [formData.estilo_pessoal] : [],
+                                body_shape: formData.tipo_corpo || '',
+                                body_measurements: {
+                                    chest_cm: formData.medidas.busto,
+                                    waist_cm: formData.medidas.cintura,
+                                    hips_cm: formData.medidas.quadril,
+                                    height_cm: formData.medidas.altura,
+                                },
+                                photo_base64: formData.foto_corpo || '',
+                            }}
+                            onMeasurementsCaptured={handleCameraMeasurements}
+                            onClose={() => setShowCamera(false)}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

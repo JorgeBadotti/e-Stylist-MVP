@@ -63,6 +63,7 @@ export const updateBodyData = async (req, res) => {
                 cintura: medidas.cintura ? Number(medidas.cintura) : undefined,
                 quadril: medidas.quadril ? Number(medidas.quadril) : undefined,
                 altura: medidas.altura ? Number(medidas.altura) : undefined,
+                peso_kg: medidas.peso_kg ? Number(medidas.peso_kg) : undefined,
 
                 // Medidas superiores
                 pescoco: medidas.pescoco ? Number(medidas.pescoco) : undefined,
@@ -199,7 +200,7 @@ export const describeBody = async (req, res) => {
 
         // Obter o modelo Gemini para análise de imagens
         const model = genAIClient.getGenerativeModel({
-            model: 'gemini-2.0-flash-exp'
+            model: 'gemini-2.5-flash-image'
         });
 
         // Carregar prompt do arquivo analyze_body.md
@@ -226,7 +227,34 @@ export const describeBody = async (req, res) => {
             throw new Error('Não foi possível extrair JSON da análise do corpo');
         }
 
-        const analise = JSON.parse(jsonMatch[0]);
+        // ✅ NOVO: Limpar e validar JSON antes de fazer parse
+        let jsonString = jsonMatch[0];
+
+        // Remove quebras de linha dentro de strings e valores
+        jsonString = jsonString.replace(/\n/g, ' ');
+
+        // Remove espaços excessivos
+        jsonString = jsonString.replace(/\s+/g, ' ');
+
+        // Fix: Adiciona } faltando antes de fechamento indevido
+        // Exemplo: "armLength": 60"\n", → "armLength": 60}
+        jsonString = jsonString.replace(/(\d+)\s*"\s*,/g, '$1,');
+
+        // Remove "" duplos que podem estar causando problemas
+        jsonString = jsonString.replace(/""/g, '"');
+
+        let analise;
+        try {
+            analise = JSON.parse(jsonString);
+        } catch (parseError) {
+            console.error('❌ Erro ao fazer parse do JSON. String original:');
+            console.error(jsonString);
+            console.error('Erro:', parseError.message);
+
+            // Tentar extrair manualmente os dados principais se o JSON estiver quebrado
+            throw new Error(`Falha ao processar análise do corpo: ${parseError.message}`);
+        }
+
         console.log('✅ [describeBody] Análise JSON Parseada:');
         console.log(JSON.stringify(analise, null, 2));
         console.log('✅ [describeBody] Proporções recebidas:', analise.proportions);

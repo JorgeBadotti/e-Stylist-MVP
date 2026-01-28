@@ -49,11 +49,6 @@ Analise a FOTO DO CORPO INTEIRO fornecida e estime todas as medidas antropomórf
 - balanced: Proporção equilibrada
 - longo: Tronco notavelmente mais longo que as pernas
 
-**Proporção Ombros vs Quadril (CRÍTICA - OBRIGATÓRIA):**
-- ombros_largos: Largura de ombros > circunferência do quadril
-- balanced: Largura de ombros ≈ circunferência do quadril
-- quadril_largo: Circunferência do quadril > largura de ombros
-
 **Proporção Ombros vs Quadril:**
 - ombros_largos: Ombros notavelmente mais largos que quadril
 - balanced: Proporções equilibradas

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import api from '../src/services/api';
 
 interface LookItem {
     id?: string;
+    _id?: string;  // ✅ Adicionado para items do Mongoose
     sku?: string;
     nome: string;
     foto?: string;
@@ -39,7 +41,10 @@ const ViewLook: React.FC<ViewLookProps> = ({
     isLoading = false
 }) => {
     // Estado para controlar a visibilidade dos detalhes (UX: permitir ver a foto limpa)
-    const [showDetails, setShowDetails] = useState(true);
+    const [showDetails, setShowDetails] = useState(false); // Começa minimizado
+    const [showItems, setShowItems] = useState(false); // Mostrar/ocultar itens
+    const [addingToCart, setAddingToCart] = useState<string | null>(null); // Track qual item está sendo adicionado
+    const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set()); // Track items recentemente adicionados
 
     // 🔍 LOG DEBUG: Verificar os itens e SKUs
     useEffect(() => {
@@ -66,6 +71,88 @@ const ViewLook: React.FC<ViewLookProps> = ({
         return `${window.location.origin}/produtos/${skuStyleMe}`;
     };
 
+    // ✅ Adicionar item ao carrinho
+    const handleAddToCart = async (item: LookItem) => {
+        const itemId = item.id || item._id;  // ✅ Tenta id primeiro, depois _id (Mongoose)
+        if (!itemId || !item.skuStyleMe) {
+            console.warn('Item sem id ou skuStyleMe', item);
+            return;
+        }
+
+        setAddingToCart(item.skuStyleMe);
+        try {
+            const response = await api.post('/api/carrinhos/adicionar-item', {
+                produtoId: itemId,
+                skuStyleMe: item.skuStyleMe,
+                quantidade: 1
+            });
+
+            console.log('✅ Item adicionado ao carrinho:', response.data);
+
+            // ✅ Mostrar feedback de sucesso
+            setRecentlyAdded(prev => new Set(prev).add(item.skuStyleMe));
+            setTimeout(() => {
+                setRecentlyAdded(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(item.skuStyleMe);
+                    return newSet;
+                });
+            }, 3000);
+        } catch (error: any) {
+            console.error('❌ Erro ao adicionar ao carrinho:', error);
+            const errorMsg = error.response?.data?.message || 'Erro ao adicionar ao carrinho';
+            console.error('Mensagem de erro:', errorMsg);
+        } finally {
+            setAddingToCart(null);
+        }
+    };
+
+    // ✅ Adicionar LOOK TODO ao carrinho
+    const handleAddLookToCart = async () => {
+        if (!lookItems || lookItems.length === 0) {
+            console.warn('Nenhum item no look');
+            return;
+        }
+
+        setAddingToCart('_look_'); // ✅ Flag especial para todo o look
+        try {
+            const validItems = lookItems.filter(item => !item._deletado && (item.id || item._id));
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const item of validItems) {
+                const itemId = item.id || item._id;
+                try {
+                    await api.post('/api/carrinhos/adicionar-item', {
+                        produtoId: itemId,
+                        skuStyleMe: item.skuStyleMe,
+                        quantidade: 1
+                    });
+                    successCount++;
+                } catch (err) {
+                    errorCount++;
+                    console.error(`❌ Erro ao adicionar ${item.nome}:`, err);
+                }
+            }
+
+            console.log(`✅ Look adicionado ao carrinho: ${successCount} itens | Erros: ${errorCount}`);
+
+            // ✅ Mostrar feedback de sucesso
+            setRecentlyAdded(prev => new Set(prev).add('_look_'));
+            setTimeout(() => {
+                setRecentlyAdded(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete('_look_');
+                    return newSet;
+                });
+            }, 3000);
+        } catch (error: any) {
+            console.error('❌ Erro ao adicionar look ao carrinho:', error);
+        } finally {
+            setAddingToCart(null);
+        }
+    };
+
     return (
         <div className="relative w-full h-screen overflow-hidden bg-slate-950">
             {/* 1. LAYER DE AMBIENTE (BACKGROUND)
@@ -78,202 +165,257 @@ const ViewLook: React.FC<ViewLookProps> = ({
             />
 
             {/* 2. LAYER PRINCIPAL (A FOTO) 
-                Ocupa o máximo de espaço possível. Object-contain garante que o look inteiro apareça.
+                Ocupa 100% da tela (cover mode).
             */}
-            <div className="relative z-10 w-full h-full flex items-center justify-center p-4 lg:p-8">
+            <div className="absolute inset-0 z-10 flex items-center justify-center">
                 <img
                     src={lookImage}
                     alt={lookName}
-                    className="max-h-full max-w-full w-auto h-auto object-contain drop-shadow-2xl rounded-lg animate-in fade-in zoom-in duration-500"
+                    className="w-full h-full object-cover drop-shadow-2xl animate-in fade-in zoom-in duration-500"
                 />
             </div>
 
-            {/* TOGGLE VISIBILITY BUTTON (UX: Controle do usuário) 
-                Permite limpar a tela para ver apenas o look.
-            */}
-            <button
-                onClick={() => setShowDetails(!showDetails)}
-                className="absolute top-6 right-6 z-30 p-3 rounded-full bg-black/20 hover:bg-black/40 backdrop-blur-md text-white border border-white/10 transition-all active:scale-95"
-                title={showDetails ? "Ocultar informações" : "Mostrar informações"}
-            >
-                {showDetails ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.05 10.05 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29" /></svg>
-                )}
-            </button>
+            {/* 3. PANEL DE DESCRIÇÃO (Desliza do topo para baixo) */}
+            <div className={`absolute top-0 left-0 right-0 z-30 transition-transform duration-500 ${showDetails ? 'translate-y-0' : '-translate-y-full'}`}>
+                <div className="bg-gradient-to-b from-black/95 via-black/80 to-black/60 backdrop-blur-md border-b border-white/10 p-6 max-h-96 overflow-y-auto">
+                    <div className="space-y-4 max-w-2xl mx-auto">
+                        {/* Fechar */}
+                        <button
+                            onClick={() => setShowDetails(false)}
+                            className="float-right text-gray-400 hover:text-white transition-colors"
+                            title="Fechar descrição"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7-7m0 0L5 14m7-7v12" />
+                            </svg>
+                        </button>
 
-            {/* 3. LAYER DE INFORMAÇÃO (UI FLUTUANTE) 
-                Glassmorphism (Vidro Fosco). Fica na lateral ou embaixo, dependendo da tela.
-            */}
-            <div className={`absolute bottom-0 left-0 lg:left-auto lg:right-0 lg:top-0 lg:h-full w-full lg:w-[450px] z-20 transition-transform duration-500 ease-in-out ${showDetails ? 'translate-y-0 lg:translate-x-0' : 'translate-y-[120%] lg:translate-y-0 lg:translate-x-[120%]'}`}>
-
-                <div className="h-full flex flex-col justify-end lg:justify-center p-6 lg:p-12 bg-gradient-to-t from-black/90 via-black/60 to-transparent lg:bg-gradient-to-l lg:from-slate-950/90 lg:via-slate-900/80 lg:to-transparent">
-
-                    {/* Cartão de Vidro */}
-                    <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-3xl p-6 lg:p-8 shadow-2xl relative overflow-hidden group">
-
-                        {/* Efeito Glow decorativo */}
-                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-purple-500/30 rounded-full blur-3xl group-hover:bg-purple-500/40 transition-colors"></div>
-
-                        <div className="relative space-y-6">
-                            {/* Header Compacto */}
-                            <div className="flex items-center justify-between">
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/30 text-xs font-bold text-purple-200 uppercase tracking-wide">
-                                    ✨ Visual Gerado
-                                </span>
-                                {/* Features Icons Row */}
-                                <div className="flex gap-2">
-                                    <div className="p-1.5 rounded-lg bg-white/5 text-gray-400" title="Salvo">
-                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Conteúdo de Texto */}
-                            <div>
-                                <h1 className="text-3xl lg:text-4xl font-black text-white mb-3 leading-tight tracking-tight">
-                                    {lookName}
-                                </h1>
-                                {lookExplanation && (
-                                    <p className="text-base text-gray-300 leading-relaxed font-light border-l-2 border-purple-500/50 pl-4">
-                                        {lookExplanation}
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Peças do Look - Grid Criativo */}
-                            {lookItems && lookItems.length > 0 && (
-                                <div className="pt-2">
-                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M5 3a2 2 0 00-2 2v6h6V5a2 2 0 00-2-2H5zm6 0a2 2 0 00-2 2v6h6V5a2 2 0 00-2-2h-2zm6 0a2 2 0 00-2 2v6h2a2 2 0 002-2V5a2 2 0 00-2-2zm-10 8H3v6a2 2 0 002 2h2v-8zm6 0h-6v8h6v-8zm6 0h-2v8h2a2 2 0 002-2v-6z" />
-                                        </svg>
-                                        {lookItems.length} Peça{lookItems.length !== 1 ? 's' : ''} Utilizadas
-                                    </h3>
-
-                                    {/* Lista vertical com detalhes */}
-                                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                                        {lookItems.map((item, idx) => (
-                                            <a
-                                                key={idx}
-                                                href="#"
-                                                rel="noopener noreferrer"
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    if (item.skuStyleMe && onProductClick) {
-                                                        onProductClick(item.skuStyleMe);
-                                                    }
-                                                }}
-                                                className={`group relative flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${item._deletado
-                                                    ? 'bg-red-500/5 border-red-500/20 opacity-60 cursor-not-allowed'
-                                                    : item.skuStyleMe
-                                                        ? 'bg-white/5 border-white/10 hover:border-purple-500/50 hover:bg-white/10 hover:shadow-lg hover:shadow-purple-500/20'
-                                                        : 'bg-white/5 border-white/10'
-                                                    }`}
-                                            >
-                                                {/* Miniatura */}
-                                                <div className="w-10 h-10 rounded-md bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center flex-shrink-0 overflow-hidden border border-white/10">
-                                                    {item.foto ? (
-                                                        <img
-                                                            src={item.foto}
-                                                            alt={item.nome}
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <span className="text-xs opacity-50">👕</span>
-                                                    )}
-                                                </div>
-
-                                                {/* Info do Item */}
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-semibold text-white truncate">
-                                                        {item.nome}
-                                                        {item._deletado && (
-                                                            <span className="ml-2 text-xs text-red-400 font-normal">(deletado)</span>
-                                                        )}
-                                                    </p>
-
-                                                    {/* Detalhe: Cor + Tamanho */}
-                                                    <div className="flex gap-2 mt-1 text-xs text-gray-400">
-                                                        {item.cor && (
-                                                            <span className="flex items-center gap-1">
-                                                                <span className="w-2 h-2 rounded-full bg-gray-400" />
-                                                                {item.cor}
-                                                            </span>
-                                                        )}
-                                                        {item.tamanho && (
-                                                            <span>P: {item.tamanho}</span>
-                                                        )}
-                                                        {item.categoria && (
-                                                            <span className="text-purple-300/70">{item.categoria}</span>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Detalhes opcionais do corpo */}
-                                                    {(item.layer_role || item.fit) && (
-                                                        <div className="flex gap-1.5 mt-1 text-xs">
-                                                            {item.layer_role && (
-                                                                <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                                                                    {item.layer_role}
-                                                                </span>
-                                                            )}
-                                                            {item.fit && (
-                                                                <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                                                    {item.fit}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Badge de SKU no hover */}
-                                                {item.skuStyleMe ? (
-                                                    <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <span className="text-xs text-green-400 font-mono bg-white/5 px-2 py-1 rounded border border-green-500/30 bg-green-500/10">
-                                                            ✓ {item.skuStyleMe}
-                                                        </span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <span className="text-xs text-yellow-400 font-mono bg-white/5 px-2 py-1 rounded border border-yellow-500/30 bg-yellow-500/10">
-                                                            ⚠ Sem SKU
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </a>
-                                        ))}
-                                    </div>
-                                </div>
+                        <div className="clear-both">
+                            <h2 className="text-2xl font-bold text-white mb-2">{lookName}</h2>
+                            {lookExplanation && (
+                                <p className="text-sm text-gray-300 leading-relaxed border-l-2 border-purple-500/50 pl-4">
+                                    {lookExplanation}
+                                </p>
                             )}
+                        </div>
 
-                            {/* Ações Primárias - Grandes e Clicáveis (Lei de Fitts) */}
-                            <div className="pt-4 space-y-3">
+                        {/* Ações */}
+                        <div className="pt-2 space-y-2 flex gap-2">
+                            <button
+                                onClick={onGenerateNew}
+                                disabled={isLoading}
+                                className="flex-1 bg-white text-black font-bold py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors text-sm disabled:opacity-50"
+                            >
+                                ✨ Gerar Nova
+                            </button>
+                            {onBack && (
                                 <button
-                                    onClick={onGenerateNew}
+                                    onClick={onBack}
                                     disabled={isLoading}
-                                    className="w-full relative group overflow-hidden rounded-xl bg-white text-black font-bold py-4 px-6 shadow-lg shadow-purple-900/20 hover:shadow-purple-500/40 hover:scale-[1.02] transition-all duration-300 active:scale-95 disabled:opacity-50"
+                                    className="flex-1 bg-white/10 text-white font-medium py-2 px-4 rounded-lg hover:bg-white/20 transition-colors text-sm border border-white/20"
                                 >
-                                    <div className="absolute inset-0 bg-gradient-to-r from-purple-200 via-pink-200 to-purple-200 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                                    <span className="relative flex items-center justify-center gap-2">
-                                        <span className="text-lg">✨ Gerar Nova Combinação</span>
-                                    </span>
+                                    Voltar
                                 </button>
-
-                                {onBack && (
-                                    <button
-                                        onClick={onBack}
-                                        disabled={isLoading}
-                                        className="w-full rounded-xl py-3 px-6 font-medium text-gray-400 hover:text-white hover:bg-white/10 transition-colors text-sm border border-transparent hover:border-white/10"
-                                    >
-                                        Voltar para seleção
-                                    </button>
-                                )}
-                            </div>
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Toggle para expandir descrição (visível quando minimizado) */}
+            {!showDetails && (
+                <button
+                    onClick={() => setShowDetails(true)}
+                    className="absolute top-6 right-6 z-20 p-3 rounded-lg bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/10 transition-all active:scale-95 font-medium text-sm"
+                    title="Abrir descrição"
+                >
+                    {lookName}
+                </button>
+            )}
+
+            {/* 4. SEÇÃO DE ITENS (Desliza da esquerda para direita) */}
+            {lookItems && lookItems.length > 0 && (
+                <div className={`absolute left-0 top-0 bottom-0 z-40 w-80 transition-transform duration-500 ${showItems ? 'translate-x-0' : '-translate-x-full'}`}>
+                    <div className="h-full bg-gradient-to-r from-black/95 via-black/80 to-black/60 backdrop-blur-md border-r border-white/10 flex flex-col">
+                        {/* Header do painel */}
+                        <div className="bg-black/70 border-b border-white/10 p-4 flex items-center justify-between">
+                            <span className="flex items-center gap-2 text-white font-semibold text-sm">
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M5 3a2 2 0 00-2 2v6h6V5a2 2 0 00-2-2H5zm6 0a2 2 0 00-2 2v6h6V5a2 2 0 00-2-2h-2zm6 0a2 2 0 00-2 2v6h2a2 2 0 002-2V5a2 2 0 00-2-2zm-10 8H3v6a2 2 0 002 2h2v-8zm6 0h-6v8h6v-8zm6 0h-2v8h2a2 2 0 002-2v-6z" />
+                                </svg>
+                                {lookItems.length} Peça{lookItems.length !== 1 ? 's' : ''}
+                            </span>
+                            <button
+                                onClick={() => setShowItems(false)}
+                                className="text-gray-400 hover:text-white transition-colors p-1"
+                                title="Fechar peças"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* BOTÃO: Adicionar Look Todo à Sacola (NO TOPO) */}
+                        <div className="bg-black/50 border-b border-white/10 px-3 py-2">
+                            <button
+                                onClick={handleAddLookToCart}
+                                disabled={addingToCart === '_look_'}
+                                className={`w-full px-4 py-3 text-sm font-bold transition-all rounded-lg flex items-center justify-center gap-2 ${recentlyAdded.has('_look_')
+                                        ? 'bg-gray-600 text-gray-200'
+                                        : 'text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed'
+                                    }`}
+                            >
+                                {recentlyAdded.has('_look_') ? (
+                                    <span>Adicionado a sacola!!</span>
+                                ) : addingToCart === '_look_' ? (
+                                    <>
+                                        <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
+                                        <span>Adicionando Look...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                        </svg>
+                                        <span>Adicionar Look à Sacola</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+
+                        {/* Divisor */}
+                        <div className="h-px bg-white/10" />
+
+                        {/* Lista de itens com scroll */}
+                        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                            {lookItems.map((item, idx) => (
+                                <div
+                                    key={idx}
+                                    className={`rounded-lg border overflow-hidden transition-all ${item._deletado
+                                        ? 'bg-red-500/5 border-red-500/20 opacity-60'
+                                        : 'bg-white/5 border-white/10 hover:border-purple-500/30 hover:bg-white/8'
+                                        }`}
+                                >
+                                    {/* CARD SUPERIOR: Clicável para ir ao produto */}
+                                    <a
+                                        href={item.skuStyleMe ? `${window.location.origin}/produtos/${item.skuStyleMe}` : '#'}
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => {
+                                            if (!item.skuStyleMe) e.preventDefault();
+                                            if (item.skuStyleMe && onProductClick) {
+                                                e.preventDefault();
+                                                onProductClick(item.skuStyleMe);
+                                            }
+                                        }}
+                                        className={`block p-3 transition-all ${item._deletado || !item.skuStyleMe
+                                            ? 'cursor-not-allowed'
+                                            : 'cursor-pointer'
+                                            }`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            {/* Imagem do Produto */}
+                                            <div className="w-16 h-16 rounded-md bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center flex-shrink-0 overflow-hidden border border-white/20">
+                                                {item.foto ? (
+                                                    <img
+                                                        src={item.foto}
+                                                        alt={item.nome || item.name}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <span className="text-lg opacity-50">■</span>
+                                                )}
+                                            </div>
+
+                                            {/* Info do Produto */}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold text-white truncate">
+                                                    {item.nome || item.name || 'Sem nome'}
+                                                    {item._deletado && (
+                                                        <span className="ml-2 text-xs text-red-400 font-normal">(deletado)</span>
+                                                    )}
+                                                </p>
+
+                                                {/* Detalhes: Cor + Tamanho */}
+                                                <div className="flex gap-2 mt-1 text-xs text-gray-400">
+                                                    {item.cor && (
+                                                        <span className="flex items-center gap-1">
+                                                            <span className="w-2 h-2 rounded-full bg-gray-400" />
+                                                            {item.cor}
+                                                        </span>
+                                                    )}
+                                                    {item.tamanho && (
+                                                        <span className="text-gray-500">P: {item.tamanho}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Seta para indicar ação */}
+                                            {item.skuStyleMe && !item._deletado && (
+                                                <div className="flex items-center justify-center flex-shrink-0">
+                                                    <svg className="w-4 h-4 text-purple-400/60 group-hover:text-purple-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </a>
+
+                                    {/* SEPARADOR */}
+                                    {!item._deletado && (
+                                        <div className="h-px bg-white/5" />
+                                    )}
+
+                                    {/* BOTÃO SACOLA: Abaixo, mas ainda no card */}
+                                    {!item._deletado && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                handleAddToCart(item);
+                                            }}
+                                            disabled={addingToCart === item.skuStyleMe}
+                                            className={`w-full px-3 py-2 text-sm font-medium transition-all flex items-center justify-center gap-2 ${recentlyAdded.has(item.skuStyleMe)
+                                                    ? 'bg-gray-600 text-gray-200'
+                                                    : 'text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed'
+                                                }`}
+                                        >
+                                            {recentlyAdded.has(item.skuStyleMe) ? (
+                                                <span>Adicionado a sacola!!</span>
+                                            ) : addingToCart === item.skuStyleMe ? (
+                                                <>
+                                                    <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full" />
+                                                    <span>Adicionando...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                                    </svg>
+                                                    <span>Adicionar à Sacola</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Toggle para expandir peças (visível quando minimizado) */}
+            {!showItems && lookItems && lookItems.length > 0 && (
+                <button
+                    onClick={() => setShowItems(true)}
+                    className="absolute top-6 left-6 z-20 p-3 rounded-lg bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/10 transition-all active:scale-95 font-medium text-sm flex items-center gap-2"
+                    title="Abrir peças"
+                >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M5 3a2 2 0 00-2 2v6h6V5a2 2 0 00-2-2H5zm6 0a2 2 0 00-2 2v6h6V5a2 2 0 00-2-2h-2zm6 0a2 2 0 00-2 2v6h2a2 2 0 002-2V5a2 2 0 00-2-2zm-10 8H3v6a2 2 0 002 2h2v-8zm6 0h-6v8h6v-8zm6 0h-2v8h2a2 2 0 002-2v-6z" />
+                    </svg>
+                    {lookItems.length} Peça{lookItems.length !== 1 ? 's' : ''}
+                </button>
+            )}
         </div>
     );
 };

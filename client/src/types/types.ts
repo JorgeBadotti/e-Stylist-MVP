@@ -134,6 +134,7 @@ export interface DetectedMeasurements {
   waist_cm: number;
   hips_cm: number;
   height_cm: number;
+  weight_kg: number;
   confidence: number; // 0.0 to 1.0
 }
 

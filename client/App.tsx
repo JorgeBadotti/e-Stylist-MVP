@@ -351,22 +351,45 @@ const AppContent: React.FC<AppContentProps> = ({
 
     // Navegação Interna
 
-    const handleProfileClick = () => { setPrivateView('profile'); setSelectedSku(null); };
-    const handleWardrobeClick = () => { setPrivateView('wardrobes'); setSelectedSku(null); };
-    const handleLooksClick = () => { setPrivateView('looks'); setSelectedSku(null); };
-    const handleMyLooksClick = () => { setPrivateView('myLooks'); setSelectedSku(null) };
+    const handleProfileClick = () => {
+        setPrivateView('profile');
+        setSelectedSku(null);
+        navigate('/profile');
+    };
+    const handleWardrobeClick = () => {
+        setPrivateView('wardrobes');
+        setSelectedSku(null);
+        navigate('/wardrobes');
+    };
+    const handleLooksClick = () => {
+        setPrivateView('looks');
+        setSelectedSku(null);
+        navigate('/looks');
+    };
+    const handleMyLooksClick = () => {
+        setPrivateView('myLooks');
+        setSelectedSku(null);
+        navigate('/my-looks');
+    };
     const handleLojaClick = () => {
         // ✅ NOVO: Rota diferente para SALESPERSON e STORE_ADMIN
         if (userData?.role === 'SALESPERSON') {
             setPrivateView('vendor-lojas');
+            navigate('/vendor-lojas');
         } else {
             setPrivateView('admin-loja');
+            navigate('/admin-loja');
         }
         setSelectedSku(null);
     };
-    const handleInvitacoesClick = () => { setPrivateView('invitacoes'); setSelectedSku(null); };
+    const handleInvitacoesClick = () => {
+        setPrivateView('invitacoes');
+        setSelectedSku(null);
+        navigate('/invitacoes');
+    };
     const handleCarrinhoClick = () => {
         setPrivateView('carrinho');
+        navigate('/carrinho');
         // Se estava vendo produto, volta para poder renderizar carrinho
         if (selectedSku) setSelectedSku(null);
     };
@@ -386,8 +409,13 @@ const AppContent: React.FC<AppContentProps> = ({
     // Voltar para Home ao clicar no Logo
     const handleLogoClick = () => {
         setSelectedSku(null); // Limpa SKU também
-        if (isAuthenticated) setPrivateView('home');
-        else setPublicView('landing');
+        if (isAuthenticated) {
+            setPrivateView('home');
+            navigate('/home');
+        } else {
+            setPublicView('landing');
+            navigate('/');
+        }
     };
 
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import './src/index.css'; // 🎨 Estilos globais e animações
 import './src/utils/fetchInterceptor'; // 🔄 Ativar interceptor de fetch para sessionId
 
 // Export UserContext para ser usado em outros componentes
