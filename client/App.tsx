@@ -5,7 +5,6 @@ import HomePage from './components/HomePage';
 import PublicHomePage from './components/PublicHomePage';
 import LoginPage from './components/Login';
 import IndiceGuardaRoupas from './components/IndiceGuardaRoupas';
-import RegisterPage from './components/Register';
 import ProfilePage from './components/ProfilePage';
 import LooksPage from './components/LooksPage';
 import MyLooksPage from './components/MyLooksPage';
@@ -16,6 +15,7 @@ import VendorLojasPage from './components/Vendor/VendorLojasPage';
 import VendorLojaPage from './components/Vendor/VendorLojaPage';
 import ProdutoDetalhe from './components/Loja/ProdutoDetalhe';
 import { LoadingScreen } from './components/LoadingScreen';
+import { PublicLayout } from './components/PublicLayout';
 import { UserContext, UserContextType } from './src/contexts/UserContext';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { PublicView, PrivateView, UserData, AppContentProps, NavbarUserData } from './types/app.types';
@@ -321,52 +321,26 @@ const AppContent: React.FC<AppContentProps> = ({
 
     // --- USUÁRIO DESLOGADO ---
     return (
-        <div className="min-h-screen bg-gray-100">
-            <Navbar
-                isAuthenticated={false}
-                user={null}
-                onLoginClick={() => setPublicView('login')}
-                onLogoutClick={() => { }}
-                onLogoClick={() => handleLogoClick(isAuthenticated)}
-                onProfileClick={() => { }}
-                onWardrobeClick={() => { }}
-                onLooksClick={() => { }}
-                onLojaClick={() => { }}
-                onMyLooksClick={() => { }}
-                onInvitacoesClick={() => { }}
-            />
-
-            {publicView === 'login' ? (
-                <LoginPage
-                    onLoginSuccess={() => fetchUserSession()}
-                    onSwitchToRegister={() => setPublicView('register')}
-                />
-            ) : publicView === 'register' ? (
-                <RegisterPage
-                    onSwitchToLogin={() => setPublicView('login')}
-                    onRegisterSuccess={(isStore: boolean) => {
-                        // ✅ ATUALIZADO: Setar redirecionando para evitar renderizar view pública
-                        console.log(`🔐 [Register] Redirecionando para ${isStore ? 'loja' : 'home'}...`);
-                        setIsRedirecting(true); // Mostra tela de carregamento
-                        fetchUserSession().then(() => {
-                            console.log('✅ [Register] Sessão recarregada');
-                            if (isStore) {
-                                setPrivateView('admin-loja');
-                            } else {
-                                setPrivateView('home');
-                            }
-                            setIsRedirecting(false); // Remove tela de carregamento
-                        });
-                    }}
-                />
-            ) : (
-                // LANDING PAGE (Home Pública)
-                <PublicHomePage
-                    onLoginClick={() => setPublicView('login')}
-                    onRegisterClick={() => setPublicView('register')}
-                />
-            )}
-        </div>
+        <PublicLayout
+            publicView={publicView}
+            setPublicView={setPublicView}
+            isAuthenticated={isAuthenticated}
+            onLoginSuccess={() => fetchUserSession()}
+            onRegisterSuccess={(isStore: boolean) => {
+                console.log(`🔐 [Register] Redirecionando para ${isStore ? 'loja' : 'home'}...`);
+                setIsRedirecting(true);
+                fetchUserSession().then(() => {
+                    console.log('✅ [Register] Sessão recarregada');
+                    if (isStore) {
+                        setPrivateView('admin-loja');
+                    } else {
+                        setPrivateView('home');
+                    }
+                    setIsRedirecting(false);
+                });
+            }}
+            onLogoClick={() => handleLogoClick(isAuthenticated)}
+        />
     );
 };
 
