@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import api from '../src/services/api';
+import api from '../../../src/services/api';
 import ViewLook from './ViewLook';
-import GuestBodyCaptureScreen from './GuestBodyCaptureScreen';
-import { DetectedMeasurements } from '../src/types/types';
+import GuestBodyCaptureScreen from '../camera/GuestBodyCaptureScreen';
+import { DetectedMeasurements } from '../../../src/types/types';
 
 interface Wardrobe {
     _id: string;

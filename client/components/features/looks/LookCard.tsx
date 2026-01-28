@@ -1,7 +1,7 @@
 import React from 'react';
 import { Look, WardrobeItem, LookHighlight, SalesPriority } from '../types';
 // Import the Button component
-import Button from './ui/Button';
+import Button from '../../ui/Button';
 
 interface LookCardProps {
   look: Look;

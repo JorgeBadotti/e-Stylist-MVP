@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { minhasColecoes, deletarColecao, GuardaRoupa } from '../../src/services/guardaRoupaService';
-import NovoGuardaRoupaModal from '../NovoGuardaRoupa';
+import NovoGuardaRoupaModal from '../features/wardrobe/NovoGuardaRoupa';
 
 interface GerenciadorColecoeProps {
   titulo?: string;
@@ -186,7 +186,7 @@ export default function GerenciadorColecoes({
                   <span>📅 {new Date(colecao.createdAt).toLocaleDateString('pt-BR')}</span>
                 </div>
 
-                <button 
+                <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onSelectColecao && onSelectColecao(colecao._id);

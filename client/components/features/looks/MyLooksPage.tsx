@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ViewLook from './ViewLook';
-import api from '../src/services/api';
+import api from '../../../src/services/api';
 
 interface LookItem {
     id: string;

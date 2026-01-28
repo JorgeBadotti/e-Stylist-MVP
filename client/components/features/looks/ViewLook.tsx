@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import api from '../src/services/api';
+import api from '../../../src/services/api';
 
 interface LookItem {
     id?: string;
@@ -262,8 +262,8 @@ const ViewLook: React.FC<ViewLookProps> = ({
                                 onClick={handleAddLookToCart}
                                 disabled={addingToCart === '_look_'}
                                 className={`w-full px-4 py-3 text-sm font-bold transition-all rounded-lg flex items-center justify-center gap-2 ${recentlyAdded.has('_look_')
-                                        ? 'bg-gray-600 text-gray-200'
-                                        : 'text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed'
+                                    ? 'bg-gray-600 text-gray-200'
+                                    : 'text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed'
                                     }`}
                             >
                                 {recentlyAdded.has('_look_') ? (
@@ -375,8 +375,8 @@ const ViewLook: React.FC<ViewLookProps> = ({
                                             }}
                                             disabled={addingToCart === item.skuStyleMe}
                                             className={`w-full px-3 py-2 text-sm font-medium transition-all flex items-center justify-center gap-2 ${recentlyAdded.has(item.skuStyleMe)
-                                                    ? 'bg-gray-600 text-gray-200'
-                                                    : 'text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed'
+                                                ? 'bg-gray-600 text-gray-200'
+                                                : 'text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed'
                                                 }`}
                                         >
                                             {recentlyAdded.has(item.skuStyleMe) ? (

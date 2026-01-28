@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { minhasInvitacoes, aceitarConvite, rejeitarConvite, Convite } from '../src/services/conviteService';
+import { minhasInvitacoes, aceitarConvite, rejeitarConvite, Convite } from '../../../src/services/conviteService';
 
 export default function MinhasInvitacoes() {
   const [convites, setConvites] = useState<Convite[]>([]);

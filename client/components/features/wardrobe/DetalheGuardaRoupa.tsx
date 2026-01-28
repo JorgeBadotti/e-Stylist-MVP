@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import api from '../src/services/api';
-import { Produto } from '../src/types/types';
+import api from '../../../src/services/api';
+import { Produto } from '../../../src/types/types';
 
 interface Roupa {
     _id: string;

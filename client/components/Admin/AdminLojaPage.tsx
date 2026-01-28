@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import Catalogo from '../Loja/Catalogo';
 import GerenciadorColecoes from '../Loja/GerenciadorColecoes';
 import VendedoresList from '../VendedoresList';
-import ConvidarVendedorModal from '../ConvidarVendedorModal';
-import CadastroProdutoSKUManual from '../CadastroProdutoSKUManual';
-import CadastroProdutoSKULotes from '../CadastroProdutoSKULotes';
-import CameraProdutoCapture from '../CameraProdutoCapture';
+import ConvidarVendedorModal from '../features/invites/ConvidarVendedorModal';
+import CadastroProdutoSKUManual from '../features/product/CadastroProdutoSKUManual';
+import CadastroProdutoSKULotes from '../features/product/CadastroProdutoSKULotes';
+import CameraProdutoCapture from '../features/camera/CameraProdutoCapture';
 import ProdutoDetalhe from '../Loja/ProdutoDetalhe';
-import DetalheGuardaRoupa from '../DetalheGuardaRoupa';
+import DetalheGuardaRoupa from '../features/wardrobe/DetalheGuardaRoupa';
 
 interface AdminLojaPageProps {
   lojaId: string;

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProdutoBySku } from '../../src/services/lojaService';
 import { Produto } from '../../src/types/types';
-import CadastroProdutoSKUManual from '../CadastroProdutoSKUManual';
+import CadastroProdutoSKUManual from '../features/product/CadastroProdutoSKUManual';
 import QRCodeModal from '../common/Modals/QRCodeModal';
 import api from '../../src/services/api';
 import { UserContext } from '../../index';

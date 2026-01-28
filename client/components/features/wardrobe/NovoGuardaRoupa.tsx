@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import api from '../src/services/api';
+import api from '../../../src/services/api';
 
 // Interface do objeto para edição
 interface GuardaRoupaData {

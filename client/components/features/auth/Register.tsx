@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import api, { API_BASE_URL } from '../src/services/api';
-import { registerStore } from '../src/services/api';
+import api, { API_BASE_URL } from '../../../src/services/api';
+import { registerStore } from '../../../src/services/api';
 
 interface PasswordStrength {
     score: number;

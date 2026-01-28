@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import { Look, ShareScope, Profile } from '../../src/types';
+import { Look, ShareScope, Profile } from '../../../src/types/types';
 import Button from '../../ui/Button';
-import { eStylistService } from '../../src/services/eStylistService';
+import { eStylistService } from '../../../src/services/eStylistService';
 import Alert from '../../ui/Alert';
 
 interface ShareOptionsModalProps {

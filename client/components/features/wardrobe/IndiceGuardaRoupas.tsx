@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import GerenciadorColecoes from './Loja/GerenciadorColecoes';
+import GerenciadorColecoes from '../../Loja/GerenciadorColecoes';
 import DetalheGuardaRoupa from './DetalheGuardaRoupa';
 
 const IndiceGuardaRoupas: React.FC = () => {
@@ -34,10 +34,10 @@ const IndiceGuardaRoupas: React.FC = () => {
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
             {/* SEÇÃO: MEUS GUARDAROUPAS (Usando componente reutilizável) */}
-            <GerenciadorColecoes 
-              titulo="👗 Meus Guarda-Roupas" 
-              mostraBotaoCriar={true}
-              onSelectColecao={setSelectedGuardaRoupaId}
+            <GerenciadorColecoes
+                titulo="👗 Meus Guarda-Roupas"
+                mostraBotaoCriar={true}
+                onSelectColecao={setSelectedGuardaRoupaId}
             />
 
             {/* SEÇÃO: GUARDAROUPAS PÚBLICOS */}

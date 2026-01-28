@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 // Importa a instância configurada do Axios e a URL base para redirecionamentos
-import api, { API_BASE_URL } from '../src/services/api';
+import api, { API_BASE_URL } from '../../../src/services/api';
 
 interface LoginPageProps {
     onLoginSuccess: () => void;

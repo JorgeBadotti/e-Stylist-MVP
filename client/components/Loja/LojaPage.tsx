@@ -1,9 +1,9 @@
 import React, { useState, useContext } from 'react';
 import Catalogo from './Catalogo';
 import VendedoresList from '../VendedoresList';
-import ConvidarVendedorModal from '../ConvidarVendedorModal';
-import CadastroProdutoSKU from '../CadastroProdutoSKU';
-import CameraProdutoCapture from '../CameraProdutoCapture';
+import ConvidarVendedorModal from '../features/invites/ConvidarVendedorModal';
+import CadastroProdutoSKU from '../features/product/CadastroProdutoSKU';
+import CameraProdutoCapture from '../features/camera/CameraProdutoCapture';
 import { UserContext } from '../../index';
 
 interface LojaPageProps {

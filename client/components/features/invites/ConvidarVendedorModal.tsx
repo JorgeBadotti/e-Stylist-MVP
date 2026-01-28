@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { enviarConvite } from '../src/services/conviteService';
+import { enviarConvite } from '../../../src/services/conviteService';
 import './ConvidarVendedorModal.css';
 
 interface ConvidarVendedorModalProps {

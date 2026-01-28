@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import api from '../src/services/api';
+import api from '../../../src/services/api';
 
 interface ProdutoDetalhes {
     _id: string;
