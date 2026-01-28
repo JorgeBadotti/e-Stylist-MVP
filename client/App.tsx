@@ -18,6 +18,7 @@ import ProdutoDetalhe from './components/Loja/ProdutoDetalhe';
 import { UserContext, UserContextType } from './src/contexts/UserContext';
 import { PublicView, PrivateView, UserData, AppContentProps, NavbarUserData } from './types/app.types';
 import { useAuth } from './hooks/useAuth';
+import { useRouting } from './hooks/useRouting';
 
 const PublicProdutoPage: React.FC<{ isAuthenticated: boolean; user: UserData | null; onLogoutClick: () => void }> = ({ isAuthenticated, user, onLogoutClick }) => {
     const { sku } = useParams<{ sku: string }>();
@@ -160,26 +161,39 @@ const AppContent: React.FC<AppContentProps> = ({
     isLoading,
     setIsLoading,
     handleLogout,
-    fetchUserSession, // ✅ NOVO
-    initialSku // ✅ NOVO
+    fetchUserSession,
+    initialSku
 }) => {
     const { sku: urlSku } = useParams<{ sku: string }>();
-    const navigate = useNavigate(); // ✅ NOVO: Para navegar para a URL
-    const location = useLocation(); // ✅ NOVO: Para detectar rota /gerar-looks
+    const navigate = useNavigate();
+    const location = useLocation();
     const [isRedirecting, setIsRedirecting] = useState<boolean>(false);
-    const [publicView, setPublicView] = useState<PublicView>(() => {
-        // ✅ Verificar se deve mostrar login ao carregar
-        if (localStorage.getItem('showLoginPage') === 'true') {
-            localStorage.removeItem('showLoginPage');
-            return 'login';
-        }
-        return 'landing';
-    });
-    const [privateView, setPrivateView] = useState<PrivateView>('home');
-    const [selectedSku, setSelectedSku] = useState<string | null>(initialSku || urlSku || null);
-    const [selectedLojaId, setSelectedLojaId] = useState<string | null>(null);
-    const [itemObrigatorio, setItemObrigatorio] = useState<string | null>(null); // ✅ NOVO: Armazenar item obrigatório
-    const [gerarLooksLojaId, setGerarLooksLojaId] = useState<string | null>(null); // ✅ NOVO: LojaId para /gerar-looks
+
+    // ✅ Usar hook de roteamento para gerenciar states de navegação
+    const {
+        publicView,
+        setPublicView,
+        privateView,
+        setPrivateView,
+        selectedSku,
+        setSelectedSku,
+        selectedLojaId,
+        setSelectedLojaId,
+        itemObrigatorio,
+        setItemObrigatorio,
+        gerarLooksLojaId,
+        setGerarLooksLojaId,
+        handleProfileClick,
+        handleWardrobeClick,
+        handleLooksClick,
+        handleMyLooksClick,
+        handleLojaClick,
+        handleInvitacoesClick,
+        handleCarrinhoClick,
+        handleProdutoSelect,
+        handleBackToCatalog,
+        handleLogoClick,
+    } = useRouting(isAuthenticated, userData);
 
     // ✅ UseEffect para monitorar mudanças de autenticação
     useEffect(() => {
@@ -191,108 +205,7 @@ const AppContent: React.FC<AppContentProps> = ({
                 setSelectedSku(initialSku);
             }
         }
-    }, [isAuthenticated, isLoading, initialSku]);
-
-    // ✅ NOVO: Detectar rota /gerar-looks direto e verificar autenticação
-    useEffect(() => {
-        if (location.pathname === '/gerar-looks') {
-            const params = new URLSearchParams(location.search);
-            const itemObrigatorioParam = params.get('itemObrigatorio');
-            const lojaIdParam = params.get('lojaId') || params.get('lojaid'); // ✅ Aceita tanto lojaId quanto lojaid
-
-            // Se não está logado, redirecionar para login
-            if (!isAuthenticated && !isLoading) {
-                console.log('🔐 [App] Acesso a /gerar-looks sem autenticação. Redirecionando para login...');
-                // Salvar URL de retorno para após o login
-                localStorage.setItem('redirectAfterLogin', location.pathname + location.search);
-                setPublicView('login');
-                // Navegue para a raiz para que o fluxo de login seja renderizado
-                navigate('/');
-                return;
-            }
-
-            if (itemObrigatorioParam && isAuthenticated) {
-                console.log(`[App] Detectada rota /gerar-looks com itemObrigatorio: ${itemObrigatorioParam}, lojaId: ${lojaIdParam}`);
-                setItemObrigatorio(itemObrigatorioParam);
-                if (lojaIdParam) {
-                    setGerarLooksLojaId(lojaIdParam);
-                }
-                setPrivateView('looks');
-                setSelectedSku(null); // Não estamos vendo produto, apenas gerando looks
-                // Limpar o localStorage de redirecionamento
-                localStorage.removeItem('redirectAfterLogin');
-            }
-        }
-    }, [location, isAuthenticated, isLoading, navigate]);
-
-    // Navegação Interna
-
-    const handleProfileClick = () => {
-        setPrivateView('profile');
-        setSelectedSku(null);
-        navigate('/profile');
-    };
-    const handleWardrobeClick = () => {
-        setPrivateView('wardrobes');
-        setSelectedSku(null);
-        navigate('/wardrobes');
-    };
-    const handleLooksClick = () => {
-        setPrivateView('looks');
-        setSelectedSku(null);
-        navigate('/looks');
-    };
-    const handleMyLooksClick = () => {
-        setPrivateView('myLooks');
-        setSelectedSku(null);
-        navigate('/my-looks');
-    };
-    const handleLojaClick = () => {
-        // ✅ NOVO: Rota diferente para SALESPERSON e STORE_ADMIN
-        if (userData?.role === 'SALESPERSON') {
-            setPrivateView('vendor-lojas');
-            navigate('/vendor-lojas');
-        } else {
-            setPrivateView('admin-loja');
-            navigate('/admin-loja');
-        }
-        setSelectedSku(null);
-    };
-    const handleInvitacoesClick = () => {
-        setPrivateView('invitacoes');
-        setSelectedSku(null);
-        navigate('/invitacoes');
-    };
-    const handleCarrinhoClick = () => {
-        setPrivateView('carrinho');
-        navigate('/carrinho');
-        // Se estava vendo produto, volta para poder renderizar carrinho
-        if (selectedSku) setSelectedSku(null);
-    };
-
-    // 2. Funções para selecionar produto e voltar
-    const handleProdutoSelect = (sku: string) => {
-        setSelectedSku(sku);
-        navigate(`/produtos/${sku}`); // ✅ NOVO: Navega para a URL do produto
-    };
-
-    const handleBackToCatalog = () => {
-        setSelectedSku(null);
-        navigate('/'); // ✅ NOVO: Volta para home
-    };
-
-
-    // Voltar para Home ao clicar no Logo
-    const handleLogoClick = () => {
-        setSelectedSku(null); // Limpa SKU também
-        if (isAuthenticated) {
-            setPrivateView('home');
-            navigate('/home');
-        } else {
-            setPublicView('landing');
-            navigate('/');
-        }
-    };
+    }, [isAuthenticated, isLoading, initialSku, setPublicView, setSelectedSku]);
 
 
     // ✅ NOVO: Tela de Carregamento durante redirecionamento após cadastro
@@ -336,8 +249,8 @@ const AppContent: React.FC<AppContentProps> = ({
                         onProfileClick={handleProfileClick}
                         onWardrobeClick={handleWardrobeClick}
                         onLooksClick={handleLooksClick}
-                        onLojaClick={handleLojaClick}
-                        onLogoClick={handleLogoClick}
+                        onLojaClick={() => handleLojaClick(userData?.role)}
+                        onLogoClick={() => handleLogoClick(isAuthenticated)}
                         onMyLooksClick={handleMyLooksClick}
                         onCarrinhoClick={handleCarrinhoClick}
                         onInvitacoesClick={handleInvitacoesClick}
@@ -413,7 +326,7 @@ const AppContent: React.FC<AppContentProps> = ({
                 user={null}
                 onLoginClick={() => setPublicView('login')}
                 onLogoutClick={() => { }}
-                onLogoClick={handleLogoClick}
+                onLogoClick={() => handleLogoClick(isAuthenticated)}
                 onProfileClick={() => { }}
                 onWardrobeClick={() => { }}
                 onLooksClick={() => { }}
