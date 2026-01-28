@@ -16,6 +16,7 @@ import VendorLojaPage from './components/Vendor/VendorLojaPage';
 import ProdutoDetalhe from './components/Loja/ProdutoDetalhe';
 import { LoadingScreen } from './components/LoadingScreen';
 import { PublicLayout } from './components/PublicLayout';
+import { ViewRouter } from './components/ViewRouter';
 import { UserContext, UserContextType } from './src/contexts/UserContext';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { PublicView, PrivateView, UserData, AppContentProps, NavbarUserData } from './types/app.types';
@@ -257,62 +258,19 @@ const AppContent: React.FC<AppContentProps> = ({
                         onInvitacoesClick={handleInvitacoesClick}
                     />
                     <main className="p-4 sm:p-6 md:p-8">
-                        {/* ✅ Se há um SKU selecionado, renderizar ProdutoDetalhe */}
-                        {selectedSku ? (
-                            <ProdutoDetalhe
-                                sku={selectedSku}
-                                onBack={() => setSelectedSku(null)}
-                                onGerarLookComPeca={(sku: string) => {
-                                    console.log(`[LookSession] Callback acionado com SKU: ${sku}`);
-                                    setItemObrigatorio(sku); // ✅ Armazena o item obrigatório no estado
-                                    setSelectedSku(null);
-                                    setPrivateView('looks');
-                                    navigate(`/gerar-looks?itemObrigatorio=${sku}&lojaid=696e987bd679d526a83c1395`); // ✅ Inclui lojaId hardcodado
-                                }}
-                            />
-                        ) : (
-                            <>
-                                {privateView === 'home' && <HomePage onNavigate={setPrivateView} />}
-                                {privateView === 'wardrobes' && <IndiceGuardaRoupas />}
-                                {privateView === 'profile' && <ProfilePage />}
-                                {privateView === 'looks' && <LooksPage onProductClick={handleProdutoSelect} initialItemObrigatorio={itemObrigatorio} initialLojaId={gerarLooksLojaId} />}
-                                {privateView === 'invitacoes' && <MinhasInvitacoes />}
-
-                                {/* ✅ NOVO: Páginas para SALESPERSON (Vendedor) */}
-                                {privateView === 'vendor-lojas' && (
-                                    <VendorLojasPage onSelectLoja={(lojaId) => {
-                                        setSelectedLojaId(lojaId);
-                                        setPrivateView('vendor-loja');
-                                    }} />
-                                )}
-                                {privateView === 'vendor-loja' && selectedLojaId && (
-                                    <VendorLojaPage
-                                        lojaId={selectedLojaId}
-                                        onBack={() => setPrivateView('vendor-lojas')}
-                                        selectedSku={selectedSku}
-                                        onSelectSku={handleProdutoSelect}
-                                    />
-                                )}
-
-                                {/* ✅ NOVO: Página para STORE_ADMIN */}
-                                {privateView === 'admin-loja' && userData?.lojaId && (
-                                    <AdminLojaPage
-                                        lojaId={userData.lojaId}
-                                        selectedSku={selectedSku}
-                                        onSelectSku={handleProdutoSelect}
-                                    />
-                                )}
-
-                                {privateView === 'myLooks' && (
-                                    <MyLooksPage onProductClick={handleProdutoSelect} />
-                                )}
-
-                                {/* ✅ Página do Carrinho */}
-                                {privateView === 'carrinho' && (
-                                    <CarrinhoPage onProductClick={handleProdutoSelect} />
-                                )}
-                            </>
-                        )}
+                        <ViewRouter
+                            privateView={privateView}
+                            setPrivateView={setPrivateView}
+                            selectedSku={selectedSku}
+                            setSelectedSku={setSelectedSku}
+                            selectedLojaId={selectedLojaId}
+                            setSelectedLojaId={setSelectedLojaId}
+                            itemObrigatorio={itemObrigatorio}
+                            gerarLooksLojaId={gerarLooksLojaId}
+                            userData={userData}
+                            handleProdutoSelect={handleProdutoSelect}
+                            handleNavigate={setPrivateView}
+                        />
                     </main>
                 </div>
             </UserContext.Provider>
