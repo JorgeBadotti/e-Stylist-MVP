@@ -60,19 +60,29 @@ const Navbar: React.FC<NavbarProps> = ({
 
     // Função auxiliar para renderizar avatar ou iniciais
     const renderAvatar = () => {
+        const initial = user?.nome ? user.nome.charAt(0).toUpperCase() : 'U';
+
         if (user?.foto) {
             return (
                 <img
                     src={user.foto}
                     alt="Avatar"
                     className="h-8 w-8 rounded-full object-cover border border-gray-200"
+                    onError={(e) => {
+                        // Se a imagem não carregar, oculta a img e mostra fallback
+                        e.currentTarget.style.display = 'none';
+                        // Criar fallback dinamicamente
+                        const fallback = document.createElement('div');
+                        fallback.className = 'h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold border border-blue-200 text-xs';
+                        fallback.textContent = initial;
+                        e.currentTarget.parentElement?.appendChild(fallback);
+                    }}
                 />
             );
         }
         // Fallback: Círculo com a inicial do nome
-        const initial = user?.nome ? user.nome.charAt(0).toUpperCase() : 'U';
         return (
-            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold border border-blue-200">
+            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold border border-blue-200 text-xs">
                 {initial}
             </div>
         );

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Button from './Button';
-import Alert from './Alert';
-import { Profile, DetectedMeasurements } from '../types';
+import Button from './ui/Button';
+import Alert from './ui/Alert';
+import { Profile, DetectedMeasurements } from '../src/types/types';
 
 interface CameraCaptureScreenProps {
   profile: Profile;

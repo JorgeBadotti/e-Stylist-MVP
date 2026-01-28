@@ -1,7 +1,7 @@
 import React from 'react';
 import { Look, WardrobeItem, LookHighlight, SalesPriority } from '../types';
 // Import the Button component
-import Button from './Button';
+import Button from './ui/Button';
 
 interface LookCardProps {
   look: Look;
@@ -81,7 +81,7 @@ const LookCard: React.FC<LookCardProps> = ({ look, wardrobeItems, onBuyClick, on
 
     return (
       <span className={`absolute top-2 right-2 px-3 py-1.5 rounded-full text-xs font-bold ${bgColor} ${textColor} shadow-lg`}
-            aria-label={`Destaque: ${text}`}>
+        aria-label={`Destaque: ${text}`}>
         {text}
       </span>
     );
@@ -172,7 +172,7 @@ const LookCard: React.FC<LookCardProps> = ({ look, wardrobeItems, onBuyClick, on
           className="mt-4 w-full bg-green-500 hover:bg-green-600 text-white"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-2" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M18 2h-4.18c-.89 0-1.74.35-2.37.98l-5.83 5.83c-.63.63-.98 1.48-.98 2.37v4.18c0 .89.35 1.74.98 2.37l5.83 5.83c.63.63 1.48.98 2.37.98h4.18c.89 0 1.74-.35 2.37-.98l5.83-5.83c.63-.63-1.48-.98-2.37-.98zM9 16l-3-3 7-7 3 3-7 7z"/>
+            <path d="M18 2h-4.18c-.89 0-1.74.35-2.37.98l-5.83 5.83c-.63.63-.98 1.48-.98 2.37v4.18c0 .89.35 1.74.98 2.37l5.83 5.83c.63.63 1.48.98 2.37.98h4.18c.89 0 1.74-.35 2.37-.98l5.83-5.83c.63-.63-1.48-.98-2.37-.98zM9 16l-3-3 7-7 3 3-7 7z" />
           </svg>
           Compartilhar
         </Button>

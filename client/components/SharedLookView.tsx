@@ -1,6 +1,6 @@
 import React from 'react';
 import { Look, LookItem } from '../types';
-import Button from './Button';
+import Button from './ui/Button';
 
 interface SharedLookViewProps {
   look: Look;

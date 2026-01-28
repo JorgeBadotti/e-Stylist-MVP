@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { LoadingScreen } from './LoadingScreen';
+import { LoadingScreen } from './ui/LoadingScreen';
 import { PublicLayout } from './PublicLayout';
 import { PrivateLayout } from './PrivateLayout';
 import ProdutoDetalhe from './Loja/ProdutoDetalhe';

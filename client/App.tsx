@@ -28,7 +28,7 @@
 
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
-import { LoadingScreen } from './components/LoadingScreen';
+import { LoadingScreen } from './components/ui/LoadingScreen';
 import { AppContent } from './components/AppContent';
 import ProdutoDetalhe from './components/Loja/ProdutoDetalhe';
 import Navbar from './components/Navbar';
