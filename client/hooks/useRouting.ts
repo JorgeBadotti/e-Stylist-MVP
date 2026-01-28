@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { PublicView, PrivateView, UserData } from '../types/app.types';
+import { useQueryParams } from './useQueryParams';
 
 interface UseRoutingReturn {
     // Estados
@@ -57,15 +58,14 @@ export const useRouting = (isAuthenticated: boolean, userData: UserData | null):
     const [itemObrigatorio, setItemObrigatorio] = useState<string | null>(null);
     const [gerarLooksLojaId, setGerarLooksLojaId] = useState<string | null>(null);
 
+    // ✅ Usar hook para extrair parâmetros de query
+    const queryParams = useQueryParams();
+
     /**
      * Detectar rota /gerar-looks direto e verificar autenticação
      */
     useEffect(() => {
         if (location.pathname === '/gerar-looks') {
-            const params = new URLSearchParams(location.search);
-            const itemObrigatorioParam = params.get('itemObrigatorio');
-            const lojaIdParam = params.get('lojaId') || params.get('lojaid');
-
             // Se não está logado, redirecionar para login
             if (!isAuthenticated) {
                 console.log('🔐 [useRouting] Acesso a /gerar-looks sem autenticação. Redirecionando para login...');
@@ -75,18 +75,18 @@ export const useRouting = (isAuthenticated: boolean, userData: UserData | null):
                 return;
             }
 
-            if (itemObrigatorioParam && isAuthenticated) {
-                console.log(`[useRouting] Detectada rota /gerar-looks com itemObrigatorio: ${itemObrigatorioParam}, lojaId: ${lojaIdParam}`);
-                setItemObrigatorio(itemObrigatorioParam);
-                if (lojaIdParam) {
-                    setGerarLooksLojaId(lojaIdParam);
+            if (queryParams.itemObrigatorio && isAuthenticated) {
+                console.log(`[useRouting] Detectada rota /gerar-looks com itemObrigatorio: ${queryParams.itemObrigatorio}, lojaId: ${queryParams.lojaId}`);
+                setItemObrigatorio(queryParams.itemObrigatorio);
+                if (queryParams.lojaId) {
+                    setGerarLooksLojaId(queryParams.lojaId);
                 }
                 setPrivateView('looks');
                 setSelectedSku(null);
                 localStorage.removeItem('redirectAfterLogin');
             }
         }
-    }, [location, isAuthenticated, navigate]);
+    }, [location, isAuthenticated, navigate, queryParams]);
 
     // ============ HANDLERS DE NAVEGAÇÃO ============
 
