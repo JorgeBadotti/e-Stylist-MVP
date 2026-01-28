@@ -16,6 +16,7 @@ import VendorLojasPage from './components/Vendor/VendorLojasPage';
 import VendorLojaPage from './components/Vendor/VendorLojaPage';
 import ProdutoDetalhe from './components/Loja/ProdutoDetalhe';
 import { UserContext, UserContextType } from './src/contexts/UserContext';
+import { AuthProvider } from './src/contexts/AuthContext';
 import { PublicView, PrivateView, UserData, AppContentProps, NavbarUserData } from './types/app.types';
 import { useAuth } from './hooks/useAuth';
 import { useRouting } from './hooks/useRouting';
@@ -65,6 +66,19 @@ const PublicProdutoPage: React.FC<{ isAuthenticated: boolean; user: UserData | n
 
 
 const App: React.FC = () => {
+    return (
+        <AuthProvider>
+            <AppWithAuth />
+        </AuthProvider>
+    );
+};
+
+/**
+ * AppWithAuth
+ * Componente interno que usa o contexto de autenticação
+ * Deve estar dentro do AuthProvider
+ */
+const AppWithAuth: React.FC = () => {
     // ✅ Usar hook de autenticação para encapsular toda a lógica de auth
     const {
         isAuthenticated,
