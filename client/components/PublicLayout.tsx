@@ -2,7 +2,7 @@ import React from 'react';
 import LoginPage from './Login';
 import RegisterPage from './Register';
 import PublicHomePage from './PublicHomePage';
-import Navbar from './Navbar';
+import Navbar from './common/Navbar/Navbar';
 import { PublicView } from '../types/app.types';
 
 interface PublicLayoutProps {

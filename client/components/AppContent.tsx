@@ -4,7 +4,7 @@ import { LoadingScreen } from './ui/LoadingScreen';
 import { PublicLayout } from './PublicLayout';
 import { PrivateLayout } from './PrivateLayout';
 import ProdutoDetalhe from './Loja/ProdutoDetalhe';
-import Navbar from './Navbar';
+import Navbar from './common/Navbar/Navbar';
 import { UserContext, UserContextType } from '../src/contexts/UserContext';
 import { UserData } from '../types/app.types';
 import { useRouting } from '../hooks/useRouting';

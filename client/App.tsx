@@ -31,7 +31,7 @@ import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-
 import { LoadingScreen } from './components/ui/LoadingScreen';
 import { AppContent } from './components/AppContent';
 import ProdutoDetalhe from './components/Loja/ProdutoDetalhe';
-import Navbar from './components/Navbar';
+import Navbar from './components/common/Navbar/Navbar';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { useAuthContext } from './src/contexts/AuthContext';
 import { UserData } from './types/app.types';
