@@ -1,12 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
+/**
+ * ============================================================================
+ * APP.TSX - Root Application Component
+ * ============================================================================
+ * 
+ * Architecture Pattern:
+ * ├── App (Root)
+ * │   └── AuthProvider (Context Wrapper)
+ * │       └── AppWithAuth (Smart Router)
+ * │           ├── PublicProdutoPage (Public product view)
+ * │           └── AppContent (Main router, uses useAuth + useRouting hooks)
+ * │               ├── PublicLayout (Landing, Login, Register)
+ * │               └── PrivateLayout (Navbar + ViewRouter)
+ * │                   ├── Navbar
+ * │                   └── ViewRouter (Homepage, Wardrobes, etc)
+ * 
+ * State Management:
+ * - ✅ No prop drilling: AppContent uses useAuthContext() directly
+ * - ✅ No passing auth props through routes: Each component accesses AuthContext
+ * - ✅ Clean router setup: AppWithAuth only manages route structure
+ * 
+ * Authentication Flow:
+ * 1. AuthProvider wraps entire app with Context.Provider
+ * 2. AppWithAuth checks isAuthenticated from useAuthContext
+ * 3. AppContent uses both useAuth and useRouting hooks internally
+ * 4. All child components access auth state via useAuthContext hook
+ */
+
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
 import { LoadingScreen } from './components/LoadingScreen';
 import { AppContent } from './components/AppContent';
 import ProdutoDetalhe from './components/Loja/ProdutoDetalhe';
 import Navbar from './components/Navbar';
 import { AuthProvider } from './src/contexts/AuthContext';
-import { UserData, AppContentProps } from './types/app.types';
-import { useAuth } from './hooks/useAuth';
+import { useAuthContext } from './src/contexts/AuthContext';
+import { UserData } from './types/app.types';
 
 const PublicProdutoPage: React.FC<{ isAuthenticated: boolean; user: UserData | null; onLogoutClick: () => void }> = ({ isAuthenticated, user, onLogoutClick }) => {
     const { sku } = useParams<{ sku: string }>();
@@ -64,19 +92,13 @@ const App: React.FC = () => {
  * AppWithAuth
  * Componente interno que usa o contexto de autenticação
  * Deve estar dentro do AuthProvider
+ * 
+ * Este componente gerencia o roteamento principal e usa dados de autenticação
+ * via AuthContext, evitando prop drilling desnecessário
  */
 const AppWithAuth: React.FC = () => {
-    // ✅ Usar hook de autenticação para encapsular toda a lógica de auth
-    const {
-        isAuthenticated,
-        setIsAuthenticated,
-        userData,
-        setUserData,
-        isLoading,
-        setIsLoading,
-        fetchUserSession,
-        handleLogout,
-    } = useAuth();
+    // ✅ Usar contexto de autenticação ao invés de props
+    const { isAuthenticated, userData, handleLogout } = useAuthContext();
 
     return (
         <Router>
@@ -86,17 +108,7 @@ const AppWithAuth: React.FC = () => {
                     path="/produtos/:sku"
                     element={
                         isAuthenticated ? (
-                            <AppContent
-                                isAuthenticated={isAuthenticated}
-                                setIsAuthenticated={setIsAuthenticated}
-                                userData={userData}
-                                setUserData={setUserData}
-                                isLoading={isLoading}
-                                setIsLoading={setIsLoading}
-                                handleLogout={handleLogout}
-                                fetchUserSession={fetchUserSession}
-                                initialSku={new URLSearchParams(window.location.search).get('sku') || undefined}
-                            />
+                            <AppContent initialSku={new URLSearchParams(window.location.search).get('sku') || undefined} />
                         ) : (
                             <PublicProdutoPage
                                 isAuthenticated={isAuthenticated}
@@ -112,17 +124,7 @@ const AppWithAuth: React.FC = () => {
                     path="/produto/:sku"
                     element={
                         isAuthenticated ? (
-                            <AppContent
-                                isAuthenticated={isAuthenticated}
-                                setIsAuthenticated={setIsAuthenticated}
-                                userData={userData}
-                                setUserData={setUserData}
-                                isLoading={isLoading}
-                                setIsLoading={setIsLoading}
-                                handleLogout={handleLogout}
-                                fetchUserSession={fetchUserSession}
-                                initialSku={new URLSearchParams(window.location.search).get('sku') || undefined}
-                            />
+                            <AppContent initialSku={new URLSearchParams(window.location.search).get('sku') || undefined} />
                         ) : (
                             <PublicProdutoPage
                                 isAuthenticated={isAuthenticated}
@@ -136,18 +138,7 @@ const AppWithAuth: React.FC = () => {
                 {/* Todas as outras rotas */}
                 <Route
                     path="/*"
-                    element={
-                        <AppContent
-                            isAuthenticated={isAuthenticated}
-                            setIsAuthenticated={setIsAuthenticated}
-                            userData={userData}
-                            setUserData={setUserData}
-                            isLoading={isLoading}
-                            setIsLoading={setIsLoading}
-                            handleLogout={handleLogout}
-                            fetchUserSession={fetchUserSession} // ✅ NOVO
-                        />
-                    }
+                    element={<AppContent />}
                 />
             </Routes>
         </Router>

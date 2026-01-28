@@ -6,26 +6,30 @@ import { PrivateLayout } from './PrivateLayout';
 import ProdutoDetalhe from './Loja/ProdutoDetalhe';
 import Navbar from './Navbar';
 import { UserContext, UserContextType } from '../src/contexts/UserContext';
-import { UserData, AppContentProps } from '../types/app.types';
-import { useAuth } from '../hooks/useAuth';
+import { UserData } from '../types/app.types';
 import { useRouting } from '../hooks/useRouting';
+import { useAuthContext } from '../src/contexts/AuthContext';
 
 /**
  * AppContent
  * Componente que contém toda a lógica de roteamento e renderização
+ * Usa AuthContext ao invés de receber props, evitando prop drilling
+ * 
  * Deve estar dentro de AuthProvider e Router
  */
-export const AppContent: React.FC<AppContentProps> = ({
-    isAuthenticated,
-    setIsAuthenticated,
-    userData,
-    setUserData,
-    isLoading,
-    setIsLoading,
-    handleLogout,
-    fetchUserSession,
-    initialSku
-}) => {
+interface AppContentProps {
+    initialSku?: string;
+}
+
+export const AppContent: React.FC<AppContentProps> = ({ initialSku }) => {
+    // ✅ Usar APENAS AuthContext para toda a lógica de autenticação (sem duplicar hooks)
+    const {
+        isAuthenticated,
+        userData,
+        isLoading,
+        handleLogout,
+        fetchUserSession,
+    } = useAuthContext();
     const { sku: urlSku } = useParams<{ sku: string }>();
     const navigate = useNavigate();
     const location = useLocation();

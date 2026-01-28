@@ -27,19 +27,6 @@ export interface UserData {
     lojaId?: string;
 }
 
-// ---- AppContent Props ----
-export interface AppContentProps {
-    isAuthenticated: boolean;
-    setIsAuthenticated: (value: boolean) => void;
-    userData: UserData | null;
-    setUserData: (value: UserData | null) => void;
-    isLoading: boolean;
-    setIsLoading: (value: boolean) => void;
-    handleLogout: () => void;
-    fetchUserSession: () => Promise<void>;
-    initialSku?: string;
-}
-
 // ---- NavBar User Data (subset) ----
 export interface NavbarUserData {
     nome: string;
