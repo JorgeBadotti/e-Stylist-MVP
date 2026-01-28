@@ -111,37 +111,37 @@ const produtoSchema = new Schema({
 
     silhueta: {
         type: String,
-        enum: ['A', 'H', 'V', 'O'],
+        enum: [null, 'A', 'H', 'V', 'O'],
         comment: "Silhueta: A (trapézio), H (reta), V (invertida), O (arredondada)"
     },
 
     comprimento: {
         type: String,
-        enum: ['CURTA', 'REGULAR', 'LONGA'],
+        enum: [null, 'CURTA', 'REGULAR', 'LONGA'],
         comment: "Comprimento da peça"
     },
 
     posicao_cintura: {
         type: String,
-        enum: ['NATURAL', 'ALTO', 'BAIXO'],
+        enum: [null, 'NATURAL', 'ALTO', 'BAIXO'],
         comment: "Onde a cintura da peça senta no corpo"
     },
 
     ocasiao: {
         type: String,
-        enum: ['CASUAL', 'WORK', 'NIGHT', 'GYM', 'FORMAL'],
+        enum: [null, 'CASUAL', 'WORK', 'NIGHT', 'GYM', 'FORMAL'],
         comment: "Ocasião de uso recomendada"
     },
 
     estacao: {
         type: String,
-        enum: ['SPRING', 'SUMMER', 'FALL', 'WINTER', 'ALL'],
+        enum: [null, 'SPRING', 'SUMMER', 'FALL', 'WINTER', 'ALL'],
         comment: "Estação recomendada"
     },
 
     temperatura: {
         type: String,
-        enum: ['COLD', 'MILD', 'HOT', 'ALL'],
+        enum: [null, 'COLD', 'MILD', 'HOT', 'ALL'],
         comment: "Faixa de temperatura recomendada"
     },
 
@@ -151,25 +151,25 @@ const produtoSchema = new Schema({
 
     material_principal: {
         type: String,
-        enum: ['ALGODAO', 'POLIESTER', 'VISCOSE', 'ELASTANO', 'LINHO', 'LÃ', 'SEDA', 'DENIM'],
+        enum: [null, 'ALGODAO', 'POLIESTER', 'VISCOSE', 'ELASTANO', 'LINHO', 'LÃ', 'SEDA', 'DENIM'],
         comment: "Material principal"
     },
 
     eco_score: {
         type: String,
-        enum: ['EXCELLENT', 'GOOD', 'MEDIUM', 'LOW'],
+        enum: [null, 'EXCELLENT', 'GOOD', 'MEDIUM', 'LOW'],
         comment: "Pontuação ambiental"
     },
 
     care_level: {
         type: String,
-        enum: ['EASY', 'MEDIUM', 'COMPLEX'],
+        enum: [null, 'EASY', 'MEDIUM', 'COMPLEX'],
         comment: "Complexidade de cuidado"
     },
 
     faixa_preco: {
         type: String,
-        enum: ['BUDGET', 'STANDARD', 'PREMIUM', 'LUXURY'],
+        enum: [null, 'BUDGET', 'STANDARD', 'PREMIUM', 'LUXURY'],
         comment: "Faixa de preço"
     },
 
@@ -187,7 +187,7 @@ const produtoSchema = new Schema({
 
     classe_margem: {
         type: String,
-        enum: ['LOW', 'NORMAL', 'HIGH'],
+        enum: [null, 'LOW', 'NORMAL', 'HIGH'],
         comment: "Classe de margem esperada"
     },
 

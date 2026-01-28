@@ -1,7 +1,7 @@
 import React from 'react';
 import { InputSelect } from '../../ui/inputs/InputSelect';
 import { InputGroup } from '../../ui/InputGroup';
-import { DadosProduto, Dicionario } from '../types';
+import { DadosProduto, Dicionario } from './types';
 
 interface FormProductAttributesProps {
     formData: DadosProduto;
@@ -30,10 +30,13 @@ export const FormProductAttributes: React.FC<FormProductAttributesProps> = ({
                     name="silhueta"
                     value={formData.silhueta || ''}
                     onChange={onChange}
-                    options={dicionarios['SILHUETA']?.map(item => ({
-                        value: item.codigo,
-                        label: item.descricao
-                    })) || []}
+                    options={[
+                        { value: '', label: '— Não definido —' },
+                        ...(dicionarios['SILHUETA']?.map(item => ({
+                            value: item.codigo,
+                            label: item.descricao
+                        })) || [])
+                    ]}
                     optional
                 />
 
@@ -42,10 +45,13 @@ export const FormProductAttributes: React.FC<FormProductAttributesProps> = ({
                     name="comprimento"
                     value={formData.comprimento || ''}
                     onChange={onChange}
-                    options={dicionarios['COMPRIMENTO']?.map(item => ({
-                        value: item.codigo,
-                        label: item.descricao
-                    })) || []}
+                    options={[
+                        { value: '', label: '— Não definido —' },
+                        ...(dicionarios['COMPRIMENTO']?.map(item => ({
+                            value: item.codigo,
+                            label: item.descricao
+                        })) || [])
+                    ]}
                     optional
                 />
 
@@ -54,28 +60,37 @@ export const FormProductAttributes: React.FC<FormProductAttributesProps> = ({
                     name="posicao_cintura"
                     value={formData.posicao_cintura || ''}
                     onChange={onChange}
-                    options={dicionarios['POSICAO_CINTURA']?.map(item => ({
-                        value: item.codigo,
-                        label: item.descricao
-                    })) || []}
+                    options={[
+                        { value: '', label: '— Não definido —' },
+                        ...(dicionarios['POSICAO_CINTURA']?.map(item => ({
+                            value: item.codigo,
+                            label: item.descricao
+                        })) || [])
+                    ]}
                     optional
                 />
 
                 <InputSelect
                     label="Ocasião"
-                    name="ocasiao"
-                    value={formData.ocasiao || ''}
-                    onChange={onChange}
-                    options={dicionarios['OCASIAO']?.map(item => ({
+                    name="oca[
+                        { value: '', label: '— Não definido —' },
+                        ...(dicionarios['OCASIAO']?.map(item => ({
+                            value: item.codigo,
+                            label: item.descricao
+                        })) || [])
+                    {dicionarios['OCASIAO']?.map(item => ({
                         value: item.codigo,
                         label: item.descricao
                     })) || []}
                     optional
                 />
-
-                <InputSelect
-                    label="Estação"
-                    name="estacao"
+[
+                        { value: '', label: '— Não definido —' },
+                        ...(dicionarios['ESTACAO']?.map(item => ({
+                            value: item.codigo,
+                            label: item.descricao
+                        })) || [])
+                    tacao"
                     value={formData.estacao || ''}
                     onChange={onChange}
                     options={dicionarios['ESTACAO']?.map(item => ({

@@ -2,7 +2,7 @@ import React from 'react';
 import { InputSelect } from '../../ui/inputs/InputSelect';
 import { InputNumber } from '../../ui/inputs/InputNumber';
 import { InputGroup } from '../../ui/InputGroup';
-import { DadosProduto, Dicionario } from '../types';
+import { DadosProduto, Dicionario } from './types';
 
 interface FormProductSpecsProps {
     formData: DadosProduto;
@@ -37,10 +37,13 @@ export const FormProductSpecs: React.FC<FormProductSpecsProps> = ({
                     name="temperatura"
                     value={formData.temperatura || ''}
                     onChange={onChange}
-                    options={dicionarios['TEMPERATURA']?.map(item => ({
-                        value: item.codigo,
-                        label: item.descricao
-                    })) || []}
+                    options={[
+                        { value: '', label: '— Não definido —' },
+                        ...(dicionarios['TEMPERATURA']?.map(item => ({
+                            value: item.codigo,
+                            label: item.descricao
+                        })) || [])
+                    ]}
                     optional
                 />
 
@@ -49,10 +52,13 @@ export const FormProductSpecs: React.FC<FormProductSpecsProps> = ({
                     name="material_principal"
                     value={formData.material_principal || ''}
                     onChange={onChange}
-                    options={dicionarios['MATERIAL']?.map(item => ({
-                        value: item.codigo,
-                        label: item.descricao
-                    })) || []}
+                    options={[
+                        { value: '', label: '— Não definido —' },
+                        ...(dicionarios['MATERIAL']?.map(item => ({
+                            value: item.codigo,
+                            label: item.descricao
+                        })) || [])
+                    ]}
                     optional
                 />
 

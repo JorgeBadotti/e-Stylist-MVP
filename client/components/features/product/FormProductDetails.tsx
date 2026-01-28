@@ -1,7 +1,7 @@
 import React from 'react';
 import { InputText } from '../../ui/inputs/InputText';
 import { InputFile } from '../../ui/inputs/InputFile';
-import { DadosProduto } from '../types';
+import { DadosProduto } from './types';
 
 interface FormProductDetailsProps {
     formData: DadosProduto;

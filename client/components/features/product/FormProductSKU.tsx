@@ -1,7 +1,7 @@
 import React from 'react';
 import { InputSelect } from '../../ui/inputs/InputSelect';
 import { InputGroup } from '../../ui/InputGroup';
-import { DadosProduto, Dicionario } from '../types';
+import { DadosProduto, Dicionario } from './types';
 
 interface FormProductSKUProps {
     formData: DadosProduto;
