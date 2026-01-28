@@ -17,6 +17,7 @@ import ProdutoDetalhe from './components/Loja/ProdutoDetalhe';
 import { LoadingScreen } from './components/LoadingScreen';
 import { PublicLayout } from './components/PublicLayout';
 import { ViewRouter } from './components/ViewRouter';
+import { PrivateLayout } from './components/PrivateLayout';
 import { UserContext, UserContextType } from './src/contexts/UserContext';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { PublicView, PrivateView, UserData, AppContentProps, NavbarUserData } from './types/app.types';
@@ -242,37 +243,28 @@ const AppContent: React.FC<AppContentProps> = ({
     if (isAuthenticated) {
         return (
             <UserContext.Provider value={userContextValue}>
-                <div className="min-h-screen bg-gray-100">
-                    <Navbar
-                        isAuthenticated={isAuthenticated}
-                        user={userData ? { nome: userData.nome, foto: userData.foto, email: userData.email, role: userData.role } : null}
-                        onLoginClick={() => setPublicView('login')}
-                        onLogoutClick={handleLogout}
-                        onProfileClick={handleProfileClick}
-                        onWardrobeClick={handleWardrobeClick}
-                        onLooksClick={handleLooksClick}
-                        onLojaClick={() => handleLojaClick(userData?.role)}
-                        onLogoClick={() => handleLogoClick(isAuthenticated)}
-                        onMyLooksClick={handleMyLooksClick}
-                        onCarrinhoClick={handleCarrinhoClick}
-                        onInvitacoesClick={handleInvitacoesClick}
-                    />
-                    <main className="p-4 sm:p-6 md:p-8">
-                        <ViewRouter
-                            privateView={privateView}
-                            setPrivateView={setPrivateView}
-                            selectedSku={selectedSku}
-                            setSelectedSku={setSelectedSku}
-                            selectedLojaId={selectedLojaId}
-                            setSelectedLojaId={setSelectedLojaId}
-                            itemObrigatorio={itemObrigatorio}
-                            gerarLooksLojaId={gerarLooksLojaId}
-                            userData={userData}
-                            handleProdutoSelect={handleProdutoSelect}
-                            handleNavigate={setPrivateView}
-                        />
-                    </main>
-                </div>
+                <PrivateLayout
+                    isAuthenticated={isAuthenticated}
+                    userData={userData}
+                    onProfileClick={handleProfileClick}
+                    onWardrobeClick={handleWardrobeClick}
+                    onLooksClick={handleLooksClick}
+                    onLojaClick={handleLojaClick}
+                    onLogoClick={handleLogoClick}
+                    onMyLooksClick={handleMyLooksClick}
+                    onCarrinhoClick={handleCarrinhoClick}
+                    onInvitacoesClick={handleInvitacoesClick}
+                    onLogout={handleLogout}
+                    privateView={privateView}
+                    setPrivateView={setPrivateView}
+                    selectedSku={selectedSku}
+                    setSelectedSku={setSelectedSku}
+                    selectedLojaId={selectedLojaId}
+                    setSelectedLojaId={setSelectedLojaId}
+                    itemObrigatorio={itemObrigatorio}
+                    gerarLooksLojaId={gerarLooksLojaId}
+                    handleProdutoSelect={handleProdutoSelect}
+                />
             </UserContext.Provider>
         );
     }
