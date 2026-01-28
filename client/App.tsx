@@ -15,10 +15,9 @@ import AdminLojaPage from './components/Admin/AdminLojaPage';
 import VendorLojasPage from './components/Vendor/VendorLojasPage';
 import VendorLojaPage from './components/Vendor/VendorLojaPage';
 import ProdutoDetalhe from './components/Loja/ProdutoDetalhe';
-import api, { API_BASE_URL } from './src/services/api';
-import { getSessionId, storeSessionId } from './src/services/sessionService';
 import { UserContext, UserContextType } from './src/contexts/UserContext';
 import { PublicView, PrivateView, UserData, AppContentProps, NavbarUserData } from './types/app.types';
+import { useAuth } from './hooks/useAuth';
 
 const PublicProdutoPage: React.FC<{ isAuthenticated: boolean; user: UserData | null; onLogoutClick: () => void }> = ({ isAuthenticated, user, onLogoutClick }) => {
     const { sku } = useParams<{ sku: string }>();
@@ -65,112 +64,17 @@ const PublicProdutoPage: React.FC<{ isAuthenticated: boolean; user: UserData | n
 
 
 const App: React.FC = () => {
-    // Estados Globais (fora do Router para compartilhar entre rotas)
-    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-        const cached = localStorage.getItem('isAuthenticated');
-        return cached ? JSON.parse(cached) : false;
-    });
-    const [userData, setUserData] = useState<UserData | null>(() => {
-        const cached = localStorage.getItem('userData');
-        return cached ? JSON.parse(cached) : null;
-    });
-    const [isLoading, setIsLoading] = useState<boolean>(true);
-
-    // Função centralizada para buscar a sessão
-    const fetchUserSession = async () => {
-        try {
-            // ✅ NOVO: Garantir que tem sessionId antes de fazer requisições
-            // Se não tem, fazer uma requisição vazia para obter um
-            const sessionId = getSessionId();
-            if (!sessionId) {
-                console.log('📍 [App] Nenhum sessionId, obtendo um novo do servidor...');
-                try {
-                    // Requisição simples para obter sessionId
-                    await api.head(`${API_BASE_URL}/auth/me`);
-                } catch (e) {
-                    // É esperado falhar (visitante anônimo), mas o sessionId foi capturado no interceptor
-                    console.log('📍 [App] SessionId obtido do servidor');
-                }
-            }
-
-            const response = await api.get('/auth/me');
-            if (response.data.isAuthenticated) {
-                setIsAuthenticated(true);
-                setUserData(response.data.user);
-                localStorage.setItem('isAuthenticated', JSON.stringify(true));
-                localStorage.setItem('userData', JSON.stringify(response.data.user));
-            } else {
-                setIsAuthenticated(false);
-                setUserData(null);
-                localStorage.removeItem('isAuthenticated');
-                localStorage.removeItem('userData');
-            }
-        } catch (error) {
-            console.error("Sessão inválida ou erro de rede:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // Executa ao carregar a página
-    useEffect(() => {
-        fetchUserSession();
-    }, []);
-
-    // ✅ NOVO: Redirecionar para URL salva após login bem-sucedido
-    useEffect(() => {
-        if (isAuthenticated && !isLoading) {
-            const redirectUrl = localStorage.getItem('redirectAfterLogin');
-            if (redirectUrl) {
-                console.log(`🔐 [App] Login bem-sucedido. Redirecionando para ${redirectUrl}`);
-                localStorage.removeItem('redirectAfterLogin');
-                // Usar window.location para navegar corretamente com os parâmetros
-                window.location.href = redirectUrl;
-            }
-        }
-    }, [isAuthenticated, isLoading]);
-
-    // ✅ NOVO: Verificar após login se há item obrigatório pendente
-    useEffect(() => {
-        if (isAuthenticated && !isLoading) {
-            const pendingItem = localStorage.getItem('pendingItemObrigatorio');
-            if (pendingItem) {
-                console.log(`[App] Item obrigatório pendente detectado: ${pendingItem}, redirecionando...`);
-                localStorage.removeItem('pendingItemObrigatorio');
-                // Aguardar um pouco para garantir que o App renderizou
-                setTimeout(() => {
-                    window.location.href = `/gerar-looks?itemObrigatorio=${pendingItem}&lojaid=696e987bd679d526a83c1395`;
-                }, 100);
-            }
-        }
-    }, [isAuthenticated, isLoading]);
-
-    // Sincronizar localStorage
-    useEffect(() => {
-        localStorage.setItem('isAuthenticated', JSON.stringify(isAuthenticated));
-    }, [isAuthenticated]);
-
-    useEffect(() => {
-        if (userData) {
-            localStorage.setItem('userData', JSON.stringify(userData));
-        } else {
-            localStorage.removeItem('userData');
-        }
-    }, [userData]);
-
-    const handleLogout = async () => {
-        try {
-            await api.post('/auth/logout');
-            setIsAuthenticated(false);
-            setUserData(null);
-            localStorage.removeItem('isAuthenticated');
-            localStorage.removeItem('userData');
-        } catch (error) {
-            console.error('Logout error:', error);
-            localStorage.removeItem('isAuthenticated');
-            localStorage.removeItem('userData');
-        }
-    };
+    // ✅ Usar hook de autenticação para encapsular toda a lógica de auth
+    const {
+        isAuthenticated,
+        setIsAuthenticated,
+        userData,
+        setUserData,
+        isLoading,
+        setIsLoading,
+        fetchUserSession,
+        handleLogout,
+    } = useAuth();
 
     return (
         <Router>
