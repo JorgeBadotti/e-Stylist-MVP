@@ -3,6 +3,10 @@ import React, { useState, useEffect } from 'react';
 import api from '../../src/services/api';
 import CameraCaptureScreen from '../features/camera/CameraCaptureScreen';
 import { DetectedMeasurements, Profile } from '../../src/types/types';
+import { InputText } from '../ui/inputs/InputText';
+import { InputNumber } from '../ui/inputs/InputNumber';
+import { InputSelect } from '../ui/inputs/InputSelect';
+import { InputGroup } from '../ui/InputGroup';
 
 interface Medidas {
     busto: number;
@@ -444,53 +448,39 @@ const ProfilePage: React.FC = () => {
 
             <form onSubmit={handleSubmit} className="space-y-6">
 
-                {/* Seção Dados Básicos */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Nome</label>
-                        <input
-                            type="text"
-                            name="nome"
-                            value={formData.nome}
-                            onChange={handleChange}
-                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Email</label>
-                        <input
-                            type="text"
-                            value={formData.email}
-                            disabled
-                            className="mt-1 block w-full bg-gray-100 border-gray-300 rounded-md shadow-sm p-2 text-gray-500 cursor-not-allowed"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">CPF <span className="text-gray-500 text-xs">(opcional)</span></label>
-                        <input
-                            type="text"
-                            name="cpf"
-                            placeholder="000.000.000-00"
-                            value={formData.cpf}
-                            onChange={handleChange}
-                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Sexo</label>
-                        <select
-                            name="sexo"
-                            value={formData.sexo}
-                            onChange={handleChange}
-                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white"
-                        >
-                            <option value="">Selecione...</option>
-                            <option value="feminino">Feminino</option>
-                            <option value="masculino">Masculino</option>
-                            <option value="outro">Outro</option>
-                        </select>
-                    </div>
-                </div>
+                {/* Seção Dados Básicos - Usando Componentes Atômicos */}
+                <InputGroup cols={{ mobile: 1, md: 2 }} gap="6">
+                    <InputText
+                        label="Nome"
+                        name="nome"
+                        value={formData.nome}
+                        onChange={handleChange}
+                    />
+                    <InputText
+                        label="Email"
+                        value={formData.email}
+                        disabled
+                    />
+                    <InputText
+                        label="CPF"
+                        name="cpf"
+                        placeholder="000.000.000-00"
+                        value={formData.cpf}
+                        onChange={handleChange}
+                        optional
+                    />
+                    <InputSelect
+                        label="Sexo"
+                        name="sexo"
+                        value={formData.sexo}
+                        onChange={handleChange}
+                        options={[
+                            { value: 'feminino', label: 'Feminino' },
+                            { value: 'masculino', label: 'Masculino' },
+                            { value: 'outro', label: 'Outro' }
+                        ]}
+                    />
+                </InputGroup>
 
                 {/* Seção Foto de Corpo Inteiro */}
                 <div className="border-t border-gray-200 pt-6">
@@ -555,321 +545,233 @@ const ProfilePage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Seção Medidas Básicas */}
+                {/* Seção Medidas Básicas - Usando Componentes Atômicos */}
                 <div className="border-t border-gray-200 pt-6">
                     <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                         📏 Medidas Corporais Básicas <span className="text-sm font-normal text-gray-500">(todas em cm)</span>
                     </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Altura (cm)</label>
-                            <input
-                                type="number"
-                                name="altura"
-                                value={formData.medidas.altura}
-                                onChange={handleChange}
-                                placeholder="Ex: 165"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Busto (cm)</label>
-                            <input
-                                type="number"
-                                name="busto"
-                                value={formData.medidas.busto}
-                                onChange={handleChange}
-                                placeholder="Ex: 92"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Cintura (cm)</label>
-                            <input
-                                type="number"
-                                name="cintura"
-                                value={formData.medidas.cintura}
-                                onChange={handleChange}
-                                placeholder="Ex: 75"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Quadril (cm)</label>
-                            <input
-                                type="number"
-                                name="quadril"
-                                value={formData.medidas.quadril}
-                                onChange={handleChange}
-                                placeholder="Ex: 95"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-                    </div>
+                    <InputGroup cols={{ mobile: 2, md: 4 }} gap="4">
+                        <InputNumber
+                            label="Altura (cm)"
+                            name="altura"
+                            value={formData.medidas.altura}
+                            onChange={handleChange}
+                            placeholder="Ex: 165"
+                        />
+                        <InputNumber
+                            label="Busto (cm)"
+                            name="busto"
+                            value={formData.medidas.busto}
+                            onChange={handleChange}
+                            placeholder="Ex: 92"
+                        />
+                        <InputNumber
+                            label="Cintura (cm)"
+                            name="cintura"
+                            value={formData.medidas.cintura}
+                            onChange={handleChange}
+                            placeholder="Ex: 75"
+                        />
+                        <InputNumber
+                            label="Quadril (cm)"
+                            name="quadril"
+                            value={formData.medidas.quadril}
+                            onChange={handleChange}
+                            placeholder="Ex: 95"
+                        />
+                    </InputGroup>
                 </div>
 
-                {/* Seção Medidas Superiores */}
+                {/* Seção Medidas Superiores - Usando Componentes Atômicos */}
                 <div className="border-t border-gray-200 pt-6">
                     <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                         👕 Medidas da Parte Superior <span className="text-sm font-normal text-gray-500">(todas em cm)</span>
                     </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Pescoço (cm)</label>
-                            <input
-                                type="number"
-                                name="pescoco"
-                                value={formData.medidas.pescoco || 0}
-                                onChange={handleChange}
-                                placeholder="Ex: 36"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Ombro (cm)</label>
-                            <input
-                                type="number"
-                                name="ombro"
-                                value={formData.medidas.ombro || 0}
-                                onChange={handleChange}
-                                placeholder="Ex: 42"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Braço (cm)</label>
-                            <input
-                                type="number"
-                                name="braco"
-                                value={formData.medidas.braco || 0}
-                                onChange={handleChange}
-                                placeholder="Ex: 28"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Antebraço (cm)</label>
-                            <input
-                                type="number"
-                                name="antebraco"
-                                value={formData.medidas.antebraco || 0}
-                                onChange={handleChange}
-                                placeholder="Ex: 26"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Pulso (cm)</label>
-                            <input
-                                type="number"
-                                name="pulso"
-                                value={formData.medidas.pulso || 0}
-                                onChange={handleChange}
-                                placeholder="Ex: 16"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Tórax (cm)</label>
-                            <input
-                                type="number"
-                                name="torax"
-                                value={formData.medidas.torax || 0}
-                                onChange={handleChange}
-                                placeholder="Ex: 96"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Sob Peito (cm)</label>
-                            <input
-                                type="number"
-                                name="sobpeito"
-                                value={formData.medidas.sobpeito || 0}
-                                onChange={handleChange}
-                                placeholder="Ex: 86"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Costelas (cm)</label>
-                            <input
-                                type="number"
-                                name="costelas"
-                                value={formData.medidas.costelas || 0}
-                                onChange={handleChange}
-                                placeholder="Ex: 80"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            />
-                        </div>
-                    </div>
+                    <InputGroup cols={{ mobile: 2, md: 4 }} gap="4">
+                        <InputNumber
+                            label="Pescoço (cm)"
+                            name="pescoco"
+                            value={formData.medidas.pescoco || 0}
+                            onChange={handleChange}
+                            placeholder="Ex: 36"
+                        />
+                        <InputNumber
+                            label="Ombro (cm)"
+                            name="ombro"
+                            value={formData.medidas.ombro || 0}
+                            onChange={handleChange}
+                            placeholder="Ex: 42"
+                        />
+                        <InputNumber
+                            label="Braço (cm)"
+                            name="braco"
+                            value={formData.medidas.braco || 0}
+                            onChange={handleChange}
+                            placeholder="Ex: 28"
+                        />
+                        <InputNumber
+                            label="Antebraço (cm)"
+                            name="antebraco"
+                            value={formData.medidas.antebraco || 0}
+                            onChange={handleChange}
+                            placeholder="Ex: 26"
+                        />
+                        <InputNumber
+                            label="Pulso (cm)"
+                            name="pulso"
+                            value={formData.medidas.pulso || 0}
+                            onChange={handleChange}
+                            placeholder="Ex: 16"
+                        />
+                        <InputNumber
+                            label="Tórax (cm)"
+                            name="torax"
+                            value={formData.medidas.torax || 0}
+                            onChange={handleChange}
+                            placeholder="Ex: 96"
+                        />
+                        <InputNumber
+                            label="Sob Peito (cm)"
+                            name="sobpeito"
+                            value={formData.medidas.sobpeito || 0}
+                            onChange={handleChange}
+                            placeholder="Ex: 86"
+                        />
+                        <InputNumber
+                            label="Costelas (cm)"
+                            name="costelas"
+                            value={formData.medidas.costelas || 0}
+                            onChange={handleChange}
+                            placeholder="Ex: 80"
+                        />
+                    </InputGroup>
                 </div>
 
-                {/* Seção Medidas Inferiores */}
+                {/* Seção Medidas Inferiores - Usando Componentes Atômicos */}
                 <div className="border-t border-gray-200 pt-6">
                     <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                         👖 Medidas da Parte Inferior <span className="text-sm font-normal text-gray-500">(todas em cm)</span>
                     </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Coxa (cm)</label>
-                            <input
-                                type="number"
-                                name="coxa"
-                                value={formData.medidas.coxa || 0}
-                                onChange={handleChange}
-                                placeholder="Ex: 56"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Panturrilha (cm)</label>
-                            <input
-                                type="number"
-                                name="panturrilha"
-                                value={formData.medidas.panturrilha || 0}
-                                onChange={handleChange}
-                                placeholder="Ex: 38"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Tornozelo (cm)</label>
-                            <input
-                                type="number"
-                                name="tornozelo"
-                                value={formData.medidas.tornozelo || 0}
-                                onChange={handleChange}
-                                placeholder="Ex: 22"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            />
-                        </div>
-                    </div>
+                    <InputGroup cols={{ mobile: 2, md: 4 }} gap="4">
+                        <InputNumber
+                            label="Coxa (cm)"
+                            name="coxa"
+                            value={formData.medidas.coxa || 0}
+                            onChange={handleChange}
+                            placeholder="Ex: 56"
+                        />
+                        <InputNumber
+                            label="Panturrilha (cm)"
+                            name="panturrilha"
+                            value={formData.medidas.panturrilha || 0}
+                            onChange={handleChange}
+                            placeholder="Ex: 38"
+                        />
+                        <InputNumber
+                            label="Tornozelo (cm)"
+                            name="tornozelo"
+                            value={formData.medidas.tornozelo || 0}
+                            onChange={handleChange}
+                            placeholder="Ex: 22"
+                        />
+                    </InputGroup>
                 </div>
 
-                {/* Seção Comprimentos */}
+                {/* Seção Comprimentos - Usando Componentes Atômicos */}
                 <div className="border-t border-gray-200 pt-6">
                     <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                         📐 Comprimentos <span className="text-sm font-normal text-gray-500">(todas em cm)</span>
                     </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Comprimento Tronco (cm)</label>
-                            <input
-                                type="number"
-                                name="comprimento_torso"
-                                value={formData.medidas.comprimento_torso || 0}
-                                onChange={handleChange}
-                                placeholder="Ex: 58"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Comprimento Perna (cm)</label>
-                            <input
-                                type="number"
-                                name="comprimento_perna"
-                                value={formData.medidas.comprimento_perna || 0}
-                                onChange={handleChange}
-                                placeholder="Ex: 85"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Comprimento Braço (cm)</label>
-                            <input
-                                type="number"
-                                name="comprimento_braco"
-                                value={formData.medidas.comprimento_braco || 0}
-                                onChange={handleChange}
-                                placeholder="Ex: 72"
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            />
-                        </div>
-                    </div>
+                    <InputGroup cols={{ mobile: 2, md: 3 }} gap="4">
+                        <InputNumber
+                            label="Comprimento Tronco (cm)"
+                            name="comprimento_torso"
+                            value={formData.medidas.comprimento_torso || 0}
+                            onChange={handleChange}
+                            placeholder="Ex: 58"
+                        />
+                        <InputNumber
+                            label="Comprimento Perna (cm)"
+                            name="comprimento_perna"
+                            value={formData.medidas.comprimento_perna || 0}
+                            onChange={handleChange}
+                            placeholder="Ex: 85"
+                        />
+                        <InputNumber
+                            label="Comprimento Braço (cm)"
+                            name="comprimento_braco"
+                            value={formData.medidas.comprimento_braco || 0}
+                            onChange={handleChange}
+                            placeholder="Ex: 72"
+                        />
+                    </InputGroup>
                 </div>
 
-                {/* Seção Proporções */}
+                {/* Seção Proporções - Usando Componentes Atômicos */}
                 <div className="border-t border-gray-200 pt-6">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">⚖️ Proporções Corporais</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Pernas</label>
-                            <select
-                                name="pernas"
-                                value={formData.proporcoes?.pernas || ''}
-                                onChange={handleChange}
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white"
-                            >
-                                <option value="">Selecione...</option>
-                                <option value="curtas">Curtas</option>
-                                <option value="balanced">Balanceadas</option>
-                                <option value="longas">Longas</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Tronco</label>
-                            <select
-                                name="torso"
-                                value={formData.proporcoes?.torso || ''}
-                                onChange={handleChange}
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white"
-                            >
-                                <option value="">Selecione...</option>
-                                <option value="curto">Curto</option>
-                                <option value="balanced">Balanceado</option>
-                                <option value="longo">Longo</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Ombros vs Quadril</label>
-                            <select
-                                name="ombros_vs_quadril"
-                                value={formData.proporcoes?.ombros_vs_quadril || ''}
-                                onChange={handleChange}
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white"
-                            >
-                                <option value="">Selecione...</option>
-                                <option value="ombros_larcos">Ombros Largos</option>
-                                <option value="balanced">Balanceados</option>
-                                <option value="quadril_largo">Quadril Largo</option>
-                            </select>
-                        </div>
-                    </div>
+                    <InputGroup cols={{ mobile: 1, md: 2 }} gap="4">
+                        <InputSelect
+                            label="Pernas"
+                            name="pernas"
+                            value={formData.proporcoes?.pernas || ''}
+                            onChange={handleChange}
+                            options={[
+                                { value: 'curtas', label: 'Curtas' },
+                                { value: 'balanced', label: 'Balanceadas' },
+                                { value: 'longas', label: 'Longas' }
+                            ]}
+                        />
+                        <InputSelect
+                            label="Tronco"
+                            name="torso"
+                            value={formData.proporcoes?.torso || ''}
+                            onChange={handleChange}
+                            options={[
+                                { value: 'curto', label: 'Curto' },
+                                { value: 'balanced', label: 'Balanceado' },
+                                { value: 'longo', label: 'Longo' }
+                            ]}
+                        />
+                        <InputSelect
+                            label="Ombros vs Quadril"
+                            name="ombros_vs_quadril"
+                            value={formData.proporcoes?.ombros_vs_quadril || ''}
+                            onChange={handleChange}
+                            options={[
+                                { value: 'ombros_largos', label: 'Ombros Largos' },
+                                { value: 'balanced', label: 'Balanceados' },
+                                { value: 'quadril_largo', label: 'Quadril Largo' }
+                            ]}
+                        />
+                    </InputGroup>
                 </div>
 
-                {/* Seção Análise de Estilo */}
+                {/* Seção Análise de Estilo - Usando Componentes Atômicos */}
                 <div className="border-t border-gray-200 pt-6">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">🎨 Análise de Estilo</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Tipo de Corpo</label>
-                            <select
-                                name="tipo_corpo"
-                                value={formData.tipo_corpo}
-                                onChange={handleChange}
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-white"
-                            >
-                                <option value="">Selecione...</option>
-                                <option value="ampulheta">Ampulheta</option>
-                                <option value="retangulo">Retângulo</option>
-                                <option value="pera">Pêra / Triângulo</option>
-                                <option value="maca">Maçã / Oval</option>
-                                <option value="triangulo-invertido">Triângulo Invertido</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Estilo Pessoal</label>
-                            <input
-                                type="text"
-                                name="estilo_pessoal"
-                                placeholder="Ex: Casual, Esportivo, Clássico..."
-                                value={formData.estilo_pessoal}
-                                onChange={handleChange}
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                            />
-                        </div>
-                    </div>
+                    <InputGroup cols={{ mobile: 1, md: 2 }} gap="6">
+                        <InputSelect
+                            label="Tipo de Corpo"
+                            name="tipo_corpo"
+                            value={formData.tipo_corpo}
+                            onChange={handleChange}
+                            options={[
+                                { value: 'ampulheta', label: 'Ampulheta' },
+                                { value: 'retangulo', label: 'Retângulo' },
+                                { value: 'pera', label: 'Pêra / Triângulo' },
+                                { value: 'maca', label: 'Maçã / Oval' },
+                                { value: 'triangulo-invertido', label: 'Triângulo Invertido' }
+                            ]}
+                        />
+                        <InputText
+                            label="Estilo Pessoal"
+                            name="estilo_pessoal"
+                            placeholder="Ex: Casual, Esportivo, Clássico..."
+                            value={formData.estilo_pessoal}
+                            onChange={handleChange}
+                        />
+                    </InputGroup>
                 </div>
 
                 <div className="flex justify-end pt-4">
