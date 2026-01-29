@@ -254,22 +254,22 @@ export const createProduto = async (req, res) => {
             fit,
             style_base,
 
-            // Recomendados
-            silhueta: silhueta || null,
-            comprimento: comprimento || null,
-            posicao_cintura: posicao_cintura || null,
-            ocasiao: ocasiao || null,
-            estacao: estacao || null,
-            temperatura: temperatura || null,
+            // Recomendados - converter strings vazias para null
+            silhueta: silhueta === '' ? null : silhueta || null,
+            comprimento: comprimento === '' ? null : comprimento || null,
+            posicao_cintura: posicao_cintura === '' ? null : posicao_cintura || null,
+            ocasiao: ocasiao === '' ? null : ocasiao || null,
+            estacao: estacao === '' ? null : estacao || null,
+            temperatura: temperatura === '' ? null : temperatura || null,
 
-            // Opcionais
-            material_principal: material_principal || null,
-            eco_score: eco_score || null,
-            care_level: care_level || null,
-            faixa_preco: faixa_preco || null,
+            // Opcionais - converter strings vazias para null
+            material_principal: material_principal === '' ? null : material_principal || null,
+            eco_score: eco_score === '' ? null : eco_score || null,
+            care_level: care_level === '' ? null : care_level || null,
+            faixa_preco: faixa_preco === '' ? null : faixa_preco || null,
             preco: preco || null,
             peca_hero: peca_hero || false,
-            classe_margem: classe_margem || null,
+            classe_margem: classe_margem === '' ? null : classe_margem || null,
 
             // Dados técnicos
             nome: nome || 'Produto sem nome',
@@ -452,9 +452,21 @@ export const updateProduto = async (req, res) => {
         const componentesSKU = ['categoria', 'linha', 'cor_codigo', 'tamanho', 'colecao'];
         let skuMudou = false;
 
+        // Campos que aceitam null (opcionais)
+        const camposOpcionais = [
+            'silhueta', 'comprimento', 'posicao_cintura', 'ocasiao', 'estacao',
+            'temperatura', 'material_principal', 'eco_score', 'care_level',
+            'faixa_preco', 'classe_margem', 'descricao'
+        ];
+
         camposAtualizaveis.forEach(campo => {
             if (req.body[campo] !== undefined) {
-                updateData[campo] = req.body[campo];
+                // Converter strings vazias em null para campos opcionais
+                if (camposOpcionais.includes(campo) && req.body[campo] === '') {
+                    updateData[campo] = null;
+                } else {
+                    updateData[campo] = req.body[campo];
+                }
                 // Verificar se algum componente do SKU foi alterado
                 if (componentesSKU.includes(campo) && produtoAtual[campo] !== req.body[campo]) {
                     skuMudou = true;

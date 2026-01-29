@@ -10,6 +10,7 @@ export const updateBodyData = async (req, res) => {
         const {
             nome,
             cpf,
+            telefone,                  // ✅ NOVO: Telefone do usuário
             sexo,                      // ✅ NOVO: Sexo do usuário
             altura_cm,                 // ✅ NOVO: Altura em cm
             tipo_corpo,
@@ -25,6 +26,7 @@ export const updateBodyData = async (req, res) => {
         // Dados básicos
         if (nome) updateData.nome = nome;
         if (cpf) updateData.cpf = cpf;
+        if (telefone) updateData.telefone = telefone;
         if (sexo) updateData.sexo = sexo;
         if (altura_cm) updateData.altura_cm = altura_cm;
         if (tipo_corpo) updateData.tipo_corpo = tipo_corpo;

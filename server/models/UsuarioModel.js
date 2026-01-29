@@ -36,6 +36,11 @@ const userSchema = new Schema({
         sparse: true, // permite múltiplos null/undefined - remove unique que está criando erro
         default: null
     },
+    telefone: { // ✅ NOVO: Campo telefone opcional
+        type: String,
+        sparse: true,
+        default: null
+    },
     foto: String, // Foto do avatar (perfil)
 
     // ═══════════════════════════════════════════════════════════
